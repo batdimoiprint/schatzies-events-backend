@@ -45,7 +45,7 @@ jobs:
           AWS_REGION: ap-southeast-1
         run: |
           aws lambda update-function-code \
-            --function-name schatzies-events-api \
+            --function-name schatzies-events \
             --zip-file fileb://lambda-function.zip \
             --region ap-southeast-1
       
