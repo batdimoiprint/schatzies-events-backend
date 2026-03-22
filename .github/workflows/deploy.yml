@@ -1,0 +1,64 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          cp -r src deploy/
+          cp -r node_modules deploy/
+          cp handler.js deploy/
+          cp package.json deploy/
+          cd deploy
+          zip -r ../lambda-function.zip .
+          cd ..
+      
+      - name: Deploy to AWS Lambda
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ap-southeast-1
+        run: |
+          aws lambda update-function-code \
+            --function-name schatzies-events-api \
+            --zip-file fileb://lambda-function.zip \
+            --region ap-southeast-1
+      
+      - name: Cleanup
+        if: always()
+        run: rm -rf deploy lambda-function.zip
+      
+      - name: Deployment notification
+        if: success()
+        run: echo "Successfully deployed to AWS Lambda"
+      
+      - name: Deployment failed notification
+        if: failure()
+        run: |
+          echo "Failed deployment to AWS Lambda "
+          exit 1
