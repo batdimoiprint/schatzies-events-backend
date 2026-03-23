@@ -1,0 +1,75 @@
+import {
+  authenticateUser,
+  registerUser,
+  signAuthToken,
+} from '../services/auth.service.js';
+
+const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'auth_token';
+const AUTH_COOKIE_MAX_AGE_MS = Number(
+  process.env.AUTH_COOKIE_MAX_AGE_MS || 24 * 60 * 60 * 1000
+);
+
+function setAuthCookie(res, token) {
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
+    path: '/',
+  });
+}
+
+function clearAuthCookie(res) {
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+  });
+}
+
+export async function register(req, res) {
+  try {
+    const user = await registerUser(req.body ?? {});
+
+    return res.status(201).json({
+      message: 'User registered successfully',
+      user,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to register user';
+    const status = message.includes('already registered') ? 409 : 400;
+
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function login(req, res) {
+  try {
+    const { email, password } = req.body ?? {};
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'email and password are required' });
+    }
+
+    const user = await authenticateUser(email, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = signAuthToken(user);
+    setAuthCookie(res, token);
+
+    return res.json({
+      message: 'Login successful',
+    });
+  } catch {
+    return res.status(500).json({ error: 'Unable to login' });
+  }
+}
+
+export function logout(_req, res) {
+  clearAuthCookie(res);
+  return res.status(204).send();
+}

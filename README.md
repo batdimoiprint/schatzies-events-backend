@@ -34,6 +34,22 @@ cp .env.example .env
 Swagger documentation is available at:
 - Local: `http://localhost:3000/api-docs`
 
+OpenAPI source of truth:
+- Swagger JSDoc comments in route files under `src/routes/`
+
+Documentation rule for all new routes:
+- Every time a new route is created, you must add or update its `@swagger` JSDoc block in the route file.
+- Start each route file with complete Swagger route docs for all handlers in that file.
+- Each route entry must include: summary, request body (if needed), response status codes, and response schema.
+- Pull requests are not complete until route behavior and Swagger documentation are both updated.
+
+Current documented routes include:
+- `/api/auth/register`
+- `/api/auth/login`
+- `/api/auth/validate-token`
+- `/api/auth/refresh-token`
+- `/api/auth/logout`
+
 ## License
 
 MIT
