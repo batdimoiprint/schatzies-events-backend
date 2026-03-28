@@ -4,10 +4,6 @@ import {
   verifyAuthToken,
 } from '../services/auth.service.js';
 
-const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'auth_token';
-const AUTH_COOKIE_MAX_AGE_MS = Number(
-  process.env.AUTH_COOKIE_MAX_AGE_MS || 24 * 60 * 60 * 1000
-);
 
 function parseCookies(cookieHeader = '') {
   return cookieHeader
@@ -33,8 +29,8 @@ function parseCookies(cookieHeader = '') {
 
 function extractAuthToken(req) {
   const cookies = parseCookies(req.headers.cookie || '');
-  if (cookies[AUTH_COOKIE_NAME]) {
-    return cookies[AUTH_COOKIE_NAME];
+  if (cookies['auth_token']) {
+    return cookies['auth_token'];
   }
 
   const authHeader = req.headers.authorization || '';
@@ -46,20 +42,20 @@ function extractAuthToken(req) {
 }
 
 function setAuthCookie(res, token) {
-  res.cookie(AUTH_COOKIE_NAME, token, {
+  res.cookie('auth_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    maxAge: AUTH_COOKIE_MAX_AGE_MS,
+    secure: true,
+    sameSite: 'none',
+    maxAge: 24 * 60 * 60 * 1000,
     path: '/',
   });
 }
 
 function clearAuthCookie(res) {
-  res.clearCookie(AUTH_COOKIE_NAME, {
+  res.clearCookie('auth_token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
     path: '/',
   });
 }

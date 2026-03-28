@@ -7,17 +7,8 @@ import {
   ScanCommand,
 } from '@aws-sdk/client-dynamodb';
 
-const USERS_TABLE = process.env.USERS_TABLE || 'users_table';
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-jwt-secret';
-const JWT_EXPIRES_IN =
-  process.env.JWT_EXPIRES_IN || process.env.JWT_EXPIRE || '7d';
-const BCRYPT_SALT_ROUNDS = Number(
-  process.env.BCRYPT_SALT_ROUNDS || process.env.BCRYPT_ROUNDS || 10
-);
-const AWS_REGION =
-  process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-southeast-1';
-
-const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
+const JWT_SECRET = process.env.JWT_SECRET;
+const dynamoClient = new DynamoDBClient({ region: 'ap-southeast-1' });
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -117,7 +108,7 @@ export async function findUserByEmail(email) {
   }
 
   const command = new ScanCommand({
-    TableName: USERS_TABLE,
+    TableName: 'users_table',
     FilterExpression: '#email = :emailValue',
     ExpressionAttributeNames: {
       '#email': 'c_email',
@@ -139,7 +130,7 @@ export async function findUserByClientId(clientId) {
   }
 
   const command = new GetItemCommand({
-    TableName: USERS_TABLE,
+    TableName: 'users_table',
     Key: {
       client_id: { S: normalizedClientId },
     },
@@ -166,7 +157,7 @@ export async function registerUser(payload) {
     throw new Error('Email is already registered');
   }
 
-  const hashedPassword = await bcrypt.hash(plainPassword, BCRYPT_SALT_ROUNDS);
+  const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
   const userPayload = {
     client_id: normalizeString(payload.client_id) || createClientId(),
@@ -189,7 +180,7 @@ export async function registerUser(payload) {
   };
 
   const command = new PutItemCommand({
-    TableName: USERS_TABLE,
+    TableName: 'users_table',
     Item: buildDynamoItem(userPayload),
     ConditionExpression: 'attribute_not_exists(client_id)',
   });
@@ -228,7 +219,7 @@ export function signAuthToken(user) {
     },
     JWT_SECRET,
     {
-      expiresIn: JWT_EXPIRES_IN,
+      expiresIn: '7d',
     }
   );
 }

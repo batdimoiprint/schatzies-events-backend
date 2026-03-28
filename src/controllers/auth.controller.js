@@ -4,16 +4,14 @@ import {
   signAuthToken,
 } from '../services/auth.service.js';
 
-const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || 'auth_token';
-const AUTH_COOKIE_MAX_AGE_MS = Number(
-  process.env.AUTH_COOKIE_MAX_AGE_MS || 24 * 60 * 60 * 1000
-);
+const AUTH_COOKIE_NAME = 'auth_token';
+const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function setAuthCookie(res, token) {
   res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
     maxAge: AUTH_COOKIE_MAX_AGE_MS,
     path: '/',
   });
@@ -22,8 +20,8 @@ function setAuthCookie(res, token) {
 function clearAuthCookie(res) {
   res.clearCookie(AUTH_COOKIE_NAME, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
     path: '/',
   });
 }
