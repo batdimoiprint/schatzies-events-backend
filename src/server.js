@@ -3,6 +3,10 @@ import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import routes from './routes/index.js';
+import eventRoutes from './routes/event.routes.js';
+import vendorRoutes from './routes/vendor.routes.js';
+import attendeeRoutes from './routes/attendee.routes.js';
+
 
 const swaggerSpec = swaggerJsdoc({
   definition: {
@@ -187,7 +191,9 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api', routes);
-
+app.use('/api/events', eventRoutes);
+app.use('/api/vendors', vendorRoutes);
+app.use('/api/attendees', attendeeRoutes);
 // 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -198,9 +204,26 @@ export default app;
 
 // Local Development Server
 if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`API Docs available at http://localhost:${PORT}/api-docs`);
-  });
+  const DEFAULT_PORT = Number(process.env.PORT || 3000);
+  let currentPort = DEFAULT_PORT;
+
+  const startServer = () => {
+    const server = app.listen(currentPort, () => {
+      console.log(`Server running on http://localhost:${currentPort}`);
+      console.log(`API Docs available at http://localhost:${currentPort}/api-docs`);
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`Port ${currentPort} is in use. Trying port ${currentPort + 1}...`);
+        currentPort += 1;
+        startServer();
+      } else {
+        console.error('Server failed to start:', err);
+        process.exit(1);
+      }
+    });
+  };
+
+  startServer();
 }
