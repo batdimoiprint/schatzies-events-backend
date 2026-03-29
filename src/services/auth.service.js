@@ -1,14 +1,10 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import {
-  DynamoDBClient,
-  GetItemCommand,
-  PutItemCommand,
-  ScanCommand,
-} from '@aws-sdk/client-dynamodb';
+import { GetItemCommand, PutItemCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
+import dynamoClient from '../configs/dynamo.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const dynamoClient = new DynamoDBClient({ region: 'ap-southeast-1' });
+// Requires process.env.AWS_ACCESS_KEY_ID and process.env.AWS_SECRET_ACCESS_KEY
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : '';
