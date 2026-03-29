@@ -81,7 +81,8 @@ export async function updateAttendee(attendeeId, updateData) {
     email: email !== undefined ? email : existingAttendee.email,
     eventId: eventId !== undefined ? eventId : existingAttendee.eventId,
     status: status !== undefined ? status : existingAttendee.status,
-    checkinTime: checkinTime !== undefined ? checkinTime : existingAttendee.checkinTime,
+    checkinTime:
+      checkinTime !== undefined ? checkinTime : existingAttendee.checkinTime,
     updatedAt: new Date().toISOString(),
   };
 
@@ -133,7 +134,9 @@ export async function checkInAttendeeByQr(eventId, qrCode) {
     throw new Error('QR code is required for check-in');
   }
 
-  const attendeeIndex = attendees.findIndex((attendee) => attendee.qrCode === qrCode);
+  const attendeeIndex = attendees.findIndex(
+    (attendee) => attendee.qrCode === qrCode
+  );
   if (attendeeIndex === -1) {
     throw new Error('Invalid QR code');
   }

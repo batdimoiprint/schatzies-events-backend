@@ -18,7 +18,8 @@ export async function createEvent(req, res) {
       event: createdEvent,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to create event';
+    const message =
+      error instanceof Error ? error.message : 'Unable to create event';
     return res.status(400).json({ error: message });
   }
 }
@@ -28,7 +29,8 @@ export async function getEvents(req, res) {
     const events = await getEventsService();
     return res.status(200).json({ events });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch events';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch events';
     return res.status(500).json({ error: message });
   }
 }
@@ -46,8 +48,13 @@ export async function getEventById(req, res) {
     const attendees = await getAttendeesByEventIdService(id);
 
     const expectedAttendee = attendees.length;
-    const arrivedAttendee = attendees.filter((x) => x.status === 'checked_in').length;
-    const percentArrived = expectedAttendee === 0 ? 0 : Number(((arrivedAttendee / expectedAttendee) * 100).toFixed(2));
+    const arrivedAttendee = attendees.filter(
+      (x) => x.status === 'checked_in'
+    ).length;
+    const percentArrived =
+      expectedAttendee === 0
+        ? 0
+        : Number(((arrivedAttendee / expectedAttendee) * 100).toFixed(2));
 
     return res.status(200).json({
       event: {
@@ -62,7 +69,8 @@ export async function getEventById(req, res) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch event';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch event';
     return res.status(500).json({ error: message });
   }
 }
@@ -82,7 +90,8 @@ export async function updateEvent(req, res) {
       return res.status(404).json({ error: error.message });
     }
 
-    const message = error instanceof Error ? error.message : 'Unable to update event';
+    const message =
+      error instanceof Error ? error.message : 'Unable to update event';
     return res.status(400).json({ error: message });
   }
 }
@@ -98,7 +107,8 @@ export async function deleteEvent(req, res) {
       return res.status(404).json({ error: error.message });
     }
 
-    const message = error instanceof Error ? error.message : 'Unable to delete event';
+    const message =
+      error instanceof Error ? error.message : 'Unable to delete event';
     return res.status(500).json({ error: message });
   }
 }

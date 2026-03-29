@@ -57,6 +57,7 @@ export async function login(req, res) {
     }
 
     const token = signAuthToken(user);
+    console.log('Generated access_token:', token);
     setAuthCookie(res, token);
 
     return res.json({

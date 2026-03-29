@@ -13,7 +13,6 @@ router.get('/health', (req, res) => {
   res.json({ message: 'API is healthy', timestamp: new Date().toISOString() });
 });
 
-
 // Protected routes
 router.use('/events', validateTokenMiddleware, eventRoutes);
 router.use('/vendors', validateTokenMiddleware, vendorRoutes);

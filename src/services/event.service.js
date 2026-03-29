@@ -68,7 +68,8 @@ export async function updateEvent(eventId, updateData) {
   const updatedEvent = {
     ...existingEvent,
     title: title ?? existingEvent.title,
-    description: description !== undefined ? description : existingEvent.description,
+    description:
+      description !== undefined ? description : existingEvent.description,
     startDate: startDate ?? existingEvent.startDate,
     endDate: endDate !== undefined ? endDate : existingEvent.endDate,
     location: location !== undefined ? location : existingEvent.location,

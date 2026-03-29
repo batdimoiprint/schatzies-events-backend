@@ -77,10 +77,13 @@ export async function updateVendor(vendorId, updateData) {
   const updatedVendor = {
     ...existingVendor,
     name: name !== undefined ? name : existingVendor.name,
-    serviceType: serviceType !== undefined ? serviceType : existingVendor.serviceType,
+    serviceType:
+      serviceType !== undefined ? serviceType : existingVendor.serviceType,
     eventId: eventId !== undefined ? eventId : existingVendor.eventId,
-    contactEmail: contactEmail !== undefined ? contactEmail : existingVendor.contactEmail,
-    contactPhone: contactPhone !== undefined ? contactPhone : existingVendor.contactPhone,
+    contactEmail:
+      contactEmail !== undefined ? contactEmail : existingVendor.contactEmail,
+    contactPhone:
+      contactPhone !== undefined ? contactPhone : existingVendor.contactPhone,
     updatedAt: new Date().toISOString(),
   };
 

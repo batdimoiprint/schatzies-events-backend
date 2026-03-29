@@ -4,7 +4,6 @@ import {
   verifyAuthToken,
 } from '../services/auth.service.js';
 
-
 function parseCookies(cookieHeader = '') {
   return cookieHeader
     .split(';')
