@@ -7,6 +7,7 @@ import {
 } from '../services/event.service.js';
 import { getVendorsByEventId as getVendorsByEventIdService } from '../services/vendor.service.js';
 import { getAttendeesByEventId as getAttendeesByEventIdService } from '../services/attendee.service.js';
+import { getOrganizerById as getOrganizerByIdService } from '../services/organizer.service.js';
 
 export async function createEvent(req, res) {
   try {
@@ -56,9 +57,15 @@ export async function getEventById(req, res) {
         ? 0
         : Number(((arrivedAttendee / expectedAttendee) * 100).toFixed(2));
 
+    let headOrganizer = null;
+    if (event.headOrganizerId) {
+      headOrganizer = await getOrganizerByIdService(event.headOrganizerId);
+    }
+
     return res.status(200).json({
       event: {
         ...event,
+        headOrganizer,
         vendors,
         attendees,
         headcount: {

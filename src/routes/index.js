@@ -3,6 +3,7 @@ import authRoutes from './auth.routes.js';
 import eventRoutes from './event.routes.js';
 import vendorRoutes from './vendor.routes.js';
 import attendeeRoutes from './attendee.routes.js';
+import organizerRoutes from './organizer.routes.js';
 import inquiryRoutes from './inquiry.routes.js';
 
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
@@ -22,6 +23,7 @@ router.use('/inquiries', inquiryRoutes);
 router.use('/events', validateTokenMiddleware, eventRoutes);
 router.use('/vendors', validateTokenMiddleware, vendorRoutes);
 router.use('/attendees', validateTokenMiddleware, attendeeRoutes);
+router.use('/organizers', validateTokenMiddleware, organizerRoutes);
 
 router.use('/auth', authLimiter, authRoutes);
 

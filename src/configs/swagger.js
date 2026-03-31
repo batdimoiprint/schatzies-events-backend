@@ -16,6 +16,8 @@ const swaggerSpec = swaggerJsdoc({
     ],
     tags: [
       { name: 'Auth', description: 'Authentication and session endpoints' },
+      { name: 'Events', description: 'Event management endpoints' },
+      { name: 'Organizers', description: 'Organizer management endpoints' },
     ],
     components: {
       securitySchemes: {
@@ -55,6 +57,17 @@ const swaggerSpec = swaggerJsdoc({
             },
             role: { type: 'string', example: 'CLIENT' },
             created_at: { type: 'string', format: 'date-time' },
+          },
+        },
+        Organizer: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'ORG#001' },
+            name: { type: 'string', example: 'Alice Johnson' },
+            email: { type: 'string', format: 'email', example: 'alice@event.com' },
+            phone: { type: 'string', example: '09171234567' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
           },
         },
         RegisterRequest: {

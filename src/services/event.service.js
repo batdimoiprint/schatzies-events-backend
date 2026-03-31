@@ -20,6 +20,7 @@ export async function createEvent(eventData) {
     startDate,
     endDate: endDate || null,
     location: location || '',
+    headOrganizerId: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -55,7 +56,7 @@ export async function updateEvent(eventId, updateData) {
   }
 
   const existingEvent = events[eventIndex];
-  const { title, description, startDate, endDate, location } = updateData;
+  const { title, description, startDate, endDate, location, headOrganizerId } = updateData;
 
   if (title !== undefined && !title) {
     throw new Error('title cannot be empty');
@@ -73,6 +74,8 @@ export async function updateEvent(eventId, updateData) {
     startDate: startDate ?? existingEvent.startDate,
     endDate: endDate !== undefined ? endDate : existingEvent.endDate,
     location: location !== undefined ? location : existingEvent.location,
+    headOrganizerId:
+      headOrganizerId !== undefined ? headOrganizerId : existingEvent.headOrganizerId,
     updatedAt: new Date().toISOString(),
   };
 
