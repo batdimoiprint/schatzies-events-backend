@@ -38,10 +38,11 @@ function mapDynamoUser(item) {
 
   return {
     client_id: item.client_id?.S || '',
-    c_fname: item.c_fname?.S || '',
-    c_mname: item.c_mname?.S || '',
-    c_lname: item.c_lname?.S || '',
-    c_suffix: item.c_suffix?.S || '',
+    username: item.username?.S || '',
+    fname: item.fname?.S || '',
+    mname: item.mname?.S || '',
+    lname: item.lname?.S || '',
+    suffix: item.suffix?.S || '',
     password: item.password?.S || '',
     birthdate: item.birthdate?.S || '',
     house_no: item.house_no?.S || '',
@@ -51,7 +52,7 @@ function mapDynamoUser(item) {
     country: item.country?.S || '',
     gender: item.gender?.S || '',
     contact_number: item.contact_number?.N || '',
-    c_email: item.c_email?.S || '',
+    email: item.email?.S || '',
     role: item.role?.S || 'CLIENT',
     created_at: item.created_at?.S || '',
   };
@@ -66,9 +67,15 @@ function stripPassword(user) {
   return safeUser;
 }
 
+// Generate a random client ID using bcryptjs hash of a random value
 function createClientId() {
-  const uniquePart = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  return `USER#${uniquePart}`;
+  const randomValue = `${Date.now()}-${Math.random()}-${Math.floor(Math.random() * 1000000)}`;
+  // Use bcryptjs to hash the random value synchronously (saltRounds = 6 for speed, not for security)
+  const salt = bcrypt.genSaltSync(6);
+  const hash = bcrypt.hashSync(randomValue, salt);
+  // Remove non-alphanumeric characters for DynamoDB compatibility, keep it short
+  const safeHash = hash.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
+  return `USER#${safeHash}`;
 }
 
 function buildDynamoItem(payload) {
@@ -76,10 +83,11 @@ function buildDynamoItem(payload) {
 
   return {
     client_id: { S: normalizeString(payload.client_id) },
-    c_fname: { S: normalizeString(payload.c_fname) },
-    c_mname: { S: normalizeString(payload.c_mname) },
-    c_lname: { S: normalizeString(payload.c_lname) },
-    c_suffix: { S: normalizeString(payload.c_suffix) },
+    username: { S: normalizeString(payload.username) },
+    fname: { S: normalizeString(payload.fname) },
+    mname: { S: normalizeString(payload.mname) },
+    lname: { S: normalizeString(payload.lname) },
+    suffix: { S: normalizeString(payload.suffix) },
     password: { S: normalizeString(payload.password) },
     birthdate: { S: normalizeString(payload.birthdate) },
     house_no: { S: normalizeString(payload.house_no) },
@@ -89,10 +97,10 @@ function buildDynamoItem(payload) {
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
     contact_number: { N: contactNumber || '0' },
-    c_email: { S: normalizeString(payload.c_email).toLowerCase() },
+    email: { S: normalizeString(payload.email).toLowerCase() },
     role: { S: normalizeString(payload.role) || 'CLIENT' },
     created_at: {
-      S: normalizeString(payload.created_at) || new Date().toISOString(),
+      S: new Date().toISOString(),
     },
   };
 }
@@ -107,12 +115,11 @@ export async function findUserByEmail(email) {
     TableName: 'users_table',
     FilterExpression: '#email = :emailValue',
     ExpressionAttributeNames: {
-      '#email': 'c_email',
+      '#email': 'email',
     },
     ExpressionAttributeValues: {
       ':emailValue': { S: normalizedEmail },
     },
-    Limit: 1,
   });
 
   const response = await dynamoClient.send(command);
@@ -137,15 +144,20 @@ export async function findUserByClientId(clientId) {
 }
 
 export async function registerUser(payload) {
-  const email = normalizeString(payload?.c_email).toLowerCase();
+  const email = normalizeString(payload?.email).toLowerCase();
   const plainPassword = normalizeString(payload?.password);
+  const username = normalizeString(payload?.username);
 
   if (!email) {
-    throw new Error('c_email is required');
+    throw new Error('email is required');
   }
 
   if (!plainPassword) {
     throw new Error('password is required');
+  }
+
+  if (!username) {
+    throw new Error('username is required');
   }
 
   const existingUser = await findUserByEmail(email);
@@ -156,11 +168,12 @@ export async function registerUser(payload) {
   const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
   const userPayload = {
-    client_id: normalizeString(payload.client_id) || createClientId(),
-    c_fname: payload.c_fname,
-    c_mname: payload.c_mname,
-    c_lname: payload.c_lname,
-    c_suffix: payload.c_suffix,
+    client_id:  createClientId(),
+    username: payload.username,
+    fname: payload.fname,
+    mname: payload.mname,
+    lname: payload.lname,
+    suffix: payload.suffix,
     password: hashedPassword,
     birthdate: payload.birthdate,
     house_no: payload.house_no,
@@ -170,7 +183,7 @@ export async function registerUser(payload) {
     country: payload.country,
     gender: payload.gender,
     contact_number: payload.contact_number,
-    c_email: email,
+    email: email,
     role: payload.role || 'CLIENT',
     created_at: payload.created_at || new Date().toISOString(),
   };
@@ -210,7 +223,7 @@ export function signAuthToken(user) {
   return jwt.sign(
     {
       sub: user.client_id,
-      email: user.c_email,
+      email: user.email,
       role: user.role,
     },
     JWT_SECRET,
