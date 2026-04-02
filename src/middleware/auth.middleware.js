@@ -1,5 +1,5 @@
 import {
-  findUserByClientId,
+  findUserByUserId,
   signAuthToken,
   verifyAuthToken,
 } from '../services/auth.service.js';
@@ -67,12 +67,12 @@ export async function validateTokenMiddleware(req, res) {
     }
 
     const payload = verifyAuthToken(token);
-    if (!payload || typeof payload !== 'object' || !('sub' in payload)) {
+    if (!payload || typeof payload !== 'object' || !('user_id' in payload)) {
       clearAuthCookie(res);
       return res.status(401).json({ valid: false });
     }
 
-    const user = await findUserByClientId(String(payload.sub));
+    const user = await findUserByUserId(String(payload.user_id));
     if (!user) {
       clearAuthCookie(res);
       return res.status(401).json({ valid: false });
@@ -98,12 +98,12 @@ export async function refreshTokenMiddleware(req, res) {
     }
 
     const payload = verifyAuthToken(token);
-    if (!payload || typeof payload !== 'object' || !('sub' in payload)) {
+    if (!payload || typeof payload !== 'object' || !('user_id' in payload)) {
       clearAuthCookie(res);
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const user = await findUserByClientId(String(payload.sub));
+    const user = await findUserByUserId(String(payload.user_id));
     if (!user) {
       clearAuthCookie(res);
       return res.status(401).json({ error: 'Invalid token' });

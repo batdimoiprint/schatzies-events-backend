@@ -11,6 +11,7 @@ if (isDev) {
   };
 }
 
+export const DYNAMO_TABLE = process.env.AWS_DYNAMO_TABLE;
 const dynamoClient = new DynamoDBClient(dynamoConfig);
 
 export default dynamoClient;
