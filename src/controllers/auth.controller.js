@@ -1,6 +1,5 @@
 import {
   authenticateUser,
-  registerUser,
   signAuthToken,
 } from '../services/auth.service.js';
 
@@ -24,23 +23,6 @@ function clearAuthCookie(res) {
     sameSite: 'none',
     path: '/',
   });
-}
-
-export async function register(req, res) {
-  try {
-    const user = await registerUser(req.body ?? {});
-
-    return res.status(201).json({
-      message: `${user.email} registered successfully`,
-      // user,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unable to register user';
-    const status = message.includes('already registered') ? 409 : 400;
-
-    return res.status(status).json({ error: message });
-  }
 }
 
 export async function login(req, res) {
