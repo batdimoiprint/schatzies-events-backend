@@ -7,12 +7,16 @@ import {
 } from '../services/event.service.js';
 import { getVendorsByEventId as getVendorsByEventIdService } from '../services/vendor.service.js';
 import { getAttendeesByEventId as getAttendeesByEventIdService } from '../services/attendee.service.js';
-import { getOrganizerById as getOrganizerByIdService } from '../services/organizer.service.js';
+import {
+  getOrganizerById as getOrganizerByIdService,
+  getOrganizersByIds as getOrganizersByIdsService,
+} from '../services/organizer.service.js';
 
 export async function createEvent(req, res) {
   try {
     const eventPayload = req.body ?? {};
-    const createdEvent = await createEventService(eventPayload);
+    const clientId = req.user?.user_id;
+    const createdEvent = await createEventService(eventPayload, clientId);
 
     return res.status(201).json({
       message: 'Event created successfully',
@@ -62,10 +66,33 @@ export async function getEventById(req, res) {
       headOrganizer = await getOrganizerByIdService(event.headOrganizerId);
     }
 
+    const assignmentIds = Array.isArray(event.workerOrganizerAssignments)
+      ? event.workerOrganizerAssignments.map((assignment) => assignment.organizerId)
+      : Array.isArray(event.workerOrganizerIds)
+      ? event.workerOrganizerIds
+      : [];
+
+    const workerOrganizersRaw = await getOrganizersByIdsService(assignmentIds);
+    const workerOrganizers = (Array.isArray(event.workerOrganizerAssignments)
+      ? event.workerOrganizerAssignments
+      : assignmentIds.map((organizerId) => ({
+          organizerId,
+          status: 'pending',
+          updatedAt: null,
+        })))
+      .map((assignment) => {
+        const organizer = workerOrganizersRaw.find((org) => org.id === assignment.organizerId);
+        return {
+          ...assignment,
+          organizer,
+        };
+      });
+
     return res.status(200).json({
       event: {
         ...event,
         headOrganizer,
+        workerOrganizers,
         vendors,
         attendees,
         headcount: {

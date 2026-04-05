@@ -8,6 +8,8 @@ import {
   deleteOrganizer,
   assignHeadOrganizer,
   unassignHeadOrganizer,
+  assignWorkerOrganizer,
+  unassignWorkerOrganizer,
 } from '../controllers/organizer.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 
@@ -204,6 +206,64 @@ router.delete('/:id', validateTokenMiddleware, deleteOrganizer);
  *         description: Organizer or event not found
  */
 router.post('/:id/assign-event/:eventId', validateTokenMiddleware, assignHeadOrganizer);
+
+/**
+ * @swagger
+ * /api/organizers/{id}/assign-worker/{eventId}:
+ *   post:
+ *     tags:
+ *       - Organizers
+ *     summary: Assign a worker organizer to an event and send RSVP email
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker organizer assigned and email sent
+ *       400:
+ *         description: Invalid request or missing head organizer
+ *       404:
+ *         description: Organizer or event not found
+ */
+router.post('/:id/assign-worker/:eventId', validateTokenMiddleware, assignWorkerOrganizer);
+
+/**
+ * @swagger
+ * /api/organizers/{id}/unassign-worker/{eventId}:
+ *   delete:
+ *     tags:
+ *       - Organizers
+ *     summary: Unassign a worker organizer from an event
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker unassigned
+ *       404:
+ *         description: Organizer or event not found
+ */
+router.delete('/:id/unassign-worker/:eventId', validateTokenMiddleware, unassignWorkerOrganizer);
 
 /**
  * @swagger

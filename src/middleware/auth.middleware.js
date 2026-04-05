@@ -59,7 +59,7 @@ function clearAuthCookie(res) {
   });
 }
 
-export async function validateTokenMiddleware(req, res) {
+export async function validateTokenMiddleware(req, res, next) {
   try {
     const token = extractAuthToken(req);
     if (!token) {
@@ -79,11 +79,9 @@ export async function validateTokenMiddleware(req, res) {
     }
 
     const { password, ...safeUser } = user;
+    req.user = safeUser;
 
-    return res.json({
-      valid: true,
-      user: safeUser,
-    });
+    return next();
   } catch {
     clearAuthCookie(res);
     return res.status(401).json({ valid: false });

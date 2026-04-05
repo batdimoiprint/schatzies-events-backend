@@ -1,36 +1,205 @@
 import { randomUUID } from 'crypto';
+import {
+  GetItemCommand,
+  PutItemCommand,
+  QueryCommand,
+  ScanCommand,
+  DeleteItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 
-const events = [];
-
-export async function createEvent(eventData) {
-  if (!eventData || typeof eventData !== 'object') {
-    throw new Error('Invalid event data');
-  }
-
-  const { title, description, startDate, endDate, location } = eventData;
-
-  if (!title || !startDate) {
-    throw new Error('title and startDate are required');
-  }
-
-  const newEvent = {
-    id: randomUUID(),
-    title,
-    description: description || '',
-    startDate,
-    endDate: endDate || null,
-    location: location || '',
-    headOrganizerId: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  events.push(newEvent);
-  return newEvent;
+function normalizeString(value) {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
-export async function getEvents() {
-  return [...events];
+function buildStringAttribute(value) {
+  const normalized = normalizeString(value);
+  return normalized ? { S: normalized } : undefined;
+}
+
+function buildNumberAttribute(value) {
+  return value !== undefined && value !== null ? { N: String(value) } : undefined;
+}
+
+function ensureWorkerAssignments(event) {
+  if (!Array.isArray(event.workerOrganizerAssignments)) {
+    event.workerOrganizerAssignments = Array.isArray(event.workerOrganizerIds)
+      ? event.workerOrganizerIds.map((id) => ({
+          organizerId: id,
+          status: 'pending',
+          updatedAt: event.updatedAt || new Date().toISOString(),
+        }))
+      : [];
+  }
+
+  if (!Array.isArray(event.workerOrganizerIds)) {
+    event.workerOrganizerIds = event.workerOrganizerAssignments.map(
+      (assignment) => assignment.organizerId
+    );
+  }
+
+  return event;
+}
+
+function mapDynamoEvent(item) {
+  if (!item) {
+    return null;
+  }
+
+  return {
+    id: item.SK?.S?.replace('EVENT#', '') || '',
+    clientId: item.PK?.S?.replace('USER#', '') || '',
+    eventType: item.eventType?.S || '',
+    eventPackage: item.eventPackage?.S || '',
+    eventPax: item.eventPax?.N ? Number(item.eventPax.N) : null,
+    eventDate: item.eventDate?.S || '',
+    status: item.status?.S || '',
+    user_id: item.user_id?.S || '',
+    title: item.title?.S || '',
+    description: item.description?.S || '',
+    location: item.location?.S || '',
+    startDate: item.startDate?.S || '',
+    endDate: item.endDate?.S || '',
+    headOrganizerId: item.user_id?.S || '',
+    workerOrganizerIds: Array.isArray(item.workerOrganizerIds?.L)
+      ? item.workerOrganizerIds.L.map((entry) => entry.S || '')
+      : [],
+    workerOrganizerAssignments: Array.isArray(item.workerOrganizerAssignments?.L)
+      ? item.workerOrganizerAssignments.L.map((entry) => ({
+          organizerId: entry.M?.organizerId?.S || '',
+          status: entry.M?.status?.S || 'pending',
+          updatedAt: entry.M?.updatedAt?.S || '',
+        }))
+      : [],
+    createdAt: item.created_at?.S || '',
+    updatedAt: item.updated_at?.S || '',
+  };
+}
+
+function buildDynamoEventItem(payload) {
+  const eventId = payload.id || randomUUID();
+  const clientId = normalizeString(payload.clientId || payload.client_id || '');
+
+  if (!clientId) {
+    throw new Error('clientId is required');
+  }
+
+  const eventDate = normalizeString(payload.eventDate || payload.startDate || '');
+  const title = normalizeString(payload.title || '');
+  const status = normalizeString(payload.status || 'Planning');
+  const userId = normalizeString(payload.user_id || payload.headOrganizerId || '');
+  const eventPax =
+    payload.eventPax !== undefined && payload.eventPax !== null
+      ? Number(payload.eventPax)
+      : null;
+
+  const assignments = Array.isArray(payload.workerOrganizerAssignments)
+    ? payload.workerOrganizerAssignments
+    : [];
+  const assignmentList = {
+    L: assignments.map((assignment) => ({
+      M: {
+        organizerId: { S: normalizeString(assignment.organizerId) },
+        status: { S: normalizeString(assignment.status || 'pending') },
+        updatedAt: {
+          S:
+            normalizeString(assignment.updatedAt) || new Date().toISOString(),
+        },
+      },
+    })),
+  };
+
+  const organizerIds = Array.isArray(payload.workerOrganizerIds)
+    ? payload.workerOrganizerIds
+    : assignments.map((assignment) => assignment.organizerId);
+
+  const item = {
+    PK: { S: `USER#${clientId}` },
+    SK: { S: `EVENT#${eventId}` },
+    client_id: { S: clientId },
+    status: { S: status },
+    created_at: { S: payload.created_at || payload.createdAt || new Date().toISOString() },
+    updated_at: { S: payload.updated_at || payload.updatedAt || new Date().toISOString() },
+    workerOrganizerIds: {
+      L: organizerIds.map((id) => ({ S: normalizeString(id) })),
+    },
+    workerOrganizerAssignments: assignmentList,
+  };
+
+  const eventType = normalizeString(payload.eventType || '');
+  if (eventType) {
+    item.eventType = { S: eventType };
+  }
+
+  const eventPackage = normalizeString(payload.eventPackage || '');
+  if (eventPackage) {
+    item.eventPackage = { S: eventPackage };
+  }
+
+  if (eventPax !== null) {
+    item.eventPax = { N: String(eventPax) };
+  }
+
+  if (eventDate) {
+    item.eventDate = { S: eventDate };
+  }
+
+  if (userId) {
+    item.user_id = { S: userId };
+  }
+
+  if (title) {
+    item.title = { S: title };
+  }
+
+  const description = buildStringAttribute(payload.description);
+  if (description) {
+    item.description = description;
+  }
+
+  const location = buildStringAttribute(payload.location);
+  if (location) {
+    item.location = location;
+  }
+
+  const startDate = buildStringAttribute(payload.startDate);
+  if (startDate) {
+    item.startDate = startDate;
+  }
+
+  const endDate = buildStringAttribute(payload.endDate);
+  if (endDate) {
+    item.endDate = endDate;
+  }
+
+  return item;
+}
+
+export async function getEvents(clientId) {
+  if (clientId) {
+    const command = new QueryCommand({
+      TableName: DYNAMO_TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :eventPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': { S: `USER#${normalizeString(clientId)}` },
+        ':eventPrefix': { S: 'EVENT#' },
+      },
+    });
+
+    const response = await dynamoClient.send(command);
+    return (response.Items || []).map(mapDynamoEvent);
+  }
+
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: 'begins_with(SK, :eventPrefix)',
+    ExpressionAttributeValues: {
+      ':eventPrefix': { S: 'EVENT#' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return (response.Items || []).map(mapDynamoEvent);
 }
 
 export async function getEventById(eventId) {
@@ -38,7 +207,47 @@ export async function getEventById(eventId) {
     throw new Error('Event ID is required');
   }
 
-  return events.find((event) => event.id === eventId) || null;
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: 'SK = :sk',
+    ExpressionAttributeValues: {
+      ':sk': { S: `EVENT#${normalizeString(eventId)}` },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoEvent(response.Items?.[0]);
+}
+
+export async function createEvent(eventData, clientId) {
+  if (!eventData || typeof eventData !== 'object') {
+    throw new Error('Invalid event data');
+  }
+
+  const effectiveClientId = normalizeString(clientId || eventData.clientId || eventData.client_id);
+  if (!effectiveClientId) {
+    throw new Error('clientId is required');
+  }
+
+  if (!normalizeString(eventData.title) || !normalizeString(eventData.startDate)) {
+    throw new Error('title and startDate are required');
+  }
+
+  const eventPayload = {
+    ...eventData,
+    clientId: effectiveClientId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: buildDynamoEventItem(eventPayload),
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+  });
+
+  await dynamoClient.send(command);
+  return mapDynamoEvent(buildDynamoEventItem(eventPayload));
 }
 
 export async function updateEvent(eventId, updateData) {
@@ -46,41 +255,134 @@ export async function updateEvent(eventId, updateData) {
     throw new Error('Event ID is required');
   }
 
-  const eventIndex = events.findIndex((event) => event.id === eventId);
-  if (eventIndex === -1) {
-    throw new Error('Event not found');
-  }
-
   if (!updateData || typeof updateData !== 'object') {
     throw new Error('Invalid update data');
   }
 
-  const existingEvent = events[eventIndex];
-  const { title, description, startDate, endDate, location, headOrganizerId } = updateData;
-
-  if (title !== undefined && !title) {
-    throw new Error('title cannot be empty');
+  const existingEvent = await getEventById(eventId);
+  if (!existingEvent) {
+    throw new Error('Event not found');
   }
 
-  if (startDate !== undefined && !startDate) {
-    throw new Error('startDate cannot be empty');
-  }
-
-  const updatedEvent = {
+  const mergedEvent = ensureWorkerAssignments({
     ...existingEvent,
-    title: title ?? existingEvent.title,
-    description:
-      description !== undefined ? description : existingEvent.description,
-    startDate: startDate ?? existingEvent.startDate,
-    endDate: endDate !== undefined ? endDate : existingEvent.endDate,
-    location: location !== undefined ? location : existingEvent.location,
-    headOrganizerId:
-      headOrganizerId !== undefined ? headOrganizerId : existingEvent.headOrganizerId,
+    ...updateData,
+    id: eventId,
+    clientId: existingEvent.clientId,
+    createdAt: existingEvent.createdAt,
+    created_at: existingEvent.createdAt,
+    updated_at: new Date().toISOString(),
+  });
+
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: buildDynamoEventItem(mergedEvent),
+  });
+
+  await dynamoClient.send(command);
+  return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
+}
+
+export async function assignWorkerOrganizer(eventId, organizerId) {
+  if (!eventId) {
+    throw new Error('Event ID is required');
+  }
+
+  if (!organizerId) {
+    throw new Error('Organizer ID is required');
+  }
+
+  const event = await getEventById(eventId);
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  const updatedEvent = ensureWorkerAssignments({ ...event });
+  const assignmentExists = updatedEvent.workerOrganizerAssignments.some(
+    (assignment) => assignment.organizerId === organizerId
+  );
+
+  if (!assignmentExists) {
+    updatedEvent.workerOrganizerAssignments.push({
+      organizerId,
+      status: 'pending',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
+    (assignment) => assignment.organizerId
+  );
+  updatedEvent.updated_at = new Date().toISOString();
+
+  return updateEvent(eventId, updatedEvent);
+}
+
+export async function unassignWorkerOrganizer(eventId, organizerId) {
+  if (!eventId) {
+    throw new Error('Event ID is required');
+  }
+
+  if (!organizerId) {
+    throw new Error('Organizer ID is required');
+  }
+
+  const event = await getEventById(eventId);
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  const updatedEvent = ensureWorkerAssignments({ ...event });
+  updatedEvent.workerOrganizerAssignments = updatedEvent.workerOrganizerAssignments.filter(
+    (assignment) => assignment.organizerId !== organizerId
+  );
+  updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
+    (assignment) => assignment.organizerId
+  );
+  updatedEvent.updated_at = new Date().toISOString();
+
+  return updateEvent(eventId, updatedEvent);
+}
+
+export async function respondWorkerRsvp(eventId, organizerId, status) {
+  if (!eventId) {
+    throw new Error('Event ID is required');
+  }
+
+  if (!organizerId) {
+    throw new Error('Organizer ID is required');
+  }
+
+  const normalizedStatus = String(status).toLowerCase();
+  if (!['accepted', 'declined'].includes(normalizedStatus)) {
+    throw new Error('Invalid RSVP status');
+  }
+
+  const event = await getEventById(eventId);
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  const updatedEvent = ensureWorkerAssignments({ ...event });
+  const assignmentIndex = updatedEvent.workerOrganizerAssignments.findIndex(
+    (assignment) => assignment.organizerId === organizerId
+  );
+
+  if (assignmentIndex === -1) {
+    throw new Error('Worker assignment not found');
+  }
+
+  updatedEvent.workerOrganizerAssignments[assignmentIndex] = {
+    ...updatedEvent.workerOrganizerAssignments[assignmentIndex],
+    status: normalizedStatus,
     updatedAt: new Date().toISOString(),
   };
+  updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
+    (assignment) => assignment.organizerId
+  );
+  updatedEvent.updated_at = new Date().toISOString();
 
-  events[eventIndex] = updatedEvent;
-  return updatedEvent;
+  return updateEvent(eventId, updatedEvent);
 }
 
 export async function deleteEvent(eventId) {
@@ -88,11 +390,19 @@ export async function deleteEvent(eventId) {
     throw new Error('Event ID is required');
   }
 
-  const eventIndex = events.findIndex((event) => event.id === eventId);
-  if (eventIndex === -1) {
+  const existingEvent = await getEventById(eventId);
+  if (!existingEvent) {
     throw new Error('Event not found');
   }
 
-  const [deletedEvent] = events.splice(eventIndex, 1);
-  return deletedEvent;
+  const command = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizeString(existingEvent.clientId)}` },
+      SK: { S: `EVENT#${normalizeString(eventId)}` },
+    },
+  });
+
+  await dynamoClient.send(command);
+  return existingEvent;
 }

@@ -1,13 +1,13 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
-const isDev = process.env.NODE_ENV === 'development';
 const dynamoConfig = {
-  region: 'ap-southeast-1',
+  region: process.env.AWS_REGION || 'ap-southeast-1',
 };
-if (isDev) {
+if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
   dynamoConfig.credentials = {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    sessionToken: process.env.AWS_SESSION_TOKEN,
   };
 }
 

@@ -1,33 +1,138 @@
 import { randomUUID } from 'crypto';
+import {
+  GetItemCommand,
+  PutItemCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateItemCommand,
+  DeleteItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById } from './event.service.js';
 
-const organizers = [];
+function normalizeString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
 
-export async function createOrganizer(organizerData) {
-  if (!organizerData || typeof organizerData !== 'object') {
-    throw new Error('Invalid organizer data');
+function buildStringAttribute(value) {
+  const normalized = normalizeString(value);
+  return normalized ? { S: normalized } : undefined;
+}
+
+function buildNumberAttribute(value) {
+  return value !== undefined && value !== null ? { N: String(value) } : undefined;
+}
+
+function mapDynamoOrganizer(item) {
+  if (!item) {
+    return null;
   }
 
-  const { name, email, phone } = organizerData;
-  if (!name || !email) {
-    throw new Error('name and email are required');
-  }
+  const firstName = item.firstName?.S || '';
+  const lastName = item.lastName?.S || '';
+  const fullName = item.name?.S || [firstName, lastName].filter(Boolean).join(' ');
 
-  const newOrganizer = {
-    id: randomUUID(),
-    name,
-    email,
-    phone: phone || '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  return {
+    id: item.PK?.S?.replace('USER#', '') || '',
+    name: fullName,
+    firstName,
+    middleName: item.middleName?.S || '',
+    lastName,
+    email: item.email?.S || '',
+    password: item.password?.S || '',
+    phone: item.contactNumber?.S || '',
+    role: item.role?.S || 'ORGANIZER',
+    contactNumber: item.contactNumber?.S || '',
+    birthDate: item.birthDate?.S || '',
+    houseNumber: item.houseNumber?.S || '',
+    street: item.street?.S || '',
+    barangay: item.barangay?.S || '',
+    city: item.city?.S || '',
+    country: item.country?.S || '',
+    gender: item.gender?.S || '',
+    createdAt: item.created_at?.S || '',
+    updatedAt: item.updated_at?.S || '',
+  };
+}
+
+function buildDynamoOrganizerItem(payload) {
+  const organizerId = payload.id || randomUUID();
+  const name = normalizeString(payload.name || payload.firstName || '');
+  const firstName = normalizeString(payload.firstName || name);
+  const lastName = normalizeString(payload.lastName || '');
+
+  const item = {
+    PK: { S: `USER#${organizerId}` },
+    SK: { S: 'PROFILE' },
+    role: { S: 'ORGANIZER' },
+    created_at: { S: payload.created_at || payload.createdAt || new Date().toISOString() },
+    updated_at: { S: payload.updated_at || payload.updatedAt || new Date().toISOString() },
   };
 
-  organizers.push(newOrganizer);
-  return newOrganizer;
+  if (firstName) {
+    item.firstName = { S: firstName };
+  }
+
+  if (lastName) {
+    item.lastName = { S: lastName };
+  }
+
+  const resolvedName = name || [firstName, lastName].filter(Boolean).join(' ');
+  if (resolvedName) {
+    item.name = { S: resolvedName };
+  }
+
+  const email = normalizeString(payload.email).toLowerCase();
+  if (email) {
+    item.email = { S: email };
+  }
+
+  const password = normalizeString(payload.password || '');
+  if (password) {
+    item.password = { S: password };
+  }
+
+  item.contactNumber = buildStringAttribute(payload.phone || payload.contactNumber);
+  item.middleName = buildStringAttribute(payload.middleName);
+  item.birthDate = buildStringAttribute(payload.birthDate);
+  item.houseNumber = buildStringAttribute(payload.houseNumber);
+  item.street = buildStringAttribute(payload.street);
+  item.barangay = buildStringAttribute(payload.barangay);
+  item.city = buildStringAttribute(payload.city);
+  item.country = buildStringAttribute(payload.country);
+  item.gender = buildStringAttribute(payload.gender);
+
+  return Object.fromEntries(
+    Object.entries(item).filter(([, value]) => value !== undefined)
+  );
 }
 
 export async function getOrganizers() {
-  return [...organizers];
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: '#sk = :profile AND #role = :organizer',
+    ExpressionAttributeNames: {
+      '#sk': 'SK',
+      '#role': 'role',
+    },
+    ExpressionAttributeValues: {
+      ':profile': { S: 'PROFILE' },
+      ':organizer': { S: 'ORGANIZER' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return (response.Items || []).map(mapDynamoOrganizer);
+}
+
+export async function getOrganizersByIds(ids) {
+  if (!Array.isArray(ids)) {
+    return [];
+  }
+
+  const organizerPromises = ids.map((id) => getOrganizerById(id));
+  const results = await Promise.all(organizerPromises);
+  return results.filter(Boolean);
 }
 
 export async function getHeadOrganizerByEventId(eventId) {
@@ -44,7 +149,7 @@ export async function getHeadOrganizerByEventId(eventId) {
     return null;
   }
 
-  return organizers.find((org) => org.id === event.headOrganizerId) || null;
+  return getOrganizerById(event.headOrganizerId);
 }
 
 export async function getOrganizerById(organizerId) {
@@ -52,7 +157,71 @@ export async function getOrganizerById(organizerId) {
     throw new Error('Organizer ID is required');
   }
 
-  return organizers.find((org) => org.id === organizerId) || null;
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizeString(organizerId)}` },
+      SK: { S: 'PROFILE' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoOrganizer(response.Item);
+}
+
+export async function findOrganizerByEmail(email) {
+  const normalizedEmail = normalizeString(email).toLowerCase();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const command = new QueryCommand({
+    TableName: DYNAMO_TABLE,
+    IndexName: 'email-index',
+    KeyConditionExpression: '#email = :emailValue',
+    ExpressionAttributeNames: {
+      '#email': 'email',
+    },
+    ExpressionAttributeValues: {
+      ':emailValue': { S: normalizedEmail },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  const found = (response.Items || []).find((item) => item.role?.S === 'ORGANIZER');
+  return mapDynamoOrganizer(found);
+}
+
+export async function createOrganizer(organizerData) {
+  if (!organizerData || typeof organizerData !== 'object') {
+    throw new Error('Invalid organizer data');
+  }
+
+  const email = normalizeString(organizerData.email).toLowerCase();
+  if (!email) {
+    throw new Error('email is required');
+  }
+
+  const existing = await findOrganizerByEmail(email);
+  if (existing) {
+    throw new Error('Organizer email is already registered');
+  }
+
+  const organizerPayload = {
+    ...organizerData,
+    id: randomUUID(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: buildDynamoOrganizerItem(organizerPayload),
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+  });
+
+  await dynamoClient.send(command);
+  return mapDynamoOrganizer(buildDynamoOrganizerItem(organizerPayload));
 }
 
 export async function updateOrganizer(organizerId, updateData) {
@@ -60,36 +229,28 @@ export async function updateOrganizer(organizerId, updateData) {
     throw new Error('Organizer ID is required');
   }
 
-  const index = organizers.findIndex((org) => org.id === organizerId);
-  if (index === -1) {
-    throw new Error('Organizer not found');
-  }
-
   if (!updateData || typeof updateData !== 'object') {
     throw new Error('Invalid update data');
   }
 
-  const existing = organizers[index];
-  const { name, email, phone } = updateData;
-
-  if (name !== undefined && !name) {
-    throw new Error('name cannot be empty');
+  const existing = await getOrganizerById(organizerId);
+  if (!existing) {
+    throw new Error('Organizer not found');
   }
 
-  if (email !== undefined && !email) {
-    throw new Error('email cannot be empty');
-  }
-
-  const updatedOrganizer = {
+  const updatedPayload = {
     ...existing,
-    name: name !== undefined ? name : existing.name,
-    email: email !== undefined ? email : existing.email,
-    phone: phone !== undefined ? phone : existing.phone,
-    updatedAt: new Date().toISOString(),
+    ...updateData,
+    updated_at: new Date().toISOString(),
   };
 
-  organizers[index] = updatedOrganizer;
-  return updatedOrganizer;
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: buildDynamoOrganizerItem(updatedPayload),
+  });
+
+  await dynamoClient.send(command);
+  return mapDynamoOrganizer(buildDynamoOrganizerItem(updatedPayload));
 }
 
 export async function deleteOrganizer(organizerId) {
@@ -97,11 +258,19 @@ export async function deleteOrganizer(organizerId) {
     throw new Error('Organizer ID is required');
   }
 
-  const index = organizers.findIndex((org) => org.id === organizerId);
-  if (index === -1) {
+  const existing = await getOrganizerById(organizerId);
+  if (!existing) {
     throw new Error('Organizer not found');
   }
 
-  const [deletedOrganizer] = organizers.splice(index, 1);
-  return deletedOrganizer;
+  const command = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizeString(organizerId)}` },
+      SK: { S: 'PROFILE' },
+    },
+  });
+
+  await dynamoClient.send(command);
+  return existing;
 }

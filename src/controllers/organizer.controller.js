@@ -6,7 +6,13 @@ import {
   updateOrganizer as updateOrganizerService,
   deleteOrganizer as deleteOrganizerService,
 } from '../services/organizer.service.js';
-import { getEventById, updateEvent as updateEventService } from '../services/event.service.js';
+import {
+  getEventById,
+  updateEvent as updateEventService,
+  assignWorkerOrganizer as assignWorkerOrganizerService,
+  unassignWorkerOrganizer as unassignWorkerOrganizerService,
+} from '../services/event.service.js';
+import { sendWorkerRsvpEmail } from '../services/mailer.service.js';
 
 export async function createOrganizer(req, res) {
   try {
@@ -114,6 +120,46 @@ export async function assignHeadOrganizer(req, res) {
   }
 }
 
+export async function assignWorkerOrganizer(req, res) {
+  try {
+    const { id: organizerId, eventId } = req.params;
+
+    const event = await getEventById(eventId);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (!event.headOrganizerId) {
+      return res.status(400).json({ error: 'Head organizer must be assigned before adding workers' });
+    }
+
+    const organizer = await getOrganizerByIdService(organizerId);
+    if (!organizer) {
+      return res.status(404).json({ error: 'Organizer not found' });
+    }
+
+    const updatedEvent = await assignWorkerOrganizerService(eventId, organizerId);
+    const mailResult = await sendWorkerRsvpEmail(organizer, updatedEvent);
+
+    if (mailResult.skipped) {
+      return res.status(200).json({
+        message: 'Worker assigned to event, but RSVP email was not sent because SMTP is not configured',
+        event: updatedEvent,
+        rsvpLink: mailResult.link,
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Worker assigned to event and RSVP email sent',
+      event: updatedEvent,
+      rsvpLink: mailResult.link,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to assign worker organizer';
+    return res.status(400).json({ error: message });
+  }
+}
+
 export async function unassignHeadOrganizer(req, res) {
   try {
     const { id: organizerId, eventId } = req.params;
@@ -131,6 +177,28 @@ export async function unassignHeadOrganizer(req, res) {
     return res.status(200).json({ message: 'Head organizer unassigned from event', event: updatedEvent });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to unassign head organizer';
+    return res.status(400).json({ error: message });
+  }
+}
+
+export async function unassignWorkerOrganizer(req, res) {
+  try {
+    const { id: organizerId, eventId } = req.params;
+
+    const event = await getEventById(eventId);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const organizer = await getOrganizerByIdService(organizerId);
+    if (!organizer) {
+      return res.status(404).json({ error: 'Organizer not found' });
+    }
+
+    const updatedEvent = await unassignWorkerOrganizerService(eventId, organizerId);
+    return res.status(200).json({ message: 'Worker unassigned from event', event: updatedEvent });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to unassign worker organizer';
     return res.status(400).json({ error: message });
   }
 }
