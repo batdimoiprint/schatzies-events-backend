@@ -29,7 +29,9 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/ValidateTokenFailure'
  */
-router.get('/validate-token', validateTokenMiddleware);
+router.get('/validate-token', validateTokenMiddleware, (req, res) => {
+  res.json({ valid: true, user: req.user });
+});
 
 /**
  * @swagger
