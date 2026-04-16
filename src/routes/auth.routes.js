@@ -1,5 +1,6 @@
 import express from 'express';
-import { login, logout } from '../controllers/auth.controller.js';
+import { login, logout, currentUser } from '../controllers/auth.controller.js';
+import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import tokenRoutes from './token.routes.js';
 
 const router = express.Router();
@@ -157,6 +158,7 @@ router.post('/login', login);
  *         description: Logged out successfully
  */
 router.post('/logout', logout);
+router.get('/me', validateTokenMiddleware, currentUser);
 router.use('/', tokenRoutes);
 
 export default router;

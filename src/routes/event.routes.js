@@ -5,6 +5,8 @@ import {
   getEventById,
   updateEvent,
   deleteEvent,
+  getEventMessages,
+  sendEventMessage,
 } from '../controllers/event.controller.js';
 import { getVendorsByEventId } from '../controllers/vendor.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
@@ -92,6 +94,85 @@ router.get('/', getEvents);
  *         description: Server error
  */
 router.get('/:id', getEventById);
+
+/**
+ * @swagger
+ * /api/events/{id}/messages:
+ *   get:
+ *     tags:
+ *       - Events
+ *     summary: Retrieve chat messages for an event
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Messages retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 messages:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       senderId:
+ *                         type: string
+ *                       senderRole:
+ *                         type: string
+ *                       receiverId:
+ *                         type: string
+ *                       body:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Event not found
+ */
+router.get('/:id/messages', validateTokenMiddleware, getEventMessages);
+
+/**
+ * @swagger
+ * /api/events/{id}/messages:
+ *   post:
+ *     tags:
+ *       - Events
+ *     summary: Send a message from head organizer to the assigned client
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       400:
+ *         description: Invalid request
+ *       403:
+ *         description: Not authorized
+ *       404:
+ *         description: Event not found
+ */
+router.post('/:id/messages', validateTokenMiddleware, sendEventMessage);
 
 /**
  * @swagger

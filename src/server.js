@@ -1,8 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './configs/swagger.js';
 import routes from './routes/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 import corsMiddleware from './configs/cors.js';
 import { configureHelmet } from './configs/helmet.js';
@@ -24,7 +29,16 @@ app.use(apiLimiter);
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Health Check
+// Simplified Dashboard page (raw visualizations)
+app.get('/dashboard', (req, res) => {
+  res.sendFile(join(__dirname, 'dashboard.html'));
+});
+
+// Organizer chat page
+app.get('/chat', (req, res) => {
+  res.sendFile(join(__dirname, 'chat.html'));
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });

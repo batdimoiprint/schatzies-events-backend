@@ -4,6 +4,7 @@ import {
   getEventById as getEventByIdService,
   updateEvent as updateEventService,
   deleteEvent as deleteEventService,
+  addEventMessage as addEventMessageService,
 } from '../services/event.service.js';
 import { getVendorsByEventId as getVendorsByEventIdService } from '../services/vendor.service.js';
 import { getAttendeesByEventId as getAttendeesByEventIdService } from '../services/attendee.service.js';
@@ -26,6 +27,70 @@ export async function createEvent(req, res) {
     const message =
       error instanceof Error ? error.message : 'Unable to create event';
     return res.status(400).json({ error: message });
+  }
+}
+
+export async function getEventMessages(req, res) {
+  try {
+    const { id } = req.params;
+    const event = await getEventByIdService(id);
+
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const currentUserId = req.user?.user_id;
+    if (![event.headOrganizerId, event.clientId].includes(currentUserId)) {
+      return res.status(403).json({
+        error: 'Not authorized to view messages for this event',
+      });
+    }
+
+    return res.status(200).json({ messages: event.messages || [] });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch event messages';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function sendEventMessage(req, res) {
+  try {
+    const { id } = req.params;
+    const { content } = req.body ?? {};
+    const currentUserId = req.user?.user_id;
+
+    if (!content || !String(content).trim()) {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+
+    const event = await getEventByIdService(id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    if (event.headOrganizerId !== currentUserId) {
+      return res.status(403).json({
+        error: 'Only the head organizer can send messages to the assigned client',
+      });
+    }
+
+    const message = await addEventMessageService(
+      id,
+      currentUserId,
+      req.user.role || 'ORGANIZER',
+      content,
+      event.clientId
+    );
+
+    return res.status(201).json({
+      message: 'Message sent successfully',
+      chatMessage: message,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unable to send message';
+    return res.status(500).json({ error: message });
   }
 }
 

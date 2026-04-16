@@ -25,6 +25,14 @@ function clearAuthCookie(res) {
   });
 }
 
+export function currentUser(req, res) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  return res.json({ user: req.user });
+}
+
 export async function login(req, res) {
   try {
     const { email, password } = req.body ?? {};

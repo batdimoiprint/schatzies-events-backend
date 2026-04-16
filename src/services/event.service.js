@@ -71,8 +71,31 @@ function mapDynamoEvent(item) {
           updatedAt: entry.M?.updatedAt?.S || '',
         }))
       : [],
+    messages: Array.isArray(item.messages?.L)
+      ? item.messages.L.map((entry) => ({
+          id: entry.M?.id?.S || '',
+          senderId: entry.M?.senderId?.S || '',
+          senderRole: entry.M?.senderRole?.S || '',
+          receiverId: entry.M?.receiverId?.S || '',
+          body: entry.M?.body?.S || '',
+          createdAt: entry.M?.createdAt?.S || '',
+        }))
+      : [],
     createdAt: item.created_at?.S || '',
     updatedAt: item.updated_at?.S || '',
+  };
+}
+
+function buildMessageAttribute(message) {
+  return {
+    M: {
+      id: { S: normalizeString(message.id) },
+      senderId: { S: normalizeString(message.senderId) },
+      senderRole: { S: normalizeString(message.senderRole) },
+      receiverId: { S: normalizeString(message.receiverId) },
+      body: { S: normalizeString(message.body) },
+      createdAt: { S: normalizeString(message.createdAt) },
+    },
   };
 }
 
@@ -170,6 +193,12 @@ function buildDynamoEventItem(payload) {
   const endDate = buildStringAttribute(payload.endDate);
   if (endDate) {
     item.endDate = endDate;
+  }
+
+  if (Array.isArray(payload.messages) && payload.messages.length) {
+    item.messages = {
+      L: payload.messages.map((message) => buildMessageAttribute(message)),
+    };
   }
 
   return item;
@@ -281,6 +310,59 @@ export async function updateEvent(eventId, updateData) {
 
   await dynamoClient.send(command);
   return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
+}
+
+export async function addEventMessage(eventId, senderId, senderRole, body, receiverId) {
+  if (!eventId) {
+    throw new Error('Event ID is required');
+  }
+
+  if (!senderId) {
+    throw new Error('Sender ID is required');
+  }
+
+  if (!body || !String(body).trim()) {
+    throw new Error('Message body is required');
+  }
+
+  const existingEvent = await getEventById(eventId);
+  if (!existingEvent) {
+    throw new Error('Event not found');
+  }
+
+  const normalizedBody = String(body).trim();
+  const message = {
+    id: randomUUID(),
+    senderId: normalizeString(senderId),
+    senderRole: normalizeString(senderRole || 'ORGANIZER'),
+    receiverId: normalizeString(receiverId || existingEvent.clientId || ''),
+    body: normalizedBody,
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedEvent = {
+    ...existingEvent,
+    messages: [
+      ...(Array.isArray(existingEvent.messages) ? existingEvent.messages : []),
+      message,
+    ],
+  };
+
+  await updateEvent(eventId, updatedEvent);
+  return message;
+}
+
+export async function getEventMessages(eventId) {
+  if (!eventId) {
+    throw new Error('Event ID is required');
+  }
+
+  const event = await getEventById(eventId);
+  if (!event) {
+    throw new Error('Event not found');
+  }
+
+  return Array.isArray(event.messages) ? event.messages : [];
 }
 
 export async function assignWorkerOrganizer(eventId, organizerId) {
