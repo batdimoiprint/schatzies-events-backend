@@ -29,16 +29,6 @@ app.use(apiLimiter);
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Simplified Dashboard page (raw visualizations)
-app.get('/dashboard', (req, res) => {
-  res.sendFile(join(__dirname, 'dashboard.html'));
-});
-
-// Organizer chat page
-app.get('/chat', (req, res) => {
-  res.sendFile(join(__dirname, 'chat.html'));
-});
-
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });

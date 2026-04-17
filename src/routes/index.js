@@ -5,7 +5,6 @@ import vendorRoutes from './vendor.routes.js';
 import attendeeRoutes from './attendee.routes.js';
 import organizerRoutes from './organizer.routes.js';
 import inquiryRoutes from './inquiry.routes.js';
-import workerRsvpRoutes from './worker-rsvp.routes.js';
 import usersRoutes from './users.routes.js';
 
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
@@ -19,7 +18,7 @@ router.get('/health', (req, res) => {
 });
 
 //Public routes
-router.use('/inquiries', inquiryRoutes);router.use('/rsvp', workerRsvpRoutes);
+router.use('/inquiries', inquiryRoutes);
 // Protected routes
 router.use('/events', validateTokenMiddleware, eventRoutes);
 router.use('/vendors', validateTokenMiddleware, vendorRoutes);
