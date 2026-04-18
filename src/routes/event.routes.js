@@ -1099,18 +1099,7 @@ router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualChe
  *         description: Current headcount and expected guest count
  *       400:
  *         description: Invalid event ID
- */
-router.get('/:eventId/headcount', validateTokenMiddleware, getEventHeadcount);
-
-/**
- * @swagger
- * /api/events/{eventId}/vendors:
- *   get:
- *     tags:
- *       - Events
- *     summary: Retrieve vendors assigned to an event
- *     parameters:
- *       - in: path
+ *
  *         name: eventId
  *         required: true
  *         schema:
