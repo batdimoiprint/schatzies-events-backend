@@ -1,10 +1,15 @@
 import express from 'express';
+import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
+import { requireRole } from '../middleware/role.middleware.js';
 import {
   createInquiryController,
   getInquiriesController,
   getInquiryByIdController,
   updateInquiryController,
-  deleteInquiryController
+  deleteInquiryController,
+  updateInquiryStatusController,
+  addInquiryCommunicationController,
+  scheduleMeetingController
 } from '../controllers/inquiry.controller.js';
 
 const router = express.Router();
@@ -72,7 +77,7 @@ router.post('/', createInquiryController);
  *       200:
  *         description: List of inquiries
  */
-router.get('/', getInquiriesController);
+router.get('/', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), getInquiriesController);
 
 /**
  * @swagger
@@ -92,7 +97,7 @@ router.get('/', getInquiriesController);
  *       404:
  *         description: Inquiry not found
  */
-router.get('/:id', getInquiryByIdController);
+router.get('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), getInquiryByIdController);
 
 /**
  * @swagger
@@ -137,7 +142,7 @@ router.get('/:id', getInquiryByIdController);
  *       404:
  *         description: Inquiry not found
  */
-router.put('/:id', updateInquiryController);
+router.put('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryController);
 
 /**
  * @swagger
@@ -157,6 +162,11 @@ router.put('/:id', updateInquiryController);
  *       404:
  *         description: Inquiry not found
  */
-router.delete('/:id', deleteInquiryController);
+router.delete('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), deleteInquiryController);
+
+// Phase 2 Routes (Admin/Organizer protected)
+router.patch('/:id/status', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryStatusController);
+router.post('/:id/communications', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), addInquiryCommunicationController);
+router.post('/:id/meeting', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), scheduleMeetingController);
 
 export default router;

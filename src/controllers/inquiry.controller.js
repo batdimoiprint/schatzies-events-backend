@@ -52,3 +52,42 @@ export async function deleteInquiryController(req, res) {
     res.status(400).json({ error: error.message });
   }
 }
+
+// PATCH /api/inquiries/:id/status
+export async function updateInquiryStatusController(req, res) {
+  try {
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+    const updated = await inquiryService.updateInquiryStatus(req.params.id, status);
+    res.json(updated);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}
+
+// POST /api/inquiries/:id/communications
+export async function addInquiryCommunicationController(req, res) {
+  try {
+    const communication = req.body;
+    const updated = await inquiryService.addCommunication(req.params.id, communication);
+    res.status(201).json(updated);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}
+
+// POST /api/inquiries/:id/meeting
+export async function scheduleMeetingController(req, res) {
+  try {
+    const { date, time, location, organizerId } = req.body;
+    if (!date || !time || !location || !organizerId) {
+      return res.status(400).json({ error: 'date, time, location, and organizerId are required' });
+    }
+    const updated = await inquiryService.scheduleMeeting(req.params.id, { date, time, location, organizerId });
+    res.json(updated);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}

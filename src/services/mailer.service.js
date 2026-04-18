@@ -67,3 +67,60 @@ export async function sendWorkerRsvpEmail(organizer, event) {
   const info = await transporter.sendMail(mailOptions);
   return { skipped: false, info, link: null };
 }
+
+export async function sendMeetingInviteEmail(inquiry, meetingDetails) {
+  if (!inquiry || !meetingDetails) {
+    throw new Error('Inquiry and meeting details are required to send meeting invite');
+  }
+  
+  if (!inquiry.email) {
+    console.warn(`No email provided for inquiry ${inquiry.id}, skipping meeting invite.`);
+    return { skipped: true, reason: 'No email provided', link: null };
+  }
+
+  const { firstName, lastName, eventType } = inquiry;
+  const { date, time, location } = meetingDetails;
+
+  const subject = `Meeting Scheduled for your ${eventType} Inquiry with Schatzies Events`;
+  const text = `Hello ${firstName} ${lastName},\n\n` +
+    `We have successfully reviewed your inquiry for a ${eventType}!\n\n` +
+    `We would like to invite you to a meeting to discuss your upcoming event in detail.\n\n` +
+    `Meeting Details:\n` +
+    `Date: ${date}\n` +
+    `Time: ${time}\n` +
+    `Location: ${location}\n\n` +
+    `We look forward to meeting with you.\n\n` +
+    `Best regards,\nSchatzies Events`;
+    
+  const html = `<p>Hello ${firstName} ${lastName},</p>` +
+    `<p>We have successfully reviewed your inquiry for a ${eventType}!</p>` +
+    `<p>We would like to invite you to a meeting to discuss your upcoming event in detail.</p>` +
+    `<h3>Meeting Details:</h3>` +
+    `<ul>` +
+    `<li><strong>Date:</strong> ${date}</li>` +
+    `<li><strong>Time:</strong> ${time}</li>` +
+    `<li><strong>Location:</strong> ${location}</li>` +
+    `</ul>` +
+    `<p>We look forward to meeting with you.</p>` +
+    `<p>Best regards,<br/><strong>Schatzies Events</strong></p>`;
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn('SMTP configuration is missing. Meeting invite email will not be sent.', {
+      to: inquiry.email,
+      subject,
+    });
+    return { skipped: true, reason: 'SMTP config missing', link: null };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: inquiry.email,
+    subject,
+    text,
+    html,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  return { skipped: false, info, link: null };
+}

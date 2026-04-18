@@ -7,6 +7,9 @@ import {
   UpdateItemCommand,
   DeleteItemCommand,
 } from '@aws-sdk/client-dynamodb';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { createCalendarEntry } from './calendar.service.js';
+import { sendMeetingInviteEmail } from './mailer.service.js';
 
 const USE_DYNAMO = process.env.USE_DYNAMO !== 'false'; // Default true (hardcoded); set to 'false' in .env to disable
 
@@ -16,37 +19,6 @@ const TABLE = process.env.AWS_INQUIRY_TABLE || DYNAMO_TABLE;
 
 const weddingPackages = ["Bloom", "Fascinating", "Windy", "De Luxe", "Grandezza"];
 const debutPackages = ["Charming", "Irresistible", "Elegancia", "Flawless", "Grandiosa"];
-
-function toAttributeValue(value) {
-  if (value === null || value === undefined) return { NULL: true };
-  if (typeof value === 'string') return { S: value };
-  if (typeof value === 'number') return { N: String(value) };
-  if (typeof value === 'boolean') return { BOOL: value };
-  return { S: String(value) };
-}
-
-function marshallItem(obj) {
-  const item = {};
-  for (const k in obj) {
-    const v = obj[k];
-    if (v === undefined) continue;
-    item[k] = toAttributeValue(v);
-  }
-  return item;
-}
-
-function unmarshallItem(item) {
-  const out = {};
-  for (const k in item) {
-    const v = item[k];
-    if (v.S !== undefined) out[k] = v.S;
-    else if (v.N !== undefined) out[k] = Number(v.N);
-    else if (v.BOOL !== undefined) out[k] = v.BOOL;
-    else if (v.NULL) out[k] = null;
-    else out[k] = v;
-  }
-  return out;
-}
 
 function validateRequired(inquiryData) {
   const { firstName, lastName, date, eventType, eventPackage, eventPax } = inquiryData;
@@ -63,6 +35,27 @@ function validateRequired(inquiryData) {
   if (!validPax.includes(eventPax)) {
     throw new Error(`Invalid number of pax for ${eventPackage}`);
   }
+}
+
+function mapToFrontend(u) {
+  return {
+    id: u.inquiry_id,
+    firstName: u.firstName,
+    middleName: u.middleName,
+    lastName: u.lastName,
+    date: u.date,
+    eventType: u.eventType,
+    eventPackage: u.eventPackage,
+    eventPax: u.eventPax,
+    message: u.message,
+    email: u.email,
+    contactNumber: u.contactNumber,
+    status: u.status || 'Pending Review',
+    communications: u.communications || [],
+    meetingDetails: u.meetingDetails || null,
+    createdAt: u.created_at,
+    updatedAt: u.updated_at,
+  };
 }
 
 export async function createInquiry(inquiryData) {
@@ -87,6 +80,9 @@ export async function createInquiry(inquiryData) {
     message: inquiryData.message || '',
     email: inquiryData.email || null,
     contactNumber: inquiryData.contactNumber || null,
+    status: 'Pending Review',
+    communications: [],
+    meetingDetails: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -103,13 +99,16 @@ export async function createInquiry(inquiryData) {
     message: newInquiry.message,
     email: newInquiry.email,
     contactNumber: newInquiry.contactNumber,
+    status: newInquiry.status,
+    communications: newInquiry.communications,
+    meetingDetails: newInquiry.meetingDetails,
     created_at: newInquiry.createdAt,
     updated_at: newInquiry.updatedAt,
   };
 
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured (AWS_INQUIRY_TABLE or AWS_DYNAMO_TABLE env required)');
-    await dynamoClient.send(new PutItemCommand({ TableName: TABLE, Item: marshallItem(item) }));
+    await dynamoClient.send(new PutItemCommand({ TableName: TABLE, Item: marshall(item, { removeUndefinedValues: true }) }));
     return newInquiry;
   }
 
@@ -122,24 +121,7 @@ export async function getInquiries() {
     if (!TABLE) throw new Error('Inquiry table not configured');
     const resp = await dynamoClient.send(new ScanCommand({ TableName: TABLE }));
     const items = resp.Items || [];
-    return items.map((it) => {
-      const u = unmarshallItem(it);
-      return {
-        id: u.inquiry_id,
-        firstName: u.firstName,
-        middleName: u.middleName,
-        lastName: u.lastName,
-        date: u.date,
-        eventType: u.eventType,
-        eventPackage: u.eventPackage,
-        eventPax: u.eventPax,
-        message: u.message,
-        email: u.email,
-        contactNumber: u.contactNumber,
-        createdAt: u.created_at,
-        updatedAt: u.updated_at,
-      };
-    });
+    return items.map((it) => mapToFrontend(unmarshall(it)));
   }
 
   return [...inquiries];
@@ -149,25 +131,10 @@ export async function getInquiryById(inquiryId) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
-    const resp = await dynamoClient.send(new GetItemCommand({ TableName: TABLE, Key: marshallItem({ inquiry_id: inquiryId }) }));
+    const resp = await dynamoClient.send(new GetItemCommand({ TableName: TABLE, Key: marshall({ inquiry_id: inquiryId }) }));
     const it = resp.Item;
     if (!it) return null;
-    const u = unmarshallItem(it);
-    return {
-      id: u.inquiry_id,
-      firstName: u.firstName,
-      middleName: u.middleName,
-      lastName: u.lastName,
-      date: u.date,
-      eventType: u.eventType,
-      eventPackage: u.eventPackage,
-      eventPax: u.eventPax,
-      message: u.message,
-      email: u.email,
-      contactNumber: u.contactNumber,
-      createdAt: u.created_at,
-      updatedAt: u.updated_at,
-    };
+    return mapToFrontend(unmarshall(it));
   }
 
   return inquiries.find((inq) => inq.id === inquiryId) || null;
@@ -176,7 +143,7 @@ export async function getInquiryById(inquiryId) {
 export async function updateInquiry(inquiryId, updateData) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (!updateData || typeof updateData !== 'object') throw new Error('Invalid update data');
-  const allowed = ['firstName','middleName','lastName','date','eventType','eventPackage','eventPax','message','email','contactNumber'];
+  const allowed = ['firstName','middleName','lastName','date','eventType','eventPackage','eventPax','message','email','contactNumber','status','communications','meetingDetails'];
 
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
@@ -189,23 +156,22 @@ export async function updateInquiry(inquiryId, updateData) {
       const valPlaceholder = `:v${idx}`;
       const namePlaceholder = `#n${idx}`;
       parts.push(`${namePlaceholder} = ${valPlaceholder}`);
-      ExpressionAttributeValues[valPlaceholder] = toAttributeValue(updateData[k]);
+      ExpressionAttributeValues[valPlaceholder] = updateData[k];
       ExpressionAttributeNames[namePlaceholder] = k;
       idx += 1;
     });
     parts.push('#updated_at = :u');
-    ExpressionAttributeValues[':u'] = toAttributeValue(new Date().toISOString());
+    ExpressionAttributeValues[':u'] = new Date().toISOString();
     ExpressionAttributeNames['#updated_at'] = 'updated_at';
 
     const UpdateExpression = 'SET ' + parts.join(', ');
 
     await dynamoClient.send(new UpdateItemCommand({
       TableName: TABLE,
-      Key: marshallItem({ inquiry_id: inquiryId }),
+      Key: marshall({ inquiry_id: inquiryId }),
       UpdateExpression,
       ExpressionAttributeNames: ExpressionAttributeNames,
-      ExpressionAttributeValues: ExpressionAttributeValues,
-      ReturnValues: 'ALL_NEW',
+      ExpressionAttributeValues: marshall(ExpressionAttributeValues, { removeUndefinedValues: true }),
     }));
 
     return getInquiryById(inquiryId);
@@ -229,10 +195,10 @@ export async function deleteInquiry(inquiryId) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
-    const resp = await dynamoClient.send(new DeleteItemCommand({ TableName: TABLE, Key: marshallItem({ inquiry_id: inquiryId }), ReturnValues: 'ALL_OLD' }));
+    const resp = await dynamoClient.send(new DeleteItemCommand({ TableName: TABLE, Key: marshall({ inquiry_id: inquiryId }), ReturnValues: 'ALL_OLD' }));
     const old = resp.Attributes;
     if (!old) throw new Error('Inquiry not found');
-    const u = unmarshallItem(old);
+    const u = unmarshall(old);
     return { id: u.inquiry_id, ...u };
   }
 
@@ -240,4 +206,63 @@ export async function deleteInquiry(inquiryId) {
   if (index === -1) throw new Error('Inquiry not found');
   const [deleted] = inquiries.splice(index, 1);
   return deleted;
+}
+
+export async function updateInquiryStatus(inquiryId, status) {
+  return updateInquiry(inquiryId, { status });
+}
+
+export async function addCommunication(inquiryId, communication) {
+  const inquiry = await getInquiryById(inquiryId);
+  if (!inquiry) throw new Error('Inquiry not found');
+  
+  const communications = inquiry.communications || [];
+  communications.push({
+    ...communication,
+    timestamp: new Date().toISOString()
+  });
+
+  return updateInquiry(inquiryId, { communications });
+}
+
+export async function scheduleMeeting(inquiryId, meetingDetails) {
+  const inquiry = await getInquiryById(inquiryId);
+  if (!inquiry) throw new Error('Inquiry not found');
+
+  const { date, time, location, organizerId } = meetingDetails;
+
+  const meetingObj = {
+    date,
+    time,
+    location,
+    organizerId,
+    timestamp: new Date().toISOString()
+  };
+
+  // Update DB
+  await updateInquiry(inquiryId, {
+    status: 'Meeting Scheduled',
+    meetingDetails: meetingObj,
+  });
+
+  // Provision on Calendar
+  try {
+     await createCalendarEntry(organizerId, {
+       title: `Meeting for Inquiry: ${inquiry.firstName} ${inquiry.lastName}`,
+       description: `Meeting at ${location} regarding ${inquiry.eventType}. Time: ${time}`,
+       date: date,
+       type: 'Meeting'
+     });
+  } catch(e) {
+     console.error('Error creating calendar entry for meeting:', e.message);
+  }
+
+  // Auto-send email to guest
+  try {
+     await sendMeetingInviteEmail(inquiry, meetingObj);
+  } catch(e) {
+     console.error('Error dispatching meeting invite email:', e.message);
+  }
+
+  return getInquiryById(inquiryId);
 }
