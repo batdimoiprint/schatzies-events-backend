@@ -12,6 +12,7 @@ if (isDev) {
 }
 
 export const DYNAMO_TABLE = process.env.AWS_DYNAMO_TABLE;
+export const DASHBOARD_ANALYTICS_TABLE = process.env.AWS_DASHBOARD_ANALYTICS_TABLE || DYNAMO_TABLE;
 const dynamoClient = new DynamoDBClient(dynamoConfig);
 
 export default dynamoClient;

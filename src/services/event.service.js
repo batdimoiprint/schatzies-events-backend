@@ -7,6 +7,10 @@ import {
   DeleteItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+import {
+  updateKPIAnalytics,
+  updateStatusAnalytics,
+} from './dashboardAnalytics.service.js';
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -294,6 +298,11 @@ export async function createEvent(eventData, clientId) {
   });
 
   await dynamoClient.send(command);
+  await updateKPIAnalytics({
+    ...eventPayload,
+    status: eventPayload.status || 'PLANNING',
+  });
+
   return mapDynamoEvent(buildDynamoEventItem(eventPayload));
 }
 
@@ -327,6 +336,11 @@ export async function updateEvent(eventId, updateData) {
   });
 
   await dynamoClient.send(command);
+
+  if (normalizeString(existingEvent.status).toUpperCase() !== normalizeString(mergedEvent.status).toUpperCase()) {
+    await updateStatusAnalytics(existingEvent.status, mergedEvent.status, mergedEvent);
+  }
+
   return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
 }
 

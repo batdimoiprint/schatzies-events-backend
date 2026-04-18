@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { getEventById } from './event.service.js';
+import { updateVendorSnapshot } from './dashboardAnalytics.service.js';
 
 const vendors = [];
 
@@ -8,7 +9,7 @@ export async function createVendor(vendorData) {
     throw new Error('Invalid vendor data');
   }
 
-  const { name, serviceType, eventId, contactEmail, contactPhone } = vendorData;
+  const { name, serviceType, eventId, contactEmail, contactPhone, status } = vendorData;
 
   if (!name || !serviceType || !eventId) {
     throw new Error('name, serviceType and eventId are required');
@@ -19,6 +20,7 @@ export async function createVendor(vendorData) {
     throw new Error('Associated event not found');
   }
 
+  const normalizedStatus = status ? String(status).trim().toLowerCase() : 'inactive';
   const newVendor = {
     id: randomUUID(),
     name,
@@ -26,11 +28,17 @@ export async function createVendor(vendorData) {
     eventId,
     contactEmail: contactEmail || '',
     contactPhone: contactPhone || '',
+    status: normalizedStatus,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
   vendors.push(newVendor);
+
+  if (normalizedStatus === 'active') {
+    await updateVendorSnapshot(newVendor.id, true);
+  }
+
   return newVendor;
 }
 
@@ -65,7 +73,7 @@ export async function updateVendor(vendorId, updateData) {
   }
 
   const existingVendor = vendors[index];
-  const { name, serviceType, eventId, contactEmail, contactPhone } = updateData;
+  const { name, serviceType, eventId, contactEmail, contactPhone, status } = updateData;
 
   if (eventId !== undefined && eventId !== existingVendor.eventId) {
     const event = await getEventById(eventId);
@@ -73,6 +81,9 @@ export async function updateVendor(vendorId, updateData) {
       throw new Error('Associated event not found');
     }
   }
+
+  const normalizedStatus =
+    status !== undefined ? String(status).trim().toLowerCase() : existingVendor.status;
 
   const updatedVendor = {
     ...existingVendor,
@@ -84,10 +95,21 @@ export async function updateVendor(vendorId, updateData) {
       contactEmail !== undefined ? contactEmail : existingVendor.contactEmail,
     contactPhone:
       contactPhone !== undefined ? contactPhone : existingVendor.contactPhone,
+    status: normalizedStatus,
     updatedAt: new Date().toISOString(),
   };
 
   vendors[index] = updatedVendor;
+
+  if (existingVendor.status !== normalizedStatus) {
+    const wasActive = existingVendor.status === 'active';
+    const nowActive = normalizedStatus === 'active';
+
+    if (wasActive !== nowActive) {
+      await updateVendorSnapshot(updatedVendor.id, nowActive);
+    }
+  }
+
   return updatedVendor;
 }
 

@@ -18,6 +18,7 @@ const swaggerSpec = swaggerJsdoc({
       { name: 'Auth', description: 'Authentication and session endpoints' },
       { name: 'Events', description: 'Event management endpoints' },
       { name: 'Calendar', description: 'Calendar and scheduling endpoints' },
+      { name: 'Dashboard', description: 'Dashboard analytics endpoints' },
       { name: 'Organizers', description: 'Organizer management endpoints' },
     ],
     components: {
@@ -534,6 +535,97 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               format: 'date-time',
               example: '2026-01-01T12:00:00.000Z',
+            },
+          },
+        },
+        DashboardSummary: {
+          type: 'object',
+          properties: {
+            kpi: {
+              type: 'object',
+              properties: {
+                month: {
+                  type: 'object',
+                  properties: {
+                    totalEvents: { type: 'integer', example: 42 },
+                    planning: { type: 'integer', example: 12 },
+                    execution: { type: 'integer', example: 18 },
+                    completed: { type: 'integer', example: 12 },
+                    completedRevenue: { type: 'number', example: 120000 },
+                    completedProfit: { type: 'number', example: 45000 },
+                  },
+                },
+                year: {
+                  type: 'object',
+                  properties: {
+                    totalEvents: { type: 'integer', example: 152 },
+                    planning: { type: 'integer', example: 42 },
+                    execution: { type: 'integer', example: 58 },
+                    completed: { type: 'integer', example: 52 },
+                    completedRevenue: { type: 'number', example: 420000 },
+                    completedProfit: { type: 'number', example: 155000 },
+                  },
+                },
+              },
+            },
+            status: {
+              type: 'object',
+              properties: {
+                month: {
+                  type: 'object',
+                  properties: {
+                    planning: { type: 'integer', example: 12 },
+                    execution: { type: 'integer', example: 18 },
+                    completed: { type: 'integer', example: 12 },
+                    completedRevenue: { type: 'number', example: 120000 },
+                    completedProfit: { type: 'number', example: 45000 },
+                  },
+                },
+                year: {
+                  type: 'object',
+                  properties: {
+                    planning: { type: 'integer', example: 42 },
+                    execution: { type: 'integer', example: 58 },
+                    completed: { type: 'integer', example: 52 },
+                    completedRevenue: { type: 'number', example: 420000 },
+                    completedProfit: { type: 'number', example: 155000 },
+                  },
+                },
+              },
+            },
+            semiAnnual: {
+              type: 'object',
+              properties: {
+                year: { type: 'string', example: '2026' },
+                monthlyGraph: {
+                  type: 'object',
+                  additionalProperties: {
+                    type: 'number',
+                  },
+                  example: {
+                    '01': 12,
+                    '02': 14,
+                    '03': 16,
+                  },
+                },
+              },
+            },
+            upcomingEvents: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+                  title: { type: 'string', example: 'Annual Company Party' },
+                  date: { type: 'string', example: '2026-05-01' },
+                  status: { type: 'string', example: 'PLANNING' },
+                  eventId: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+                },
+              },
+            },
+            activeVendors: {
+              type: 'integer',
+              example: 28,
             },
           },
         },

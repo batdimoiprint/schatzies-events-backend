@@ -1,6 +1,7 @@
 import express from 'express';
 import authRoutes from './auth.routes.js';
 import eventRoutes from './event.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
 import calendarRoutes from './calendar.routes.js';
 import vendorRoutes from './vendor.routes.js';
 import attendeeRoutes from './attendee.routes.js';
@@ -22,6 +23,7 @@ router.get('/health', (req, res) => {
 router.use('/inquiries', inquiryRoutes);
 // Protected routes
 router.use('/events', validateTokenMiddleware, eventRoutes);
+router.use('/dashboard', validateTokenMiddleware, dashboardRoutes);
 router.use('/calendar', validateTokenMiddleware, calendarRoutes);
 router.use('/vendors', validateTokenMiddleware, vendorRoutes);
 router.use('/attendees', validateTokenMiddleware, attendeeRoutes);
