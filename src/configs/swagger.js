@@ -28,6 +28,11 @@ const swaggerSpec = swaggerJsdoc({
           in: 'cookie',
           name: 'auth_token',
         },
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
       },
       schemas: {
         Organizer: {

@@ -1,0 +1,224 @@
+import {
+  GetItemCommand,
+  QueryCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+
+const RSVP_SK_PREFIX = 'RSVP#';
+const QR_GSI_NAME = process.env.AWS_RSVP_QR_GSI_NAME || 'GSI1';
+
+function normalizeString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function buildEventPK(eventId) {
+  return `EVENT#${normalizeString(eventId)}`;
+}
+
+function buildGuestSK(guestId) {
+  return `RSVP#${normalizeString(guestId)}`;
+}
+
+function mapRsvpItem(item) {
+  if (!item) {
+    return null;
+  }
+
+  return {
+    guestId: item.SK?.S?.replace(`${RSVP_SK_PREFIX}`, '') || '',
+    guestfirstName: item.guestfirstName?.S || '',
+    guestmiddleName: item.guestmiddleName?.S || '',
+    guestlastName: item.guestlastName?.S || '',
+    message: item.message?.S || '',
+    status: item.status?.S || '',
+    timestamp: item.timestamp?.S || '',
+    qrCode: item.qrCode?.S || '',
+    isScanned: item.isScanned?.BOOL || false,
+    checkedInAt: item.checkedInAt?.S || null,
+    eventId: item.eventId?.S || '',
+  };
+}
+
+function isAttending(status) {
+  return normalizeString(status).toUpperCase() === 'ATTENDING';
+}
+
+async function queryRsvpsForEvent(eventId, options = {}) {
+  const params = {
+    TableName: DYNAMO_TABLE,
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+    ExpressionAttributeValues: {
+      ':pk': { S: buildEventPK(eventId) },
+      ':skPrefix': { S: RSVP_SK_PREFIX },
+      ...options.ExpressionAttributeValues,
+    },
+  };
+
+  if (options.FilterExpression) {
+    params.FilterExpression = options.FilterExpression;
+    params.ExpressionAttributeNames = options.ExpressionAttributeNames;
+  }
+
+  const response = await dynamoClient.send(new QueryCommand(params));
+  return (response.Items || []).map(mapRsvpItem).filter(Boolean);
+}
+
+export async function getAttendingGuests(eventId) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+
+  return queryRsvpsForEvent(eventId, {
+    FilterExpression: '#status = :attending',
+    ExpressionAttributeNames: {
+      '#status': 'status',
+    },
+    ExpressionAttributeValues: {
+      ':attending': { S: 'ATTENDING' },
+    },
+  });
+}
+
+export async function getHeadcount(eventId) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+
+  const rsvps = await queryRsvpsForEvent(eventId);
+  let expectedGuests = 0;
+  let currentHeadcount = 0;
+
+  for (const item of rsvps) {
+    if (isAttending(item.status)) {
+      expectedGuests += 1;
+      if (item.isScanned) {
+        currentHeadcount += 1;
+      }
+    }
+  }
+
+  return { expectedGuests, currentHeadcount };
+}
+
+export async function getRsvpByGuestId(eventId, guestId) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+  if (!normalizeString(guestId)) {
+    throw new Error('Guest ID is required');
+  }
+
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: buildEventPK(eventId) },
+      SK: { S: buildGuestSK(guestId) },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapRsvpItem(response.Item);
+}
+
+async function getRsvpByQrCodeUsingGsi(eventId, qrCode) {
+  const params = {
+    TableName: DYNAMO_TABLE,
+    IndexName: QR_GSI_NAME,
+    KeyConditionExpression: '#qrCode = :qrCode AND #eventId = :eventId',
+    ExpressionAttributeNames: {
+      '#qrCode': 'qrCode',
+      '#eventId': 'eventId',
+    },
+    ExpressionAttributeValues: {
+      ':qrCode': { S: normalizeString(qrCode) },
+      ':eventId': { S: normalizeString(eventId) },
+    },
+    Limit: 1,
+  };
+
+  const response = await dynamoClient.send(new QueryCommand(params));
+  return mapRsvpItem(response.Items?.[0]);
+}
+
+export async function findRsvpByQrCode(eventId, qrCode) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+  if (!normalizeString(qrCode)) {
+    throw new Error('QR code is required');
+  }
+
+  try {
+    return await getRsvpByQrCodeUsingGsi(eventId, qrCode);
+  } catch (error) {
+    if (
+      error.name === 'ValidationException' ||
+      error.name === 'ResourceNotFoundException' ||
+      error.name === 'UnknownOperationException'
+    ) {
+      const items = await queryRsvpsForEvent(eventId, {
+        FilterExpression: '#qrCode = :qrCode',
+        ExpressionAttributeNames: {
+          '#qrCode': 'qrCode',
+        },
+        ExpressionAttributeValues: {
+          ':qrCode': { S: normalizeString(qrCode) },
+        },
+      });
+      return items[0] || null;
+    }
+    throw error;
+  }
+}
+
+export async function checkInRsvpGuest(eventId, guestId) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+  if (!normalizeString(guestId)) {
+    throw new Error('Guest ID is required');
+  }
+
+  const now = new Date().toISOString();
+  const params = {
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: buildEventPK(eventId) },
+      SK: { S: buildGuestSK(guestId) },
+    },
+    UpdateExpression: 'SET isScanned = :true, checkedInAt = :now, #timestamp = :now',
+    ConditionExpression: '#status = :attending AND isScanned = :false',
+    ExpressionAttributeNames: {
+      '#status': 'status',
+      '#timestamp': 'timestamp',
+    },
+    ExpressionAttributeValues: {
+      ':true': { BOOL: true },
+      ':false': { BOOL: false },
+      ':attending': { S: 'ATTENDING' },
+      ':now': { S: now },
+    },
+    ReturnValues: 'ALL_NEW',
+  };
+
+  try {
+    const response = await dynamoClient.send(new UpdateItemCommand(params));
+    return mapRsvpItem(response.Attributes);
+  } catch (error) {
+    if (error.name === 'ConditionalCheckFailedException') {
+      const existing = await getRsvpByGuestId(eventId, guestId);
+      if (!existing) {
+        throw new Error('Guest not found');
+      }
+      if (existing.isScanned) {
+        throw new Error('Already checked in');
+      }
+      if (!isAttending(existing.status)) {
+        throw new Error('Guest is not attending');
+      }
+      throw new Error('Unable to check in guest');
+    }
+    throw error;
+  }
+}
