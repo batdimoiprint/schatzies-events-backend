@@ -17,6 +17,7 @@ const swaggerSpec = swaggerJsdoc({
     tags: [
       { name: 'Auth', description: 'Authentication and session endpoints' },
       { name: 'Events', description: 'Event management endpoints' },
+      { name: 'Calendar', description: 'Calendar and scheduling endpoints' },
       { name: 'Organizers', description: 'Organizer management endpoints' },
     ],
     components: {
@@ -307,6 +308,440 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: '550e8400-e29b-41d4-a716-446655440001',
             },
+          },
+        },
+        Task: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824',
+            },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            title: {
+              type: 'string',
+              example: 'Confirm venue layout',
+            },
+            description: {
+              type: 'string',
+              example: 'Review and confirm the seating layout with the venue coordinator.',
+            },
+            status: {
+              type: 'string',
+              example: 'TODO',
+            },
+            order: {
+              type: 'integer',
+              example: 1,
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-05-01T10:00:00.000Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2025-05-01T10:00:00.000Z',
+            },
+          },
+        },
+        TaskRequest: {
+          type: 'object',
+          required: ['title'],
+          properties: {
+            title: {
+              type: 'string',
+              example: 'Confirm venue layout',
+            },
+            description: {
+              type: 'string',
+              example: 'Review and confirm the seating layout with the venue coordinator.',
+            },
+          },
+        },
+        TaskUpdateRequest: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'string',
+              example: 'Confirm venue layout',
+            },
+            description: {
+              type: 'string',
+              example: 'Review and confirm the seating layout with the venue coordinator.',
+            },
+          },
+        },
+        MoveTaskRequest: {
+          type: 'object',
+          required: ['newStatus', 'newOrder'],
+          properties: {
+            newStatus: {
+              type: 'string',
+              enum: ['TODO', 'IN_PROGRESS', 'COMPLETED'],
+              example: 'IN_PROGRESS',
+            },
+            newOrder: {
+              type: 'integer',
+              example: 1,
+            },
+          },
+        },
+        EventStatusRequest: {
+          type: 'object',
+          required: ['status'],
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['PLANNING', 'EXECUTION', 'COMPLETED'],
+              example: 'EXECUTION',
+            },
+          },
+        },
+        ConfirmEventRequest: {
+          type: 'object',
+          required: ['event_date', 'venue'],
+          properties: {
+            event_date: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T09:00:00.000Z',
+            },
+            venue: {
+              type: 'string',
+              example: 'Grand Ballroom',
+            },
+            notes: {
+              type: 'string',
+              example: 'Client requested a pink flower arrangement.',
+            },
+          },
+        },
+        CalendarCreateRequest: {
+          type: 'object',
+          required: ['title', 'date', 'type'],
+          properties: {
+            title: {
+              type: 'string',
+              example: 'Client Meeting',
+            },
+            description: {
+              type: 'string',
+              example: 'Discuss event flow',
+            },
+            date: {
+              type: 'string',
+              example: '2026-01-03',
+            },
+            type: {
+              type: 'string',
+              enum: ['REMINDER', 'MEETING', 'TASK'],
+              example: 'MEETING',
+            },
+            eventId: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+          },
+        },
+        CalendarUpdateRequest: {
+          type: 'object',
+          properties: {
+            title: {
+              type: 'string',
+              example: 'Client Meeting',
+            },
+            description: {
+              type: 'string',
+              example: 'Discuss event flow',
+            },
+            date: {
+              type: 'string',
+              example: '2026-01-03',
+            },
+            type: {
+              type: 'string',
+              enum: ['REMINDER', 'MEETING', 'TASK'],
+              example: 'MEETING',
+            },
+            eventId: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+          },
+        },
+        CalendarMarkDateRequest: {
+          type: 'object',
+          required: ['date', 'type'],
+          properties: {
+            date: {
+              type: 'string',
+              example: '2026-01-10',
+            },
+            type: {
+              type: 'string',
+              enum: ['REMINDER', 'MEETING', 'TASK'],
+              example: 'REMINDER',
+            },
+            title: {
+              type: 'string',
+              example: 'Reminder for venue deposit',
+            },
+            description: {
+              type: 'string',
+              example: 'Pay venue deposit before the due date',
+            },
+          },
+        },
+        CalendarEntry: {
+          type: 'object',
+          properties: {
+            entryId: {
+              type: 'string',
+              example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824',
+            },
+            title: {
+              type: 'string',
+              example: 'Client Meeting',
+            },
+            description: {
+              type: 'string',
+              example: 'Discuss event flow',
+            },
+            date: {
+              type: 'string',
+              example: '2026-01-03',
+            },
+            type: {
+              type: 'string',
+              enum: ['REMINDER', 'MEETING', 'TASK'],
+              example: 'MEETING',
+            },
+            eventId: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-01-01T12:00:00.000Z',
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-01-01T12:00:00.000Z',
+            },
+          },
+        },
+        AllocationRequest: {
+          type: 'object',
+          properties: {
+            vendors: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'vendor-123' },
+                  name: { type: 'string', example: 'Floral Design Co.' },
+                },
+              },
+            },
+            manpower: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'staff-123' },
+                  role: { type: 'string', example: 'usher' },
+                },
+              },
+            },
+            supplies: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'supply-123' },
+                  item: { type: 'string', example: 'Decorative lights' },
+                  quantity: { type: 'integer', example: 10 },
+                },
+              },
+            },
+            theme: {
+              type: 'string',
+              example: 'Modern Minimalist',
+            },
+            flow_type: {
+              type: 'string',
+              example: 'Cocktail Reception',
+            },
+            food_package: {
+              type: 'string',
+              example: 'Buffet Deluxe',
+            },
+          },
+        },
+        Allocation: {
+          type: 'object',
+          properties: {
+            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            vendors: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'vendor-123' },
+                  name: { type: 'string', example: 'Floral Design Co.' },
+                },
+              },
+            },
+            manpower: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'staff-123' },
+                  role: { type: 'string', example: 'usher' },
+                },
+              },
+            },
+            supplies: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: 'supply-123' },
+                  item: { type: 'string', example: 'Decorative lights' },
+                  quantity: { type: 'integer', example: 10 },
+                },
+              },
+            },
+            theme: { type: 'string', example: 'Modern Minimalist' },
+            flow_type: { type: 'string', example: 'Cocktail Reception' },
+            food_package: { type: 'string', example: 'Buffet Deluxe' },
+            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+          },
+        },
+        PrecheckRequest: {
+          type: 'object',
+          required: ['venue_secured', 'vendors_ready', 'manpower_ready', 'supplies_ready'],
+          properties: {
+            venue_secured: { type: 'boolean', example: true },
+            vendors_ready: { type: 'boolean', example: true },
+            manpower_ready: { type: 'boolean', example: true },
+            supplies_ready: { type: 'boolean', example: true },
+            remarks: { type: 'string', example: 'All pre-event items are ready.' },
+          },
+        },
+        Precheck: {
+          type: 'object',
+          properties: {
+            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            venue_secured: { type: 'boolean', example: true },
+            vendors_ready: { type: 'boolean', example: true },
+            manpower_ready: { type: 'boolean', example: true },
+            supplies_ready: { type: 'boolean', example: true },
+            remarks: { type: 'string', example: 'All pre-event items are ready.' },
+            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+          },
+        },
+        ProgramFlowRequest: {
+          type: 'object',
+          required: ['title', 'start_time', 'end_time'],
+          properties: {
+            title: { type: 'string', example: 'Opening Ceremony' },
+            description: { type: 'string', example: 'Live band performance and welcome remarks.' },
+            start_time: { type: 'string', format: 'date-time', example: '2026-05-01T09:00:00.000Z' },
+            end_time: { type: 'string', format: 'date-time', example: '2026-05-01T10:00:00.000Z' },
+          },
+        },
+        UpdateProgramFlowRequest: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', example: 'Opening Ceremony' },
+            description: { type: 'string', example: 'Live band performance and welcome remarks.' },
+            start_time: { type: 'string', format: 'date-time', example: '2026-05-01T09:00:00.000Z' },
+            end_time: { type: 'string', format: 'date-time', example: '2026-05-01T10:00:00.000Z' },
+          },
+        },
+        ProgramFlow: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824' },
+            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            title: { type: 'string', example: 'Opening Ceremony' },
+            description: { type: 'string', example: 'Live band performance and welcome remarks.' },
+            start_time: { type: 'string', format: 'date-time', example: '2026-05-01T09:00:00.000Z' },
+            end_time: { type: 'string', format: 'date-time', example: '2026-05-01T10:00:00.000Z' },
+            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+          },
+        },
+        TimelineTaskRequest: {
+          type: 'object',
+          required: ['task_name', 'scheduled_time'],
+          properties: {
+            task_name: { type: 'string', example: 'Set up stage lighting' },
+            scheduled_time: { type: 'string', format: 'date-time', example: '2026-05-01T08:00:00.000Z' },
+            is_completed: { type: 'boolean', example: false },
+          },
+        },
+        UpdateTimelineTaskRequest: {
+          type: 'object',
+          properties: {
+            task_name: { type: 'string', example: 'Set up stage lighting' },
+            scheduled_time: { type: 'string', format: 'date-time', example: '2026-05-01T08:00:00.000Z' },
+            is_completed: { type: 'boolean', example: true },
+          },
+        },
+        TimelineTask: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824' },
+            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            task_name: { type: 'string', example: 'Set up stage lighting' },
+            scheduled_time: { type: 'string', format: 'date-time', example: '2026-05-01T08:00:00.000Z' },
+            is_completed: { type: 'boolean', example: false },
+            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+          },
+        },
+        ResourceStatusRequest: {
+          type: 'object',
+          required: ['assignee_type', 'assignee_id', 'assignee_name', 'status'],
+          properties: {
+            assignee_type: { type: 'string', enum: ['vendor', 'manpower'], example: 'vendor' },
+            assignee_id: { type: 'string', example: 'vendor-123' },
+            assignee_name: { type: 'string', example: 'Floral Design Co.' },
+            status: { type: 'string', enum: ['pending', 'onsite', 'late'], example: 'pending' },
+          },
+        },
+        UpdateResourceStatusRequest: {
+          type: 'object',
+          properties: {
+            assignee_type: { type: 'string', enum: ['vendor', 'manpower'], example: 'vendor' },
+            assignee_id: { type: 'string', example: 'vendor-123' },
+            assignee_name: { type: 'string', example: 'Floral Design Co.' },
+            status: { type: 'string', enum: ['pending', 'onsite', 'late'], example: 'onsite' },
+          },
+        },
+        ResourceStatus: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824' },
+            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            assignee_type: { type: 'string', example: 'vendor' },
+            assignee_id: { type: 'string', example: 'vendor-123' },
+            assignee_name: { type: 'string', example: 'Floral Design Co.' },
+            status: { type: 'string', example: 'pending' },
+            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
           },
         },
       },

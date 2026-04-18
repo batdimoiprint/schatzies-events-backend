@@ -12,6 +12,8 @@ import {
   getOrganizerById as getOrganizerByIdService,
   getOrganizersByIds as getOrganizersByIdsService,
 } from '../services/organizer.service.js';
+import { findUserByUserId as getUserByUserIdService } from '../services/users.service.js';
+import { getEventsByFilter as getEventsByFilterService, getTasksByEventId as getTasksByEventIdService } from '../services/eventPlanner.service.js';
 
 export async function createEvent(req, res) {
   try {
@@ -96,7 +98,10 @@ export async function sendEventMessage(req, res) {
 
 export async function getEvents(req, res) {
   try {
-    const events = await getEventsService();
+    const filter = req.query.filter;
+    const events = filter
+      ? await getEventsByFilterService(filter)
+      : await getEventsService();
     return res.status(200).json({ events });
   } catch (error) {
     const message =
@@ -113,6 +118,19 @@ export async function getEventById(req, res) {
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
+
+    const client = event.clientId ? await getUserByUserIdService(event.clientId) : null;
+    const tasks = await getTasksByEventIdService(id);
+    const groupedTasks = { TODO: [], IN_PROGRESS: [], COMPLETED: [] };
+    tasks.forEach((task) => {
+      if (!groupedTasks[task.status]) {
+        groupedTasks[task.status] = [];
+      }
+      groupedTasks[task.status].push(task);
+    });
+    const totalTasks = tasks.length;
+    const completedTasks = groupedTasks.COMPLETED.length;
+    const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
     const vendors = await getVendorsByEventIdService(id);
     const attendees = await getAttendeesByEventIdService(id);
@@ -153,13 +171,36 @@ export async function getEventById(req, res) {
         };
       });
 
+    const organizerName = headOrganizer
+      ? `${headOrganizer.firstName || ''} ${headOrganizer.lastName || ''}`.trim()
+      : '';
+    const clientName = client
+      ? `${client.firstName || ''} ${client.lastName || ''}`.trim()
+      : '';
+
     return res.status(200).json({
       event: {
         ...event,
+        eventTitle: event.title || '',
+        dateStart: event.startDate || event.eventDate || '',
+        dateEnd: event.endDate || '',
+        organizerName,
+        clientName,
+        clientEmail: client?.email || '',
+        eventType: event.eventType || '',
+        package: {
+          name: event.eventPackage || '',
+          pax: event.eventPax || 0,
+        },
+        venue: event.venue || '',
+        clientMessage: event.notes || '',
+        assignedVendors: vendors,
+        attendees,
+        status: event.status || '',
+        progress,
+        tasks: groupedTasks,
         headOrganizer,
         workerOrganizers,
-        vendors,
-        attendees,
         headcount: {
           expectedAttendee,
           arrivedAttendee,

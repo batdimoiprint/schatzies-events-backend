@@ -12,6 +12,7 @@ const __dirname = dirname(__filename);
 import corsMiddleware from './configs/cors.js';
 import { configureHelmet } from './configs/helmet.js';
 import { apiLimiter } from './configs/rate-limit.js';
+import errorHandler from './middleware/error.middleware.js';
 
 const app = express();
 
@@ -35,10 +36,14 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api', routes);
+
 // 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
+
+// Error handler
+app.use(errorHandler);
 
 // Export for serverless-http
 export default app;

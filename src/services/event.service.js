@@ -58,6 +58,9 @@ function mapDynamoEvent(item) {
     title: item.title?.S || '',
     description: item.description?.S || '',
     location: item.location?.S || '',
+    venue: item.venue?.S || '',
+    notes: item.notes?.S || '',
+    confirmedBy: item.confirmedBy?.S || '',
     startDate: item.startDate?.S || '',
     endDate: item.endDate?.S || '',
     headOrganizerId: item.user_id?.S || '',
@@ -183,6 +186,21 @@ function buildDynamoEventItem(payload) {
   const location = buildStringAttribute(payload.location);
   if (location) {
     item.location = location;
+  }
+
+  const venue = buildStringAttribute(payload.venue);
+  if (venue) {
+    item.venue = venue;
+  }
+
+  const notes = buildStringAttribute(payload.notes);
+  if (notes) {
+    item.notes = notes;
+  }
+
+  const confirmedBy = buildStringAttribute(payload.confirmedBy || payload.confirmed_by);
+  if (confirmedBy) {
+    item.confirmedBy = confirmedBy;
   }
 
   const startDate = buildStringAttribute(payload.startDate);
