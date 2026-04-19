@@ -23,23 +23,28 @@ function mapDynamoVendor(item) {
     return null;
   }
 
+  const vendorName = item.vendorName?.S || item.name?.S || '';
+  const contactNumber = item.contactNumber?.S || item.contactPhone?.S || '';
+  const email = item.email?.S || item.contactEmail?.S || '';
+  const availabilityStatus = item.availabilityStatus?.S || item.status?.S || 'inactive';
+
   return {
     id: item.PK?.S?.replace('VENDOR#', '') || '',
-    vendorName: item.vendorName?.S || '',
+    vendorName,
     contactPerson: item.contactPerson?.S || '',
-    contactNumber: item.contactNumber?.S || '',
-    email: item.email?.S || '',
+    contactNumber,
+    email,
     typeOfSupply: item.typeOfSupply?.S || '',
     servicesOffered: item.servicesOffered?.S || '',
     pricing: item.pricing?.S || '',
     serviceType: item.serviceType?.S || '',
     price: item.price?.N ? Number(item.price.N) : null,
-    availabilityStatus: item.availabilityStatus?.S || 'inactive',
+    availabilityStatus,
     lastEventHandled: item.lastEventHandled?.S || '',
     notes: item.notes?.S || '',
     eventId: item.eventId?.S || undefined,
-    createdAt: item.created_at?.S || '',
-    updatedAt: item.updated_at?.S || '',
+    createdAt: item.created_at?.S || item.createdAt?.S || '',
+    updatedAt: item.updated_at?.S || item.updatedAt?.S || '',
   };
 }
 
@@ -126,12 +131,14 @@ export async function createVendor(vendorData) {
 export async function getVendors(eventId) {
   const params = {
     TableName: DYNAMO_TABLE,
-    FilterExpression: '#sk = :profile',
+    FilterExpression: '#sk = :profile AND begins_with(#pk, :vendorPrefix)',
     ExpressionAttributeNames: {
       '#sk': 'SK',
+      '#pk': 'PK',
     },
     ExpressionAttributeValues: {
       ':profile': { S: 'PROFILE' },
+      ':vendorPrefix': { S: 'VENDOR#' },
     },
   };
 
