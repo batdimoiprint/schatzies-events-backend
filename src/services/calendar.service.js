@@ -15,16 +15,11 @@ function mapCalendarItem(item) {
   }
 
   return {
-    id: item.entryId?.S || item.SK?.S?.replace('CALENDAR#', '') || '',
+    entryId: item.entryId?.S || item.SK?.S?.replace('CALENDAR#', '') || '',
     title: item.title?.S || '',
     description: item.description?.S || '',
-    startDateKey: item.date?.S || '',
-    endDateKey: item.endDateKey?.S || item.date?.S || '',
-    startTime: item.startTime?.S || '09:00',
-    endTime: item.endTime?.S || '10:00',
-    label: item.type?.S || 'Task',
-    location: item.location?.S || '',
-    eventType: item.eventType?.S || 'General',
+    date: item.date?.S || '',
+    type: item.type?.S || '',
     eventId: item.eventId?.S || null,
     createdAt: item.createdAt?.S || '',
     updatedAt: item.updatedAt?.S || '',
@@ -34,7 +29,7 @@ function mapCalendarItem(item) {
 function groupEntriesByDate(entries) {
   return Object.values(
     entries.reduce((groups, entry) => {
-      const dateKey = entry.startDateKey || '';
+      const dateKey = entry.date || '';
       if (!groups[dateKey]) {
         groups[dateKey] = { date: dateKey, entries: [] };
       }
@@ -55,6 +50,13 @@ function buildQueryFilters(filters) {
     values[':type'] = { S: filters.type };
   }
 
+  if (filters.startDate && filters.endDate) {
+    expressionParts.push('#date BETWEEN :startDate AND :endDate');
+    names['#date'] = 'date';
+    values[':startDate'] = { S: filters.startDate };
+    values[':endDate'] = { S: filters.endDate };
+  }
+
   const FilterExpression = expressionParts.length ? expressionParts.join(' AND ') : undefined;
 
   return {
@@ -73,13 +75,8 @@ export async function createCalendarEntry(userId, payload) {
     entryId: { S: entryId },
     title: { S: normalizeString(payload.title) },
     description: { S: normalizeString(payload.description || '') },
-    date: { S: normalizeString(payload.startDateKey || payload.date) },
-    endDateKey: { S: normalizeString(payload.endDateKey || payload.date) },
-    startTime: { S: normalizeString(payload.startTime || '09:00') },
-    endTime: { S: normalizeString(payload.endTime || '10:00') },
-    location: { S: normalizeString(payload.location || '') },
-    eventType: { S: normalizeString(payload.eventType || 'General') },
-    type: { S: normalizeString(payload.label || payload.type || 'Task') },
+    date: { S: normalizeString(payload.date) },
+    type: { S: normalizeString(payload.type) },
     createdAt: { S: now },
     updatedAt: { S: now },
   };

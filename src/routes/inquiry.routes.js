@@ -165,35 +165,6 @@ router.put('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), u
 router.delete('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), deleteInquiryController);
 
 // Phase 2 Routes (Admin/Organizer protected)
-/**
- * @swagger
- * /api/inquiries/{id}/status:
- *   patch:
- *     summary: Update inquiry status
- *     tags: [Inquiries]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - status
- *             properties:
- *               status:
- *                 type: string
- *     responses:
- *       200:
- *         description: Status updated
- *       404:
- *         description: Inquiry not found
- */
 router.patch('/:id/status', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryStatusController);
 router.post('/:id/communications', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), addInquiryCommunicationController);
 router.post('/:id/meeting', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), scheduleMeetingController);
