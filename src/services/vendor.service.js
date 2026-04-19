@@ -57,19 +57,37 @@ function buildDynamoVendorItem(payload) {
     PK: { S: `VENDOR#${vendorId}` },
     SK: { S: 'PROFILE' },
     vendorName: { S: normalizeString(payload.vendorName || payload.name || '') },
-    contactPerson: { S: normalizeString(payload.contactPerson || payload.contactName || '') },
-    contactNumber: { S: normalizeString(payload.contactNumber || payload.phone || payload.contactPhone || '') },
-    email: { S: normalizeString(payload.email || payload.contactEmail || '') },
-    typeOfSupply: { S: normalizeString(payload.typeOfSupply || payload.supplyType || '') },
-    servicesOffered: { S: normalizeString(payload.servicesOffered || payload.services || '') },
-    pricing: { S: normalizeString(payload.pricing || '') },
-    serviceType: { S: normalizeString(payload.serviceType || '') },
     availabilityStatus: { S: normalizeString(payload.availabilityStatus || payload.status || 'inactive') },
-    lastEventHandled: { S: normalizeString(payload.lastEventHandled || '') },
-    notes: { S: normalizeString(payload.notes || '') },
     created_at: { S: createdAt },
     updated_at: { S: updatedAt },
   };
+
+  const contactPerson = normalizeString(payload.contactPerson || payload.contactName);
+  if (contactPerson) item.contactPerson = { S: contactPerson };
+
+  const contactNumber = normalizeString(payload.contactNumber || payload.phone || payload.contactPhone);
+  if (contactNumber) item.contactNumber = { S: contactNumber };
+
+  const email = normalizeString(payload.email || payload.contactEmail);
+  if (email) item.email = { S: email };
+
+  const typeOfSupply = normalizeString(payload.typeOfSupply || payload.supplyType);
+  if (typeOfSupply) item.typeOfSupply = { S: typeOfSupply };
+
+  const servicesOffered = normalizeString(payload.servicesOffered || payload.services);
+  if (servicesOffered) item.servicesOffered = { S: servicesOffered };
+
+  const pricing = normalizeString(payload.pricing);
+  if (pricing) item.pricing = { S: pricing };
+
+  const serviceType = normalizeString(payload.serviceType);
+  if (serviceType) item.serviceType = { S: serviceType };
+
+  const lastEventHandled = normalizeString(payload.lastEventHandled);
+  if (lastEventHandled) item.lastEventHandled = { S: lastEventHandled };
+
+  const notes = normalizeString(payload.notes);
+  if (notes) item.notes = { S: notes };
 
   if (payload.price !== undefined && payload.price !== null && !Number.isNaN(Number(payload.price))) {
     item.price = { N: String(Number(payload.price)) };
