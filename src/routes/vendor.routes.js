@@ -6,6 +6,7 @@ import {
   updateVendor,
   deleteVendor,
   getVendorsByEventId,
+  assignVendorToEvent,
 } from '../controllers/vendor.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 
@@ -17,7 +18,7 @@ const router = express.Router();
  *   post:
  *     tags:
  *       - Vendors
- *     summary: Create a new vendor for an event
+ *     summary: Create a new vendor
  *     requestBody:
  *       required: true
  *       content:
@@ -25,20 +26,36 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               vendorName:
+ *                 type: string
+ *               contactPerson:
+ *                 type: string
+ *               contactNumber:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               typeOfSupply:
+ *                 type: string
+ *               servicesOffered:
+ *                 type: string
+ *               pricing:
  *                 type: string
  *               serviceType:
  *                 type: string
+ *               price:
+ *                 type: number
+ *               availabilityStatus:
+ *                 type: string
+ *               lastEventHandled:
+ *                 type: string
+ *               notes:
+ *                 type: string
  *               eventId:
  *                 type: string
- *               contactEmail:
- *                 type: string
- *               contactPhone:
- *                 type: string
+ *                 description: Optional event assignment
  *             required:
- *               - name
+ *               - vendorName
  *               - serviceType
- *               - eventId
  *     responses:
  *       201:
  *         description: Vendor created successfully
@@ -111,16 +128,33 @@ router.get('/:id', getVendorById);
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               vendorName:
+ *                 type: string
+ *               contactPerson:
+ *                 type: string
+ *               contactNumber:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               typeOfSupply:
+ *                 type: string
+ *               servicesOffered:
+ *                 type: string
+ *               pricing:
  *                 type: string
  *               serviceType:
  *                 type: string
+ *               price:
+ *                 type: number
+ *               availabilityStatus:
+ *                 type: string
+ *               lastEventHandled:
+ *                 type: string
+ *               notes:
+ *                 type: string
  *               eventId:
  *                 type: string
- *               contactEmail:
- *                 type: string
- *               contactPhone:
- *                 type: string
+ *                 description: Optional event assignment
  *     responses:
  *       200:
  *         description: Vendor updated successfully
@@ -130,6 +164,40 @@ router.get('/:id', getVendorById);
  *         description: Vendor not found
  */
 router.put('/:id', validateTokenMiddleware, updateVendor);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/assign-event:
+ *   post:
+ *     tags:
+ *       - Vendors
+ *     summary: Assign an existing vendor to an event
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               eventId:
+ *                 type: string
+ *             required:
+ *               - eventId
+ *     responses:
+ *       200:
+ *         description: Vendor assigned successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Vendor or event not found
+ */
+router.post('/:id/assign-event', validateTokenMiddleware, assignVendorToEvent);
 
 /**
  * @swagger
@@ -156,14 +224,14 @@ router.delete('/:id', validateTokenMiddleware, deleteVendor);
 
 /**
  * @swagger
- * /api/events/{id}/vendors:
+ * /api/vendors/event/{eventId}:
  *   get:
  *     tags:
  *       - Vendors
  *     summary: Retrieve all vendors assigned to an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -173,6 +241,6 @@ router.delete('/:id', validateTokenMiddleware, deleteVendor);
  *       500:
  *         description: Server error
  */
-router.get('/event/:id', getVendorsByEventId);
+router.get('/event/:eventId', getVendorsByEventId);
 
 export default router;
