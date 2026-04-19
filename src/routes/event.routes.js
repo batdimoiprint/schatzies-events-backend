@@ -581,18 +581,12 @@ router.get('/:id/program-flow', getProgramFlow);
 
 /**
  * @swagger
- * /api/events/{id}/program-flow/{flow_id}:
+ * /api/events/program-flow/{flow_id}:
  *   put:
  *     tags:
  *       - Events
  *     summary: Update a program flow entry
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Event ID
  *       - in: path
  *         name: flow_id
  *         required: true
@@ -618,22 +612,16 @@ router.get('/:id/program-flow', getProgramFlow);
  *                 flow:
  *                   $ref: '#/components/schemas/ProgramFlow'
  */
-router.put('/:id/program-flow/:flow_id', updateProgramFlow);
+router.put('/program-flow/:flow_id', updateProgramFlow);
 
 /**
  * @swagger
- * /api/events/{id}/program-flow/{flow_id}:
+ * /api/events/program-flow/{flow_id}:
  *   delete:
  *     tags:
  *       - Events
  *     summary: Delete a program flow entry
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Event ID
  *       - in: path
  *         name: flow_id
  *         required: true
@@ -651,7 +639,7 @@ router.put('/:id/program-flow/:flow_id', updateProgramFlow);
  *                 message:
  *                   type: string
  */
-router.delete('/:id/program-flow/:flow_id', deleteProgramFlow);
+router.delete('/program-flow/:flow_id', deleteProgramFlow);
 
 /**
  * @swagger
@@ -719,18 +707,12 @@ router.get('/:id/timeline', getTimelineTasks);
 
 /**
  * @swagger
- * /api/events/{id}/timeline/{task_id}:
+ * /api/events/timeline/{task_id}:
  *   put:
  *     tags:
  *       - Events
  *     summary: Update a timeline task
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Event ID
  *       - in: path
  *         name: task_id
  *         required: true
@@ -756,7 +738,7 @@ router.get('/:id/timeline', getTimelineTasks);
  *                 task:
  *                   $ref: '#/components/schemas/TimelineTask'
  */
-router.put('/:id/timeline/:task_id', updateTimelineTask);
+router.put('/timeline/:task_id', updateTimelineTask);
 
 /**
  * @swagger
@@ -954,7 +936,7 @@ router.get('/:id', getEventById);
  *       404:
  *         description: Event not found
  */
-router.get('/:id/messages', getEventMessages);
+router.get('/:id/messages', validateTokenMiddleware, getEventMessages);
 
 /**
  * @swagger
@@ -988,7 +970,7 @@ router.get('/:id/messages', getEventMessages);
  *       404:
  *         description: Event not found
  */
-router.post('/:id/messages', sendEventMessage);
+router.post('/:id/messages', validateTokenMiddleware, sendEventMessage);
 
 /**
  * @swagger
@@ -1024,7 +1006,7 @@ router.post('/:id/messages', sendEventMessage);
  *       404:
  *         description: Event not found
  */
-router.put('/:id', updateEvent);
+router.put('/:id', validateTokenMiddleware, updateEvent);
 
 /**
  * @swagger
@@ -1045,7 +1027,7 @@ router.put('/:id', updateEvent);
  *       404:
  *         description: Event not found
  */
-router.delete('/:id', deleteEvent);
+router.delete('/:id', validateTokenMiddleware, deleteEvent);
 
 /**
  * @swagger

@@ -1,6 +1,5 @@
 import {
   getAllUsers,
-  getUsersByRole,
   findUserByUserId,
   createUser,
   updateUser,
@@ -13,16 +12,6 @@ export async function getUsers(req, res) {
     return res.json({ users });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to fetch users';
-    return res.status(500).json({ error: message });
-  }
-}
-
-export async function getOrganizerUsers(req, res) {
-  try {
-    const users = await getUsersByRole('ORGANIZER');
-    return res.json({ users });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch organizers';
     return res.status(500).json({ error: message });
   }
 }

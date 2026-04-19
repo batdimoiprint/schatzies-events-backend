@@ -1,6 +1,5 @@
 import {
   createVendor as createVendorService,
-  createVendorPool as createVendorPoolService,
   getVendors as getVendorsService,
   getVendorById as getVendorByIdService,
   updateVendor as updateVendorService,
@@ -12,20 +11,6 @@ export async function createVendor(req, res) {
   try {
     const payload = req.body ?? {};
     const vendor = await createVendorService(payload);
-    return res
-      .status(201)
-      .json({ message: 'Vendor created successfully', vendor });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unable to create vendor';
-    return res.status(400).json({ error: message });
-  }
-}
-
-export async function createVendorPool(req, res) {
-  try {
-    const payload = req.body ?? {};
-    const vendor = await createVendorPoolService(payload);
     return res
       .status(201)
       .json({ message: 'Vendor created successfully', vendor });
