@@ -39,7 +39,9 @@ import {
   getRsvpList,
   getEventHeadcount,
   manualCheckIn,
+  createRsvpGuest,
 } from '../controllers/rsvp.controller.js';
+import costBreakdownRoutes from './costBreakdown.routes.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 
@@ -1037,6 +1039,53 @@ router.delete('/:eventId', validateTokenMiddleware, deleteEvent);
 /**
  * @swagger
  * /api/events/{eventId}/rsvp:
+ *   post:
+ *     tags:
+ *       - Events
+ *     summary: Create a new RSVP guest for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               guestfirstName:
+ *                 type: string
+ *               guestmiddleName:
+ *                 type: string
+ *               guestlastName:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 example: ATTENDING
+ *               qrCode:
+ *                 type: string
+ *             required:
+ *               - guestfirstName
+ *               - guestlastName
+ *     responses:
+ *       201:
+ *         description: RSVP guest created successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+router.post('/:eventId/rsvp', validateTokenMiddleware, createRsvpGuest);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/rsvp:
  *   get:
  *     tags:
  *       - Events
@@ -1054,7 +1103,6 @@ router.delete('/:eventId', validateTokenMiddleware, deleteEvent);
  *         description: Invalid event ID
  */
 router.get('/:eventId/rsvp', validateTokenMiddleware, getRsvpList);
-
 /**
  * @swagger
  * /api/events/{eventId}/rsvp/{guestId}/checkin:
@@ -1094,16 +1142,31 @@ router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualChe
  *         required: true
  *         schema:
  *           type: string
+ *         description: Event identifier
  *     responses:
  *       200:
  *         description: Current headcount and expected guest count
  *       400:
  *         description: Invalid event ID
- *
+ *       500:
+ *         description: Server error
+ */
+router.get('/:eventId/headcount', getEventHeadcount);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/vendors:
+ *   get:
+ *     tags:
+ *       - Events
+ *     summary: Get list of vendors for an event
+ *     parameters:
+ *       - in: path
  *         name: eventId
  *         required: true
  *         schema:
  *           type: string
+ *         description: Event identifier
  *     responses:
  *       200:
  *         description: List of vendors for event
@@ -1111,5 +1174,134 @@ router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualChe
  *         description: Server error
  */
 router.get('/:eventId/vendors', getVendorsByEventId);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown:
+ *   post:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Create or compute a cost breakdown for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CostBreakdownRequest'
+ *     responses:
+ *       201:
+ *         description: Cost breakdown created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 costBreakdown:
+ *                   $ref: '#/components/schemas/CostBreakdown'
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown:
+ *   get:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Retrieve the cost breakdown for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     responses:
+ *       200:
+ *         description: Cost breakdown retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 costBreakdown:
+ *                   $ref: '#/components/schemas/CostBreakdown'
+ *       404:
+ *         description: Cost breakdown not found
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown:
+ *   put:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Recalculate and update the cost breakdown for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CostBreakdownRequest'
+ *     responses:
+ *       200:
+ *         description: Cost breakdown updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 costBreakdown:
+ *                   $ref: '#/components/schemas/CostBreakdown'
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Cost breakdown not found
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown/export:
+ *   get:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Export cost breakdown data for printing or export
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     responses:
+ *       200:
+ *         description: Cost breakdown export data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 export:
+ *                   $ref: '#/components/schemas/CostBreakdownExport'
+ *       404:
+ *         description: Cost breakdown not found
+ */
+router.use('/:eventId/cost-breakdown', costBreakdownRoutes);
 
 export default router;

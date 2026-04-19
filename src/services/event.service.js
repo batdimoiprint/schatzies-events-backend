@@ -51,13 +51,19 @@ function mapDynamoEvent(item) {
   }
 
   return {
-    id: item.SK?.S?.replace('EVENT#', '') || '',
-    clientId: item.PK?.S?.replace('USER#', '') || '',
+    event_id: item.SK?.S?.replace('EVENT#', '') || '',
+    eventId: item.SK?.S?.replace('EVENT#', '') || '',
+    client_id: item.client_id?.S || item.PK?.S?.replace('USER#', '') || '',
+    organizer_id: item.organizer_id?.S || item.user_id?.S || '',
     eventType: item.eventType?.S || '',
-    eventPackage: item.eventPackage?.S || '',
+    eventPackageKey: item.eventPackageKey?.S || item.eventPackage?.S || '',
     eventPax: item.eventPax?.N ? Number(item.eventPax.N) : null,
     eventDate: item.eventDate?.S || '',
+    eventTime: item.eventTime?.S || '',
+    eventLocation: item.eventLocation?.S || item.location?.S || '',
     status: item.status?.S || '',
+    id: item.SK?.S?.replace('EVENT#', '') || '',
+    clientId: item.client_id?.S || item.PK?.S?.replace('USER#', '') || '',
     user_id: item.user_id?.S || '',
     title: item.title?.S || '',
     description: item.description?.S || '',
@@ -67,7 +73,7 @@ function mapDynamoEvent(item) {
     confirmedBy: item.confirmedBy?.S || '',
     startDate: item.startDate?.S || '',
     endDate: item.endDate?.S || '',
-    headOrganizerId: item.user_id?.S || '',
+    headOrganizerId: item.organizer_id?.S || item.user_id?.S || '',
     workerOrganizerIds: Array.isArray(item.workerOrganizerIds?.L)
       ? item.workerOrganizerIds.L.map((entry) => entry.S || '')
       : [],
@@ -107,17 +113,21 @@ function buildMessageAttribute(message) {
 }
 
 function buildDynamoEventItem(payload) {
-  const eventId = payload.id || randomUUID();
+  const eventId = payload.id || payload.eventId || randomUUID();
   const clientId = normalizeString(payload.clientId || payload.client_id || '');
 
   if (!clientId) {
     throw new Error('clientId is required');
   }
 
-  const eventDate = normalizeString(payload.eventDate || payload.startDate || '');
-  const title = normalizeString(payload.title || '');
+  const eventDate = normalizeString(payload.eventDate || '');
+  const eventTime = normalizeString(payload.eventTime || '');
+  const eventLocation = normalizeString(payload.eventLocation || payload.location || '');
+  const eventType = normalizeString(payload.eventType || '');
+  const eventPackageKey = normalizeString(payload.eventPackageKey || payload.eventPackage || '');
+  const title = normalizeString(payload.title || payload.eventTitle || '');
   const status = normalizeString(payload.status || 'Planning');
-  const userId = normalizeString(payload.user_id || payload.headOrganizerId || '');
+  const userId = normalizeString(payload.organizer_id || payload.organizerId || payload.user_id || payload.headOrganizerId || '');
   const eventPax =
     payload.eventPax !== undefined && payload.eventPax !== null
       ? Number(payload.eventPax)
@@ -146,7 +156,9 @@ function buildDynamoEventItem(payload) {
   const item = {
     PK: { S: `USER#${clientId}` },
     SK: { S: `EVENT#${eventId}` },
+    event_id: { S: eventId },
     client_id: { S: clientId },
+    organizer_id: { S: userId },
     status: { S: status },
     created_at: { S: payload.created_at || payload.createdAt || new Date().toISOString() },
     updated_at: { S: payload.updated_at || payload.updatedAt || new Date().toISOString() },
@@ -156,14 +168,12 @@ function buildDynamoEventItem(payload) {
     workerOrganizerAssignments: assignmentList,
   };
 
-  const eventType = normalizeString(payload.eventType || '');
   if (eventType) {
     item.eventType = { S: eventType };
   }
 
-  const eventPackage = normalizeString(payload.eventPackage || '');
-  if (eventPackage) {
-    item.eventPackage = { S: eventPackage };
+  if (eventPackageKey) {
+    item.eventPackageKey = { S: eventPackageKey };
   }
 
   if (eventPax !== null) {
@@ -174,8 +184,16 @@ function buildDynamoEventItem(payload) {
     item.eventDate = { S: eventDate };
   }
 
+  if (eventTime) {
+    item.eventTime = { S: eventTime };
+  }
+
+  if (eventLocation) {
+    item.eventLocation = { S: eventLocation };
+  }
+
   if (userId) {
-    item.user_id = { S: userId };
+    item.organizer_id = { S: userId };
   }
 
   if (title) {
@@ -280,12 +298,13 @@ export async function createEvent(eventData, clientId) {
     throw new Error('clientId is required');
   }
 
-  if (!normalizeString(eventData.title) || !normalizeString(eventData.startDate)) {
-    throw new Error('title and startDate are required');
+  if (!normalizeString(eventData.eventType) || !normalizeString(eventData.eventDate)) {
+    throw new Error('eventType and eventDate are required');
   }
 
   const eventPayload = {
     ...eventData,
+    id: normalizeString(eventData.id || eventData.eventId || randomUUID()),
     clientId: effectiveClientId,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

@@ -2,6 +2,7 @@ import {
   getAttendingGuests,
   getHeadcount,
   checkInRsvpGuest,
+  createRsvpGuest as createRsvpGuestService,
 } from '../services/rsvp.service.js';
 
 function buildGuestName(guest) {
@@ -29,6 +30,22 @@ export async function getEventHeadcount(req, res) {
     return res.status(200).json(headcount);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to fetch headcount';
+    return res.status(400).json({ message });
+  }
+}
+
+export async function createRsvpGuest(req, res) {
+  try {
+    const { eventId } = req.params;
+    if (!eventId || !String(eventId).trim()) {
+      return res.status(400).json({ message: 'Event ID is required' });
+    }
+
+    const payload = req.body ?? {};
+    const guest = await createRsvpGuestService(eventId, payload);
+    return res.status(201).json({ guest });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to create RSVP guest';
     return res.status(400).json({ message });
   }
 }

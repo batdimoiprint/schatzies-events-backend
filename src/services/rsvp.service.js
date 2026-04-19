@@ -1,9 +1,12 @@
+import { randomUUID } from 'crypto';
 import {
   GetItemCommand,
+  PutItemCommand,
   QueryCommand,
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+import { getEventById as getEventByIdService } from './event.service.js';
 
 const RSVP_SK_PREFIX = 'RSVP#';
 const QR_GSI_NAME = process.env.AWS_RSVP_QR_GSI_NAME || 'GSI1';
@@ -119,6 +122,67 @@ export async function getRsvpByGuestId(eventId, guestId) {
 
   const response = await dynamoClient.send(command);
   return mapRsvpItem(response.Item);
+}
+
+function buildRsvpItem(eventId, payload) {
+  const guestId = normalizeString(payload.guestId) || randomUUID();
+  const now = new Date().toISOString();
+
+  const baseItem = {
+    PK: { S: buildEventPK(eventId) },
+    SK: { S: buildGuestSK(guestId) },
+    eventId: { S: normalizeString(eventId) },
+    guestfirstName: { S: normalizeString(payload.guestfirstName || payload.firstName || '') },
+    guestmiddleName: { S: normalizeString(payload.guestmiddleName || payload.middleName || '') },
+    guestlastName: { S: normalizeString(payload.guestlastName || payload.lastName || '') },
+    message: { S: normalizeString(payload.message || '') },
+    status: { S: normalizeString(payload.status || 'ATTENDING').toUpperCase() },
+    timestamp: { S: now },
+    isScanned: { BOOL: false },
+    createdAt: { S: now },
+    updatedAt: { S: now },
+  };
+
+  if (normalizeString(payload.qrCode)) {
+    baseItem.qrCode = { S: normalizeString(payload.qrCode) };
+  }
+
+  return baseItem;
+}
+
+export async function createRsvpGuest(eventId, payload) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid RSVP payload');
+  }
+
+  const firstName = normalizeString(payload.guestfirstName || payload.firstName || '');
+  const lastName = normalizeString(payload.guestlastName || payload.lastName || '');
+
+  if (!firstName || !lastName) {
+    throw new Error('Guest first name and last name are required');
+  }
+
+  const item = buildRsvpItem(eventId, payload);
+
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: item,
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+  });
+
+  await dynamoClient.send(command);
+  return mapRsvpItem(item);
 }
 
 async function getRsvpByQrCodeUsingGsi(eventId, qrCode) {

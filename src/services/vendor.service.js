@@ -25,12 +25,19 @@ function mapDynamoVendor(item) {
 
   return {
     id: item.PK?.S?.replace('VENDOR#', '') || '',
-    name: item.name?.S || '',
+    vendorName: item.vendorName?.S || '',
+    contactPerson: item.contactPerson?.S || '',
+    contactNumber: item.contactNumber?.S || '',
+    email: item.email?.S || '',
+    typeOfSupply: item.typeOfSupply?.S || '',
+    servicesOffered: item.servicesOffered?.S || '',
+    pricing: item.pricing?.S || '',
     serviceType: item.serviceType?.S || '',
+    price: item.price?.N ? Number(item.price.N) : null,
+    availabilityStatus: item.availabilityStatus?.S || 'inactive',
+    lastEventHandled: item.lastEventHandled?.S || '',
+    notes: item.notes?.S || '',
     eventId: item.eventId?.S || undefined,
-    contactEmail: item.contactEmail?.S || '',
-    contactPhone: item.contactPhone?.S || '',
-    status: item.status?.S || 'inactive',
     createdAt: item.created_at?.S || '',
     updatedAt: item.updated_at?.S || '',
   };
@@ -44,26 +51,28 @@ function buildDynamoVendorItem(payload) {
   const item = {
     PK: { S: `VENDOR#${vendorId}` },
     SK: { S: 'PROFILE' },
-    name: { S: normalizeString(payload.name || '') },
+    vendorName: { S: normalizeString(payload.vendorName || payload.name || '') },
+    contactPerson: { S: normalizeString(payload.contactPerson || payload.contactName || '') },
+    contactNumber: { S: normalizeString(payload.contactNumber || payload.phone || payload.contactPhone || '') },
+    email: { S: normalizeString(payload.email || payload.contactEmail || '') },
+    typeOfSupply: { S: normalizeString(payload.typeOfSupply || payload.supplyType || '') },
+    servicesOffered: { S: normalizeString(payload.servicesOffered || payload.services || '') },
+    pricing: { S: normalizeString(payload.pricing || '') },
     serviceType: { S: normalizeString(payload.serviceType || '') },
-    status: { S: normalizeString(payload.status || 'inactive') },
+    availabilityStatus: { S: normalizeString(payload.availabilityStatus || payload.status || 'inactive') },
+    lastEventHandled: { S: normalizeString(payload.lastEventHandled || '') },
+    notes: { S: normalizeString(payload.notes || '') },
     created_at: { S: createdAt },
     updated_at: { S: updatedAt },
   };
 
+  if (payload.price !== undefined && payload.price !== null && !Number.isNaN(Number(payload.price))) {
+    item.price = { N: String(Number(payload.price)) };
+  }
+
   const eventId = normalizeString(payload.eventId);
   if (eventId) {
     item.eventId = { S: eventId };
-  }
-
-  const contactEmail = buildStringAttribute(payload.contactEmail || payload.email);
-  if (contactEmail) {
-    item.contactEmail = contactEmail;
-  }
-
-  const contactPhone = buildStringAttribute(payload.contactPhone || payload.phone);
-  if (contactPhone) {
-    item.contactPhone = contactPhone;
   }
 
   return item;
@@ -74,13 +83,13 @@ export async function createVendor(vendorData) {
     throw new Error('Invalid vendor data');
   }
 
-  const name = normalizeString(vendorData.name);
+  const vendorName = normalizeString(vendorData.vendorName || vendorData.name);
   const serviceType = normalizeString(vendorData.serviceType);
   const eventId = normalizeString(vendorData.eventId);
-  const status = normalizeString(vendorData.status || 'inactive');
+  const availabilityStatus = normalizeString(vendorData.availabilityStatus || vendorData.status || 'inactive');
 
-  if (!name || !serviceType) {
-    throw new Error('name and serviceType are required');
+  if (!vendorName || !serviceType) {
+    throw new Error('vendorName and serviceType are required');
   }
 
   if (eventId) {
@@ -93,7 +102,7 @@ export async function createVendor(vendorData) {
   const newVendor = {
     ...vendorData,
     id: randomUUID(),
-    status: status.toLowerCase(),
+    availabilityStatus: availabilityStatus.toLowerCase(),
     eventId: eventId || undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -107,7 +116,7 @@ export async function createVendor(vendorData) {
 
   await dynamoClient.send(command);
 
-  if (newVendor.status === 'active') {
+  if (newVendor.availabilityStatus === 'active') {
     await updateVendorSnapshot(newVendor.id, true);
   }
 
@@ -176,12 +185,15 @@ export async function updateVendor(vendorId, updateData) {
     }
   }
 
-  const status = normalizeString(updateData.status || existingVendor.status).toLowerCase();
+  const availabilityStatus = normalizeString(
+    updateData.availabilityStatus || updateData.status || existingVendor.availabilityStatus || 'inactive'
+  ).toLowerCase();
+
   const updatedVendor = {
     ...existingVendor,
     ...updateData,
     eventId: updateData.eventId !== undefined ? (eventId || undefined) : existingVendor.eventId,
-    status,
+    availabilityStatus,
     updated_at: new Date().toISOString(),
   };
 
@@ -192,9 +204,9 @@ export async function updateVendor(vendorId, updateData) {
 
   await dynamoClient.send(command);
 
-  if (existingVendor.status !== status) {
-    const wasActive = existingVendor.status === 'active';
-    const nowActive = status === 'active';
+  if (existingVendor.availabilityStatus !== availabilityStatus) {
+    const wasActive = existingVendor.availabilityStatus === 'active';
+    const nowActive = availabilityStatus === 'active';
     if (wasActive !== nowActive) {
       await updateVendorSnapshot(updatedVendor.id, nowActive);
     }

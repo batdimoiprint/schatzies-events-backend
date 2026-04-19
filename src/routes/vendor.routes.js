@@ -26,19 +26,35 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               vendorName:
+ *                 type: string
+ *               contactPerson:
+ *                 type: string
+ *               contactNumber:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               typeOfSupply:
+ *                 type: string
+ *               servicesOffered:
+ *                 type: string
+ *               pricing:
  *                 type: string
  *               serviceType:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               availabilityStatus:
+ *                 type: string
+ *               lastEventHandled:
+ *                 type: string
+ *               notes:
  *                 type: string
  *               eventId:
  *                 type: string
  *                 description: Optional event assignment
- *               contactEmail:
- *                 type: string
- *               contactPhone:
- *                 type: string
  *             required:
- *               - name
+ *               - vendorName
  *               - serviceType
  *     responses:
  *       201:
@@ -112,17 +128,33 @@ router.get('/:id', getVendorById);
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               vendorName:
+ *                 type: string
+ *               contactPerson:
+ *                 type: string
+ *               contactNumber:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               typeOfSupply:
+ *                 type: string
+ *               servicesOffered:
+ *                 type: string
+ *               pricing:
  *                 type: string
  *               serviceType:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               availabilityStatus:
+ *                 type: string
+ *               lastEventHandled:
+ *                 type: string
+ *               notes:
  *                 type: string
  *               eventId:
  *                 type: string
  *                 description: Optional event assignment
- *               contactEmail:
- *                 type: string
- *               contactPhone:
- *                 type: string
  *     responses:
  *       200:
  *         description: Vendor updated successfully
