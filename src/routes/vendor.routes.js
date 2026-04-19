@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   createVendor,
+  createVendorPool,
   getVendors,
   getVendorById,
   updateVendor,
@@ -46,6 +47,41 @@ const router = express.Router();
  *         description: Invalid input or event not found
  */
 router.post('/', validateTokenMiddleware, createVendor);
+
+/**
+ * @swagger
+ * /api/vendors/pool:
+ *   post:
+ *     tags:
+ *       - Vendors
+ *     summary: Create a vendor without assigning to an event
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               serviceType:
+ *                 type: string
+ *               contactEmail:
+ *                 type: string
+ *               contactPhone:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *             required:
+ *               - name
+ *               - serviceType
+ *     responses:
+ *       201:
+ *         description: Vendor created successfully
+ *       400:
+ *         description: Invalid input
+ */
+router.post('/pool', validateTokenMiddleware, createVendorPool);
 
 /**
  * @swagger

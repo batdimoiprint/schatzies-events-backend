@@ -110,6 +110,29 @@ export async function getAllUsers() {
   return (response.Items || []).map(mapDynamoUser);
 }
 
+export async function getUsersByRole(role) {
+  const normalizedRole = normalizeString(role).toUpperCase();
+  if (!normalizedRole) {
+    return [];
+  }
+
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: 'begins_with(PK, :pkPrefix) AND SK = :sk AND #role = :role',
+    ExpressionAttributeNames: {
+      '#role': 'role',
+    },
+    ExpressionAttributeValues: {
+      ':pkPrefix': { S: 'USER#' },
+      ':sk': { S: 'PROFILE' },
+      ':role': { S: normalizedRole },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return (response.Items || []).map(mapDynamoUser);
+}
+
 export async function createUser(payload) {
   const email = normalizeString(payload?.email).toLowerCase();
   const plainPassword = normalizeString(payload?.password);
