@@ -10,6 +10,8 @@ const router = express.Router();
  *     tags:
  *       - Dashboard
  *     summary: Retrieve dashboard analytics summary
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Dashboard analytics summary returned successfully

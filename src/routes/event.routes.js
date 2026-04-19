@@ -35,6 +35,13 @@ import {
   changeEventStatus,
 } from '../controllers/eventPlanner.controller.js';
 import { getVendorsByEventId } from '../controllers/vendor.controller.js';
+import {
+  getRsvpList,
+  getEventHeadcount,
+  manualCheckIn,
+  createRsvpGuest,
+} from '../controllers/rsvp.controller.js';
+import costBreakdownRoutes from './costBreakdown.routes.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 
@@ -70,14 +77,14 @@ router.post('/', validateTokenMiddleware, createEvent);
 
 /**
  * @swagger
- * /api/events/{id}/confirm:
+ * /api/events/{eventId}/confirm:
  *   post:
  *     tags:
  *       - Events
  *     summary: Confirm an event with final details
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -101,7 +108,7 @@ router.post('/', validateTokenMiddleware, createEvent);
  *                 event:
  *                   $ref: '#/components/schemas/Event'
  */
-router.post('/:id/confirm', requireRole('ADMIN'), confirmEvent);
+router.post('/:eventId/confirm', requireRole('ADMIN'), confirmEvent);
 
 /**
  * @swagger
@@ -127,14 +134,14 @@ router.get('/confirmed', requireRole('ADMIN'), getConfirmedEvents);
 
 /**
  * @swagger
- * /api/events/{id}/tasks:
+ * /api/events/{eventId}/tasks:
  *   post:
  *     tags:
  *       - Events
  *     summary: Create a new kanban task for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -156,18 +163,18 @@ router.get('/confirmed', requireRole('ADMIN'), getConfirmedEvents);
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.post('/:id/tasks', requireRole('ADMIN', 'ORGANIZER'), createTask);
+router.post('/:eventId/tasks', requireRole('ADMIN', 'ORGANIZER'), createTask);
 
 /**
  * @swagger
- * /api/events/{id}/tasks:
+ * /api/events/{eventId}/tasks:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve all tasks for an event grouped by status
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -196,18 +203,18 @@ router.post('/:id/tasks', requireRole('ADMIN', 'ORGANIZER'), createTask);
  *                       items:
  *                         $ref: '#/components/schemas/Task'
  */
-router.get('/:id/tasks', getTasks);
+router.get('/:eventId/tasks', getTasks);
 
 /**
  * @swagger
- * /api/events/{id}/tasks/{task_id}:
+ * /api/events/{eventId}/tasks/{task_id}:
  *   put:
  *     tags:
  *       - Events
  *     summary: Update an existing task for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -233,18 +240,18 @@ router.get('/:id/tasks', getTasks);
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.put('/:id/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), updateTask);
+router.put('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), updateTask);
 
 /**
  * @swagger
- * /api/events/{id}/tasks/{task_id}:
+ * /api/events/{eventId}/tasks/{task_id}:
  *   delete:
  *     tags:
  *       - Events
  *     summary: Delete a task from an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -257,18 +264,18 @@ router.put('/:id/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), updateTask)
  *       200:
  *         description: Task deleted successfully
  */
-router.delete('/:id/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), deleteTask);
+router.delete('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), deleteTask);
 
 /**
  * @swagger
- * /api/events/{id}/tasks/{task_id}/move:
+ * /api/events/{eventId}/tasks/{task_id}/move:
  *   put:
  *     tags:
  *       - Events
  *     summary: Move a task to a new status and order position
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -294,18 +301,18 @@ router.delete('/:id/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), deleteTa
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.put('/:id/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), moveTask);
+router.put('/:eventId/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), moveTask);
 
 /**
  * @swagger
- * /api/events/{id}/status:
+ * /api/events/{eventId}/status:
  *   put:
  *     tags:
  *       - Events
  *     summary: Change the event lifecycle status
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -319,18 +326,18 @@ router.put('/:id/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), moveTa
  *       200:
  *         description: Event status updated successfully
  */
-router.put('/:id/status', requireRole('ADMIN', 'ORGANIZER'), changeEventStatus);
+router.put('/:eventId/status', requireRole('ADMIN', 'ORGANIZER'), changeEventStatus);
 
 /**
  * @swagger
- * /api/events/{id}/allocation:
+ * /api/events/{eventId}/allocation:
  *   post:
  *     tags:
  *       - Events
  *     summary: Create or update event allocation details
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -354,18 +361,18 @@ router.put('/:id/status', requireRole('ADMIN', 'ORGANIZER'), changeEventStatus);
  *                 allocation:
  *                   $ref: '#/components/schemas/Allocation'
  */
-router.post('/:id/allocation', createEventAllocation);
+router.post('/:eventId/allocation', createEventAllocation);
 
 /**
  * @swagger
- * /api/events/{id}/allocation:
+ * /api/events/{eventId}/allocation:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve allocation details for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -381,18 +388,18 @@ router.post('/:id/allocation', createEventAllocation);
  *                 allocation:
  *                   $ref: '#/components/schemas/Allocation'
  */
-router.get('/:id/allocation', getEventAllocation);
+router.get('/:eventId/allocation', getEventAllocation);
 
 /**
  * @swagger
- * /api/events/{id}/allocation:
+ * /api/events/{eventId}/allocation:
  *   put:
  *     tags:
  *       - Events
  *     summary: Update event allocation details
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -416,18 +423,18 @@ router.get('/:id/allocation', getEventAllocation);
  *                 allocation:
  *                   $ref: '#/components/schemas/Allocation'
  */
-router.put('/:id/allocation', updateEventAllocation);
+router.put('/:eventId/allocation', updateEventAllocation);
 
 /**
  * @swagger
- * /api/events/{id}/precheck:
+ * /api/events/{eventId}/precheck:
  *   post:
  *     tags:
  *       - Events
  *     summary: Create pre-event verification data
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -451,18 +458,18 @@ router.put('/:id/allocation', updateEventAllocation);
  *                 precheck:
  *                   $ref: '#/components/schemas/Precheck'
  */
-router.post('/:id/precheck', createPrecheck);
+router.post('/:eventId/precheck', createPrecheck);
 
 /**
  * @swagger
- * /api/events/{id}/precheck:
+ * /api/events/{eventId}/precheck:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve pre-event verification data
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -478,18 +485,18 @@ router.post('/:id/precheck', createPrecheck);
  *                 precheck:
  *                   $ref: '#/components/schemas/Precheck'
  */
-router.get('/:id/precheck', getPrecheck);
+router.get('/:eventId/precheck', getPrecheck);
 
 /**
  * @swagger
- * /api/events/{id}/precheck:
+ * /api/events/{eventId}/precheck:
  *   put:
  *     tags:
  *       - Events
  *     summary: Update pre-event verification data
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -513,18 +520,18 @@ router.get('/:id/precheck', getPrecheck);
  *                 precheck:
  *                   $ref: '#/components/schemas/Precheck'
  */
-router.put('/:id/precheck', updatePrecheck);
+router.put('/:eventId/precheck', updatePrecheck);
 
 /**
  * @swagger
- * /api/events/{id}/program-flow:
+ * /api/events/{eventId}/program-flow:
  *   post:
  *     tags:
  *       - Events
  *     summary: Create a program flow entry for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -548,18 +555,18 @@ router.put('/:id/precheck', updatePrecheck);
  *                 flow:
  *                   $ref: '#/components/schemas/ProgramFlow'
  */
-router.post('/:id/program-flow', createProgramFlow);
+router.post('/:eventId/program-flow', createProgramFlow);
 
 /**
  * @swagger
- * /api/events/{id}/program-flow:
+ * /api/events/{eventId}/program-flow:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve program flow entries for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -577,7 +584,7 @@ router.post('/:id/program-flow', createProgramFlow);
  *                   items:
  *                     $ref: '#/components/schemas/ProgramFlow'
  */
-router.get('/:id/program-flow', getProgramFlow);
+router.get('/:eventId/program-flow', getProgramFlow);
 
 /**
  * @swagger
@@ -643,14 +650,14 @@ router.delete('/program-flow/:flow_id', deleteProgramFlow);
 
 /**
  * @swagger
- * /api/events/{id}/timeline:
+ * /api/events/{eventId}/timeline:
  *   post:
  *     tags:
  *       - Events
  *     summary: Create a timeline task for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -674,18 +681,18 @@ router.delete('/program-flow/:flow_id', deleteProgramFlow);
  *                 task:
  *                   $ref: '#/components/schemas/TimelineTask'
  */
-router.post('/:id/timeline', createTimelineTask);
+router.post('/:eventId/timeline', createTimelineTask);
 
 /**
  * @swagger
- * /api/events/{id}/timeline:
+ * /api/events/{eventId}/timeline:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve timeline tasks for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -703,7 +710,7 @@ router.post('/:id/timeline', createTimelineTask);
  *                   items:
  *                     $ref: '#/components/schemas/TimelineTask'
  */
-router.get('/:id/timeline', getTimelineTasks);
+router.get('/:eventId/timeline', getTimelineTasks);
 
 /**
  * @swagger
@@ -742,14 +749,14 @@ router.put('/timeline/:task_id', updateTimelineTask);
 
 /**
  * @swagger
- * /api/events/{id}/status:
+ * /api/events/{eventId}/status:
  *   post:
  *     tags:
  *       - Events
  *     summary: Create a resource status entry for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -773,18 +780,18 @@ router.put('/timeline/:task_id', updateTimelineTask);
  *                 status:
  *                   $ref: '#/components/schemas/ResourceStatus'
  */
-router.post('/:id/status', createResourceStatus);
+router.post('/:eventId/status', createResourceStatus);
 
 /**
  * @swagger
- * /api/events/{id}/status:
+ * /api/events/{eventId}/status:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve resource status entries for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -802,7 +809,7 @@ router.post('/:id/status', createResourceStatus);
  *                   items:
  *                     $ref: '#/components/schemas/ResourceStatus'
  */
-router.get('/:id/status', getResourceStatuses);
+router.get('/:eventId/status', getResourceStatuses);
 
 /**
  * @swagger
@@ -865,14 +872,14 @@ router.get('/', getEvents);
 
 /**
  * @swagger
- * /api/events/{id}:
+ * /api/events/{eventId}:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve a single event by ID
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -891,18 +898,18 @@ router.get('/', getEvents);
  *       500:
  *         description: Server error
  */
-router.get('/:id', getEventById);
+router.get('/:eventId', getEventById);
 
 /**
  * @swagger
- * /api/events/{id}/messages:
+ * /api/events/{eventId}/messages:
  *   get:
  *     tags:
  *       - Events
  *     summary: Retrieve chat messages for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -936,18 +943,18 @@ router.get('/:id', getEventById);
  *       404:
  *         description: Event not found
  */
-router.get('/:id/messages', validateTokenMiddleware, getEventMessages);
+router.get('/:eventId/messages', validateTokenMiddleware, getEventMessages);
 
 /**
  * @swagger
- * /api/events/{id}/messages:
+ * /api/events/{eventId}/messages:
  *   post:
  *     tags:
  *       - Events
  *     summary: Send a message from head organizer to the assigned client
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -970,18 +977,18 @@ router.get('/:id/messages', validateTokenMiddleware, getEventMessages);
  *       404:
  *         description: Event not found
  */
-router.post('/:id/messages', validateTokenMiddleware, sendEventMessage);
+router.post('/:eventId/messages', validateTokenMiddleware, sendEventMessage);
 
 /**
  * @swagger
- * /api/events/{id}:
+ * /api/events/{eventId}:
  *   put:
  *     tags:
  *       - Events
  *     summary: Update an existing event by ID
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -1006,18 +1013,18 @@ router.post('/:id/messages', validateTokenMiddleware, sendEventMessage);
  *       404:
  *         description: Event not found
  */
-router.put('/:id', validateTokenMiddleware, updateEvent);
+router.put('/:eventId', validateTokenMiddleware, updateEvent);
 
 /**
  * @swagger
- * /api/events/{id}:
+ * /api/events/{eventId}:
  *   delete:
  *     tags:
  *       - Events
  *     summary: Delete an event by ID
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
@@ -1027,27 +1034,274 @@ router.put('/:id', validateTokenMiddleware, updateEvent);
  *       404:
  *         description: Event not found
  */
-router.delete('/:id', validateTokenMiddleware, deleteEvent);
+router.delete('/:eventId', validateTokenMiddleware, deleteEvent);
 
 /**
  * @swagger
- * /api/events/{id}/vendors:
- *   get:
+ * /api/events/{eventId}/rsvp:
+ *   post:
  *     tags:
  *       - Events
- *     summary: Retrieve vendors assigned to an event
+ *     summary: Create a new RSVP guest for an event
  *     parameters:
  *       - in: path
- *         name: id
+ *         name: eventId
  *         required: true
  *         schema:
  *           type: string
+ *         description: Event identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               guestfirstName:
+ *                 type: string
+ *               guestmiddleName:
+ *                 type: string
+ *               guestlastName:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 example: ATTENDING
+ *               qrCode:
+ *                 type: string
+ *             required:
+ *               - guestfirstName
+ *               - guestlastName
+ *     responses:
+ *       201:
+ *         description: RSVP guest created successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+router.post('/:eventId/rsvp', validateTokenMiddleware, createRsvpGuest);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/rsvp:
+ *   get:
+ *     tags:
+ *       - Events
+ *     summary: Retrieve attending RSVP guests for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of attending RSVP guests
+ *       400:
+ *         description: Invalid event ID
+ */
+router.get('/:eventId/rsvp', validateTokenMiddleware, getRsvpList);
+/**
+ * @swagger
+ * /api/events/{eventId}/rsvp/{guestId}/checkin:
+ *   put:
+ *     tags:
+ *       - Events
+ *     summary: Manually check in an attending RSVP guest
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: guestId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Guest checked in successfully
+ *       400:
+ *         description: Invalid request or guest not attending
+ */
+router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualCheckIn);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/headcount:
+ *   get:
+ *     tags:
+ *       - Events
+ *     summary: Get live RSVP headcount for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     responses:
+ *       200:
+ *         description: Current headcount and expected guest count
+ *       400:
+ *         description: Invalid event ID
+ *       500:
+ *         description: Server error
+ */
+router.get('/:eventId/headcount', getEventHeadcount);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/vendors:
+ *   get:
+ *     tags:
+ *       - Events
+ *     summary: Get list of vendors for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
  *     responses:
  *       200:
  *         description: List of vendors for event
  *       500:
  *         description: Server error
  */
-router.get('/:id/vendors', getVendorsByEventId);
+router.get('/:eventId/vendors', getVendorsByEventId);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown:
+ *   post:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Create or compute a cost breakdown for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CostBreakdownRequest'
+ *     responses:
+ *       201:
+ *         description: Cost breakdown created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 costBreakdown:
+ *                   $ref: '#/components/schemas/CostBreakdown'
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown:
+ *   get:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Retrieve the cost breakdown for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     responses:
+ *       200:
+ *         description: Cost breakdown retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 costBreakdown:
+ *                   $ref: '#/components/schemas/CostBreakdown'
+ *       404:
+ *         description: Cost breakdown not found
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown:
+ *   put:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Recalculate and update the cost breakdown for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CostBreakdownRequest'
+ *     responses:
+ *       200:
+ *         description: Cost breakdown updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 costBreakdown:
+ *                   $ref: '#/components/schemas/CostBreakdown'
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Cost breakdown not found
+ */
+
+/**
+ * @swagger
+ * /api/events/{eventId}/cost-breakdown/export:
+ *   get:
+ *     tags:
+ *       - Cost Breakdown
+ *     summary: Export cost breakdown data for printing or export
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event identifier
+ *     responses:
+ *       200:
+ *         description: Cost breakdown export data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 export:
+ *                   $ref: '#/components/schemas/CostBreakdownExport'
+ *       404:
+ *         description: Cost breakdown not found
+ */
+router.use('/:eventId/cost-breakdown', costBreakdownRoutes);
 
 export default router;

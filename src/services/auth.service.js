@@ -1,11 +1,13 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { GetItemCommand, PutItemCommand, QueryCommand } from '@aws-sdk/client-dynamodb';
+import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
 
 const JWT_SECRET = process.env.JWT_SECRET;
-// Requires process.env.AWS_ACCESS_KEY_ID and process.env.AWS_SECRET_ACCESS_KEY
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET env var is required');
+}
 
 function normalizeString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -74,6 +76,22 @@ function buildDynamoItem(payload) {
   };
 }
 
+async function scanUserByEmail(email) {
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: '#email = :emailValue',
+    ExpressionAttributeNames: {
+      '#email': 'email',
+    },
+    ExpressionAttributeValues: {
+      ':emailValue': { S: email },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoUser(response.Items?.[0]);
+}
+
 export async function findUserByEmail(email) {
   const normalizedEmail = normalizeString(email).toLowerCase();
   if (!normalizedEmail) {
@@ -89,8 +107,15 @@ export async function findUserByEmail(email) {
     },
   });
 
-  const response = await dynamoClient.send(command);
-  return mapDynamoUser(response.Items?.[0]);
+  try {
+    const response = await dynamoClient.send(command);
+    return mapDynamoUser(response.Items?.[0]);
+  } catch (error) {
+    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+      return scanUserByEmail(normalizedEmail);
+    }
+    throw error;
+  }
 }
 
 export async function findUserByUserId(userId) {

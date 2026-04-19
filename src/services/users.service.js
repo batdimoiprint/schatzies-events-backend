@@ -59,6 +59,22 @@ function buildDynamoItem(payload) {
   };
 }
 
+async function scanUserByEmail(email) {
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: '#email = :emailValue',
+    ExpressionAttributeNames: {
+      '#email': 'email',
+    },
+    ExpressionAttributeValues: {
+      ':emailValue': { S: email },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoUser(response.Items?.[0]);
+}
+
 export async function findUserByEmail(email) {
   const normalizedEmail = normalizeString(email).toLowerCase();
   if (!normalizedEmail) {
@@ -74,8 +90,15 @@ export async function findUserByEmail(email) {
     },
   });
 
-  const response = await dynamoClient.send(command);
-  return mapDynamoUser(response.Items?.[0]);
+  try {
+    const response = await dynamoClient.send(command);
+    return mapDynamoUser(response.Items?.[0]);
+  } catch (error) {
+    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+      return scanUserByEmail(normalizedEmail);
+    }
+    throw error;
+  }
 }
 
 export async function findUserByUserId(userId) {

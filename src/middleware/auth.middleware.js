@@ -40,23 +40,30 @@ function extractAuthToken(req) {
   return '';
 }
 
+const isProduction = process.env.NODE_ENV === 'production';
+const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure:
+    process.env.COOKIE_SECURE === 'true'
+      ? true
+      : process.env.COOKIE_SECURE === 'false'
+      ? false
+      : isProduction,
+  sameSite: process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax'),
+  path: '/',
+};
+
+console.log('Auth cookie options:', AUTH_COOKIE_OPTIONS);
+
 function setAuthCookie(res, token) {
   res.cookie('auth_token', token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...AUTH_COOKIE_OPTIONS,
     maxAge: 24 * 60 * 60 * 1000,
-    path: '/',
   });
 }
 
 function clearAuthCookie(res) {
-  res.clearCookie('auth_token', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    path: '/',
-  });
+  res.clearCookie('auth_token', AUTH_COOKIE_OPTIONS);
 }
 
 export async function validateTokenMiddleware(req, res, next) {

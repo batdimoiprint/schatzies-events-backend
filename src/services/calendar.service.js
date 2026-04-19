@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { PutItemCommand, QueryCommand, UpdateItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 
-const buildPK = (userId) => `USER#${userId}`;
+const buildPK = () => 'CALENDAR';
 const buildSK = (entryId) => `CALENDAR#${entryId}`;
 
 function normalizeString(value) {
@@ -16,6 +16,7 @@ function mapCalendarItem(item) {
 
   return {
     entryId: item.entryId?.S || item.SK?.S?.replace('CALENDAR#', '') || '',
+    userId: item.userId?.S || '',
     title: item.title?.S || '',
     description: item.description?.S || '',
     date: item.date?.S || '',
@@ -70,9 +71,10 @@ export async function createCalendarEntry(userId, payload) {
   const entryId = randomUUID();
   const now = new Date().toISOString();
   const item = {
-    PK: { S: buildPK(userId) },
+    PK: { S: buildPK() },
     SK: { S: buildSK(entryId) },
     entryId: { S: entryId },
+    userId: { S: normalizeString(userId) },
     title: { S: normalizeString(payload.title) },
     description: { S: normalizeString(payload.description || '') },
     date: { S: normalizeString(payload.date) },
@@ -99,16 +101,26 @@ export async function getCalendarEntries(userId, filters = {}) {
   const queryInput = {
     TableName: DYNAMO_TABLE,
     KeyConditionExpression: 'PK = :pk',
+    FilterExpression: '#userId = :userId',
+    ExpressionAttributeNames: {
+      '#userId': 'userId',
+    },
     ExpressionAttributeValues: {
-      ':pk': { S: buildPK(userId) },
+      ':pk': { S: buildPK() },
+      ':userId': { S: normalizeString(userId) },
     },
     ScanIndexForward: true,
   };
 
   const { FilterExpression, ExpressionAttributeNames, ExpressionAttributeValues } = buildQueryFilters(filters);
   if (FilterExpression) {
-    queryInput.FilterExpression = FilterExpression;
-    if (ExpressionAttributeNames) queryInput.ExpressionAttributeNames = ExpressionAttributeNames;
+    queryInput.FilterExpression = [queryInput.FilterExpression, FilterExpression]
+      .filter(Boolean)
+      .join(' AND ');
+    queryInput.ExpressionAttributeNames = {
+      ...queryInput.ExpressionAttributeNames,
+      ...ExpressionAttributeNames,
+    };
     queryInput.ExpressionAttributeValues = {
       ...queryInput.ExpressionAttributeValues,
       ...ExpressionAttributeValues,
@@ -130,7 +142,7 @@ export async function getCalendarEntries(userId, filters = {}) {
 
 export async function updateCalendarEntry(userId, entryId, payload) {
   const key = {
-    PK: { S: buildPK(userId) },
+    PK: { S: buildPK() },
     SK: { S: buildSK(entryId) },
   };
 
@@ -190,7 +202,7 @@ export async function deleteCalendarEntry(userId, entryId) {
     new DeleteItemCommand({
       TableName: DYNAMO_TABLE,
       Key: {
-        PK: { S: buildPK(userId) },
+        PK: { S: buildPK() },
         SK: { S: buildSK(entryId) },
       },
     })

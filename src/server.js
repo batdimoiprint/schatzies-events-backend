@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './configs/env.js';
 import express from 'express';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +16,15 @@ import errorHandler from './middleware/error.middleware.js';
 
 const app = express();
 
+app.use((req, res, next) => {
+  console.log('Incoming request:', req.method, req.originalUrl, {
+    origin: req.headers.origin,
+    contentType: req.headers['content-type'],
+    cookie: req.headers.cookie ? '[present]' : '[none]',
+  });
+  next();
+});
+
 // Security Middleware
 app.use(configureHelmet());
 
@@ -28,7 +37,18 @@ app.use(corsMiddleware);
 app.use(apiLimiter);
 
 // Swagger Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+      requestInterceptor: (request) => {
+        request.credentials = 'include';
+        return request;
+      },
+    },
+  })
+);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });

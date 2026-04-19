@@ -5,6 +5,7 @@ import {
   updateVendor as updateVendorService,
   deleteVendor as deleteVendorService,
   getVendorsByEventId as getVendorsByEventIdService,
+  assignVendorToEvent as assignVendorToEventService,
 } from '../services/vendor.service.js';
 
 export async function createVendor(req, res) {
@@ -88,8 +89,8 @@ export async function deleteVendor(req, res) {
 
 export async function getVendorsByEventId(req, res) {
   try {
-    const { id } = req.params;
-    const vendors = await getVendorsByEventIdService(id);
+    const { eventId } = req.params;
+    const vendors = await getVendorsByEventIdService(eventId);
     return res.status(200).json({ vendors });
   } catch (error) {
     const message =
@@ -97,5 +98,27 @@ export async function getVendorsByEventId(req, res) {
         ? error.message
         : 'Unable to fetch vendors for event';
     return res.status(500).json({ error: message });
+  }
+}
+
+export async function assignVendorToEvent(req, res) {
+  try {
+    const { id } = req.params;
+    const { eventId } = req.body ?? {};
+
+    if (!eventId || !String(eventId).trim()) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+
+    const vendor = await assignVendorToEventService(id, eventId);
+    return res.status(200).json({ message: 'Vendor assigned to event successfully', vendor });
+  } catch (error) {
+    if (error instanceof Error && ['Vendor not found', 'Associated event not found'].includes(error.message)) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message =
+      error instanceof Error ? error.message : 'Unable to assign vendor to event';
+    return res.status(400).json({ error: message });
   }
 }
