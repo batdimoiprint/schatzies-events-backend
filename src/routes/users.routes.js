@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getUsers,
+  getOrganizerUsers,
   getUserById,
   createUserHandler,
   updateUserHandler,
@@ -25,6 +26,23 @@ const router = express.Router();
  *         description: Unauthorized
  */
 router.get('/', getUsers);
+
+/**
+ * @swagger
+ * /api/users/organizers:
+ *   get:
+ *     tags:
+ *       - Users
+ *     summary: Get all organizer users
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: List of organizer users
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/organizers', getOrganizerUsers);
 
 /**
  * @swagger

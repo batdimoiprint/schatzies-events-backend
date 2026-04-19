@@ -13,9 +13,9 @@ function createError(message, status = 400) {
 }
 
 function validateCalendarType(type) {
-  const value = String(type || '').trim().toUpperCase();
-  if (!['REMINDER', 'MEETING', 'TASK'].includes(value)) {
-    throw createError('Invalid calendar entry type. Use REMINDER, MEETING, or TASK.', 400);
+  const value = String(type || '').trim();
+  if (!value) {
+    throw createError('Invalid calendar entry type.', 400);
   }
   return value;
 }
@@ -38,17 +38,23 @@ function getUserId(req) {
 export async function createCalendarEntry(req, res, next) {
   try {
     const userId = getUserId(req);
-    const { title, description, date, type, eventId } = req.body;
+    const { title, description, date, label, type, eventId, startTime, endTime, dateKey, startDateKey, endDateKey, location, eventType } = req.body;
     if (!title) {
       throw createError('Title is required', 400);
     }
-    const calendarType = validateCalendarType(type);
-    const calendarDate = validateDateString(date);
+    const calendarType = validateCalendarType(label || type || 'Task');
+    const calendarDate = validateDateString(startDateKey || dateKey || date);
 
     const entry = await createCalendarEntryService(userId, {
       title,
       description,
       date: calendarDate,
+      startDateKey: startDateKey || calendarDate,
+      endDateKey: endDateKey || startDateKey || calendarDate,
+      startTime: startTime || '09:00',
+      endTime: endTime || '10:00',
+      location: location || '',
+      eventType: eventType || 'General',
       type: calendarType,
       eventId,
     });
