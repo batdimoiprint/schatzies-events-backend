@@ -7,7 +7,10 @@ import {
   addEventMessage as addEventMessageService,
 } from '../services/event.service.js';
 import { getVendorsByEventId as getVendorsByEventIdService } from '../services/vendor.service.js';
-import { getAttendeesByEventId as getAttendeesByEventIdService } from '../services/attendee.service.js';
+import {
+  getHeadcount as getHeadcountService,
+  getAllRsvps,
+} from '../services/rsvp.service.js';
 import {
   getOrganizerById as getOrganizerByIdService,
   getOrganizersByIds as getOrganizersByIdsService,
@@ -133,16 +136,15 @@ export async function getEventById(req, res) {
     const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
     const vendors = await getVendorsByEventIdService(eventId);
-    const attendees = await getAttendeesByEventIdService(eventId);
+    
+    // Fetch real guests and headcount from DynamoDB RSVP data
+    const attendees = await getAllRsvps(eventId);
+    const { expectedGuests, currentHeadcount } = await getHeadcountService(eventId);
 
-    const expectedAttendee = attendees.length;
-    const arrivedAttendee = attendees.filter(
-      (x) => x.status === 'checked_in'
-    ).length;
     const percentArrived =
-      expectedAttendee === 0
+      expectedGuests === 0
         ? 0
-        : Number(((arrivedAttendee / expectedAttendee) * 100).toFixed(2));
+        : Number(((currentHeadcount / expectedGuests) * 100).toFixed(2));
 
     let headOrganizer = null;
     if (event.headOrganizerId) {
@@ -202,8 +204,8 @@ export async function getEventById(req, res) {
         headOrganizer,
         workerOrganizers,
         headcount: {
-          expectedAttendee,
-          arrivedAttendee,
+          expectedAttendee: expectedGuests,
+          arrivedAttendee: currentHeadcount,
           percentArrived,
         },
       },

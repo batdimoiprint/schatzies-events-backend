@@ -8,6 +8,8 @@ import {
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById as getEventByIdService } from './event.service.js';
 
+import QRCode from 'qrcode';
+
 const RSVP_SK_PREFIX = 'RSVP#';
 const QR_GSI_NAME = process.env.AWS_RSVP_QR_GSI_NAME || 'GSI1';
 
@@ -33,6 +35,7 @@ function mapRsvpItem(item) {
     guestfirstName: item.guestfirstName?.S || '',
     guestmiddleName: item.guestmiddleName?.S || '',
     guestlastName: item.guestlastName?.S || '',
+    contactNumber: item.contactNumber?.S || '',
     message: item.message?.S || '',
     status: item.status?.S || '',
     timestamp: item.timestamp?.S || '',
@@ -81,6 +84,13 @@ export async function getAttendingGuests(eventId) {
       ':attending': { S: 'ATTENDING' },
     },
   });
+}
+
+export async function getAllRsvps(eventId) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+  return queryRsvpsForEvent(eventId);
 }
 
 export async function getHeadcount(eventId) {
@@ -135,6 +145,7 @@ function buildRsvpItem(eventId, payload) {
     guestfirstName: { S: normalizeString(payload.guestfirstName || payload.firstName || '') },
     guestmiddleName: { S: normalizeString(payload.guestmiddleName || payload.middleName || '') },
     guestlastName: { S: normalizeString(payload.guestlastName || payload.lastName || '') },
+    contactNumber: { S: normalizeString(payload.contactNumber || payload.contact_number || '') },
     message: { S: normalizeString(payload.message || '') },
     status: { S: normalizeString(payload.status || 'ATTENDING').toUpperCase() },
     timestamp: { S: now },
@@ -166,6 +177,14 @@ export async function createRsvpGuest(eventId, payload) {
     throw new Error('Invalid RSVP payload');
   }
 
+  // Add the capacity validation check here
+  const { expectedGuests: currentAttending } = await getHeadcount(eventId);
+  const eventPax = Number(event.eventPax) || 0;
+  
+  if (isAttending(payload.status || 'ATTENDING') && eventPax > 0 && currentAttending >= eventPax) {
+    throw new Error('Event capacity has been reached. RSVP rejected.');
+  }
+
   const firstName = normalizeString(payload.guestfirstName || payload.firstName || '');
   const lastName = normalizeString(payload.guestlastName || payload.lastName || '');
 
@@ -174,6 +193,14 @@ export async function createRsvpGuest(eventId, payload) {
   }
 
   const item = buildRsvpItem(eventId, payload);
+  const guestId = item.SK.S.replace(RSVP_SK_PREFIX, '');
+
+  if (isAttending(payload.status || 'ATTENDING')) {
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
+    const qrCodeImage = await QRCode.toDataURL(checkInUrl);
+    item.qrCode = { S: qrCodeImage };
+  }
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
