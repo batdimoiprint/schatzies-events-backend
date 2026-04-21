@@ -7,6 +7,7 @@ import vendorRoutes from './vendor.routes.js';
 import attendeeRoutes from './attendee.routes.js';
 import organizerRoutes from './organizer.routes.js';
 import inquiryRoutes from './inquiry.routes.js';
+import rsvpRoutes from './rsvp.routes.js';
 import usersRoutes from './users.routes.js';
 import scannerRoutes from './scanner.routes.js';
 
@@ -22,6 +23,7 @@ router.get('/health', (req, res) => {
 
 //Public routes
 router.use('/inquiries', inquiryRoutes);
+router.use('/rsvp', rsvpRoutes);
 // Protected routes
 router.use('/events', validateTokenMiddleware, eventRoutes);
 router.use('/dashboard', validateTokenMiddleware, dashboardRoutes);
