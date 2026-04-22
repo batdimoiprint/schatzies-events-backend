@@ -17,6 +17,23 @@ function buildGuestName(guest) {
 export async function getRsvpList(req, res) {
   try {
     const { eventId } = req.params;
+    
+    // Verify ownership: only event owner, assigned organizers, or admins can fetch attending guest list
+    const { getEventById } = await import('../services/event.service.js');
+    const event = await getEventById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const isOwner = event.clientId === req.user?.user_id;
+    const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
+      event.workerOrganizerIds.includes(req.user?.user_id);
+    const isAdmin = req.user?.role === 'ADMIN';
+
+    if (!isOwner && !isAssignedOrganizer && !isAdmin) {
+      return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s guest list' });
+    }
+
     const guests = await getAttendingGuests(eventId);
     return res.status(200).json({ guests });
   } catch (error) {
@@ -28,6 +45,23 @@ export async function getRsvpList(req, res) {
 export async function getEventHeadcount(req, res) {
   try {
     const { eventId } = req.params;
+    
+    // Verify ownership: only event owner, assigned organizers, or admins can fetch headcount
+    const { getEventById } = await import('../services/event.service.js');
+    const event = await getEventById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const isOwner = event.clientId === req.user?.user_id;
+    const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
+      event.workerOrganizerIds.includes(req.user?.user_id);
+    const isAdmin = req.user?.role === 'ADMIN';
+
+    if (!isOwner && !isAssignedOrganizer && !isAdmin) {
+      return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s headcount' });
+    }
+
     const headcount = await getHeadcount(eventId);
     return res.status(200).json(headcount);
   } catch (error) {
@@ -133,6 +167,23 @@ export async function generateRsvpQr(req, res) {
 export async function getEventRsvps(req, res) {
   try {
     const { eventId } = req.params;
+    
+    // Verify ownership: only event owner, assigned organizers, or admins can fetch RSVPs
+    const { getEventById } = await import('../services/event.service.js');
+    const event = await getEventById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const isOwner = event.clientId === req.user?.user_id;
+    const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
+      event.workerOrganizerIds.includes(req.user?.user_id);
+    const isAdmin = req.user?.role === 'ADMIN';
+
+    if (!isOwner && !isAssignedOrganizer && !isAdmin) {
+      return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s RSVPs' });
+    }
+
     const guests = await getAllRsvps(eventId);
     return res.status(200).json({ guests });
   } catch (error) {

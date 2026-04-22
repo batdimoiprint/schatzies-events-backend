@@ -43,6 +43,10 @@ function mapRsvpItem(item) {
     isScanned: item.isScanned?.BOOL || false,
     checkedInAt: item.checkedInAt?.S || null,
     eventId: item.eventId?.S || '',
+    ownerId: item.ownerId?.S || '',
+    createdBy: item.createdBy?.S || '',
+    createdAt: item.createdAt?.S || '',
+    checkedInBy: item.checkedInBy?.S || null,
   };
 }
 
@@ -134,7 +138,7 @@ export async function getRsvpByGuestId(eventId, guestId) {
   return mapRsvpItem(response.Item);
 }
 
-function buildRsvpItem(eventId, payload) {
+function buildRsvpItem(eventId, payload, ownerId = '', createdBy = '') {
   const guestId = normalizeString(payload.guestId) || randomUUID();
   const now = new Date().toISOString();
 
@@ -142,6 +146,7 @@ function buildRsvpItem(eventId, payload) {
     PK: { S: buildEventPK(eventId) },
     SK: { S: buildGuestSK(guestId) },
     eventId: { S: normalizeString(eventId) },
+    ownerId: { S: normalizeString(ownerId) },
     guestfirstName: { S: normalizeString(payload.guestfirstName || payload.firstName || '') },
     guestmiddleName: { S: normalizeString(payload.guestmiddleName || payload.middleName || '') },
     guestlastName: { S: normalizeString(payload.guestlastName || payload.lastName || '') },
@@ -151,6 +156,7 @@ function buildRsvpItem(eventId, payload) {
     timestamp: { S: now },
     isScanned: { BOOL: false },
     createdAt: { S: now },
+    createdBy: { S: normalizeString(createdBy) },
     updatedAt: { S: now },
   };
 
@@ -192,7 +198,7 @@ export async function createRsvpGuest(eventId, payload) {
     throw new Error('Guest first name and last name are required');
   }
 
-  const item = buildRsvpItem(eventId, payload);
+  const item = buildRsvpItem(eventId, payload, event.clientId || event.client_id || '', payload.createdBy || '');
   const guestId = item.SK.S.replace(RSVP_SK_PREFIX, '');
 
   if (isAttending(payload.status || 'ATTENDING')) {
@@ -263,7 +269,7 @@ export async function findRsvpByQrCode(eventId, qrCode) {
   }
 }
 
-export async function checkInRsvpGuest(eventId, guestId) {
+export async function checkInRsvpGuest(eventId, guestId, checkedInBy = '') {
   if (!normalizeString(eventId)) {
     throw new Error('Event ID is required');
   }
@@ -272,24 +278,34 @@ export async function checkInRsvpGuest(eventId, guestId) {
   }
 
   const now = new Date().toISOString();
+  const updateExpr = normalizeString(checkedInBy) 
+    ? 'SET isScanned = :true, checkedInAt = :now, checkedInBy = :checkedBy, #timestamp = :now'
+    : 'SET isScanned = :true, checkedInAt = :now, #timestamp = :now';
+  
+  const exprAttrValues = {
+    ':true': { BOOL: true },
+    ':false': { BOOL: false },
+    ':attending': { S: 'ATTENDING' },
+    ':now': { S: now },
+  };
+  
+  if (normalizeString(checkedInBy)) {
+    exprAttrValues[':checkedBy'] = { S: normalizeString(checkedInBy) };
+  }
+  
   const params = {
     TableName: DYNAMO_TABLE,
     Key: {
       PK: { S: buildEventPK(eventId) },
       SK: { S: buildGuestSK(guestId) },
     },
-    UpdateExpression: 'SET isScanned = :true, checkedInAt = :now, #timestamp = :now',
+    UpdateExpression: updateExpr,
     ConditionExpression: '#status = :attending AND isScanned = :false',
     ExpressionAttributeNames: {
       '#status': 'status',
       '#timestamp': 'timestamp',
     },
-    ExpressionAttributeValues: {
-      ':true': { BOOL: true },
-      ':false': { BOOL: false },
-      ':attending': { S: 'ATTENDING' },
-      ':now': { S: now },
-    },
+    ExpressionAttributeValues: exprAttrValues,
     ReturnValues: 'ALL_NEW',
   };
 
