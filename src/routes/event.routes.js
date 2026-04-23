@@ -40,6 +40,8 @@ import {
   getEventHeadcount,
   manualCheckIn,
   createRsvpGuest,
+  generateRsvpQr,
+  getEventRsvps
 } from '../controllers/rsvp.controller.js';
 import costBreakdownRoutes from './costBreakdown.routes.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
@@ -74,6 +76,68 @@ const router = express.Router();
  *         description: Invalid input
  */
 router.post('/', validateTokenMiddleware, createEvent);
+
+/**
+ * @swagger
+ * /api/events/{eventId}:
+ *   get:
+ *     tags:
+ *       - Events
+ *       - RSVP
+ *     summary: Retrieve event details (name, description, attendees count)
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event details
+ *       404:
+ *         description: Event not found
+ */
+router.get('/:eventId', getEventById);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/rsvp-qr:
+ *   post:
+ *     tags:
+ *       - Events
+ *       - RSVP
+ *     summary: Generate a QR code for RSVP
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: QR code generated
+ */
+router.post('/:eventId/rsvp-qr', validateTokenMiddleware, generateRsvpQr);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/rsvps:
+ *   get:
+ *     tags:
+ *       - Events
+ *       - RSVP
+ *     summary: Fetch the list of guests (RSVPs) for a specific event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of RSVPs
+ */
+router.get('/:eventId/rsvps', validateTokenMiddleware, getEventRsvps);
 
 /**
  * @swagger
