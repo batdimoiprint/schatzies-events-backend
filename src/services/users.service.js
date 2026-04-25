@@ -2,10 +2,7 @@ import bcrypt from 'bcryptjs';
 import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand, DeleteItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function mapDynamoUser(item) {
   if (!item) {

@@ -7,13 +7,10 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById as getEventByIdService } from './event.service.js';
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 const RSVP_SK_PREFIX = 'RSVP#';
 const QR_GSI_NAME = process.env.AWS_RSVP_QR_GSI_NAME || 'GSI1';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function buildEventPK(eventId) {
   return `EVENT#${normalizeString(eventId)}`;
