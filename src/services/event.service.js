@@ -11,19 +11,7 @@ import {
   updateKPIAnalytics,
   updateStatusAnalytics,
 } from './dashboardAnalytics.service.js';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function buildStringAttribute(value) {
-  const normalized = normalizeString(value);
-  return normalized ? { S: normalized } : undefined;
-}
-
-function buildNumberAttribute(value) {
-  return value !== undefined && value !== null ? { N: String(value) } : undefined;
-}
+import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
 
 function ensureWorkerAssignments(event) {
   if (!Array.isArray(event.workerOrganizerAssignments)) {

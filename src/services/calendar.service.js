@@ -1,13 +1,10 @@
 import { randomUUID } from 'crypto';
 import { PutItemCommand, QueryCommand, UpdateItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 const buildPK = () => 'CALENDAR';
 const buildSK = (entryId) => `CALENDAR#${entryId}`;
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function mapCalendarItem(item) {
   if (!item) {
