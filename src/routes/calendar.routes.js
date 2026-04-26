@@ -110,14 +110,7 @@ router.post('/', createCalendarEntry);
  *                 entries:
  *                   type: array
  *                   items:
- *                     type: object
- *                     properties:
- *                       date:
- *                         type: string
- *                       entries:
- *                         type: array
- *                         items:
- *                           $ref: '#/components/schemas/CalendarEntry'
+ *                     $ref: '#/components/schemas/CalendarEntry'
  */
 router.get('/', getCalendarEntries);
 
