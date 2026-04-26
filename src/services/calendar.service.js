@@ -19,22 +19,16 @@ function mapCalendarItem(item) {
     date: item.date?.S || '',
     type: item.type?.S || '',
     eventId: item.eventId?.S || null,
+    startDateKey: item.startDateKey?.S || null,
+    startTime: item.startTime?.S || null,
+    endDateKey: item.endDateKey?.S || null,
+    endDate: item.endDate?.S || null,
+    location: item.location?.S || null,
+    eventType: item.eventType?.S || null,
+    label: item.label?.S || null,
     createdAt: item.createdAt?.S || '',
     updatedAt: item.updatedAt?.S || '',
   };
-}
-
-function groupEntriesByDate(entries) {
-  return Object.values(
-    entries.reduce((groups, entry) => {
-      const dateKey = entry.date || '';
-      if (!groups[dateKey]) {
-        groups[dateKey] = { date: dateKey, entries: [] };
-      }
-      groups[dateKey].entries.push(entry);
-      return groups;
-    }, {})
-  ).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function buildQueryFilters(filters) {
@@ -82,6 +76,27 @@ export async function createCalendarEntry(userId, payload) {
 
   if (payload.eventId) {
     item.eventId = { S: normalizeString(payload.eventId) };
+  }
+  if (payload.startDateKey) {
+    item.startDateKey = { S: normalizeString(payload.startDateKey) };
+  }
+  if (payload.startTime) {
+    item.startTime = { S: normalizeString(payload.startTime) };
+  }
+  if (payload.endDateKey) {
+    item.endDateKey = { S: normalizeString(payload.endDateKey) };
+  }
+  if (payload.endDate) {
+    item.endDate = { S: normalizeString(payload.endDate) };
+  }
+  if (payload.location) {
+    item.location = { S: normalizeString(payload.location) };
+  }
+  if (payload.eventType) {
+    item.eventType = { S: normalizeString(payload.eventType) };
+  }
+  if (payload.label) {
+    item.label = { S: normalizeString(payload.label) };
   }
 
   await dynamoClient.send(
@@ -134,7 +149,7 @@ export async function getCalendarEntries(userId, filters = {}) {
       return byDate || a.createdAt.localeCompare(b.createdAt);
     });
 
-  return groupEntriesByDate(entries);
+  return entries;
 }
 
 export async function updateCalendarEntry(userId, entryId, payload) {
@@ -171,6 +186,41 @@ export async function updateCalendarEntry(userId, entryId, payload) {
     updates.push('#eventId = :eventId');
     names['#eventId'] = 'eventId';
     values[':eventId'] = { S: normalizeString(payload.eventId || '') };
+  }
+  if (payload.startDateKey !== undefined) {
+    updates.push('#startDateKey = :startDateKey');
+    names['#startDateKey'] = 'startDateKey';
+    values[':startDateKey'] = { S: normalizeString(payload.startDateKey || '') };
+  }
+  if (payload.startTime !== undefined) {
+    updates.push('#startTime = :startTime');
+    names['#startTime'] = 'startTime';
+    values[':startTime'] = { S: normalizeString(payload.startTime || '') };
+  }
+  if (payload.endDateKey !== undefined) {
+    updates.push('#endDateKey = :endDateKey');
+    names['#endDateKey'] = 'endDateKey';
+    values[':endDateKey'] = { S: normalizeString(payload.endDateKey || '') };
+  }
+  if (payload.endDate !== undefined) {
+    updates.push('#endDate = :endDate');
+    names['#endDate'] = 'endDate';
+    values[':endDate'] = { S: normalizeString(payload.endDate || '') };
+  }
+  if (payload.location !== undefined) {
+    updates.push('#location = :location');
+    names['#location'] = 'location';
+    values[':location'] = { S: normalizeString(payload.location || '') };
+  }
+  if (payload.eventType !== undefined) {
+    updates.push('#eventType = :eventType');
+    names['#eventType'] = 'eventType';
+    values[':eventType'] = { S: normalizeString(payload.eventType || '') };
+  }
+  if (payload.label !== undefined) {
+    updates.push('#label = :label');
+    names['#label'] = 'label';
+    values[':label'] = { S: normalizeString(payload.label || '') };
   }
 
   if (!updates.length) {
