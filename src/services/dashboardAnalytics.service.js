@@ -1,5 +1,6 @@
 import { BatchGetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DASHBOARD_ANALYTICS_TABLE } from '../configs/dynamo.js';
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 const ZERO = { N: '0' };
 const ONE = { N: '1' };
@@ -12,10 +13,6 @@ const ANALYTICS_TYPES = {
   UPCOMING: 'UPCOMING',
   VENDORS: 'VENDORS',
 };
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function normalizeStatus(value) {
   return normalizeString(value).toUpperCase() || 'PLANNING';

@@ -13,10 +13,7 @@ import {
   updateEvent as updateEventService,
   getEvents as getEventsService,
 } from './event.service.js';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function parseJsonAttribute(attr) {
   if (!attr || typeof attr.S !== 'string') {

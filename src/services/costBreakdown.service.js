@@ -7,10 +7,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById as getEventByIdService } from './event.service.js';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function parseNumberField(value, fieldName) {
   if (value === undefined || value === null || value === '') {

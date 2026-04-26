@@ -3,14 +3,11 @@ import jwt from 'jsonwebtoken';
 import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET env var is required');
-}
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function mapDynamoUser(item) {
