@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import bcrypt from 'bcryptjs';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -9,19 +10,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById } from './event.service.js';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function buildStringAttribute(value) {
-  const normalized = normalizeString(value);
-  return normalized ? { S: normalized } : undefined;
-}
-
-function buildNumberAttribute(value) {
-  return value !== undefined && value !== null ? { N: String(value) } : undefined;
-}
+import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
 
 function mapDynamoOrganizer(item) {
   if (!item) {
@@ -39,7 +28,6 @@ function mapDynamoOrganizer(item) {
     middleName: item.middleName?.S || '',
     lastName,
     email: item.email?.S || '',
-    password: item.password?.S || '',
     phone: item.contactNumber?.S || '',
     role: item.role?.S || 'ORGANIZER',
     contactNumber: item.contactNumber?.S || '',
@@ -169,6 +157,24 @@ export async function getOrganizerById(organizerId) {
   return mapDynamoOrganizer(response.Item);
 }
 
+async function scanOrganizerByEmail(email) {
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: '#email = :emailValue AND #role = :organizer',
+    ExpressionAttributeNames: {
+      '#email': 'email',
+      '#role': 'role',
+    },
+    ExpressionAttributeValues: {
+      ':emailValue': { S: email },
+      ':organizer': { S: 'ORGANIZER' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoOrganizer(response.Items?.[0]);
+}
+
 export async function findOrganizerByEmail(email) {
   const normalizedEmail = normalizeString(email).toLowerCase();
   if (!normalizedEmail) {
@@ -187,9 +193,16 @@ export async function findOrganizerByEmail(email) {
     },
   });
 
-  const response = await dynamoClient.send(command);
-  const found = (response.Items || []).find((item) => item.role?.S === 'ORGANIZER');
-  return mapDynamoOrganizer(found);
+  try {
+    const response = await dynamoClient.send(command);
+    const found = (response.Items || []).find((item) => item.role?.S === 'ORGANIZER');
+    return mapDynamoOrganizer(found);
+  } catch (error) {
+    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+      return scanOrganizerByEmail(normalizedEmail);
+    }
+    throw error;
+  }
 }
 
 export async function createOrganizer(organizerData) {
@@ -210,6 +223,7 @@ export async function createOrganizer(organizerData) {
   const organizerPayload = {
     ...organizerData,
     id: randomUUID(),
+    password: organizerData.password ? await bcrypt.hash(normalizeString(organizerData.password), 10) : undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -243,6 +257,10 @@ export async function updateOrganizer(organizerId, updateData) {
     ...updateData,
     updated_at: new Date().toISOString(),
   };
+
+  if (updateData.password) {
+    updatedPayload.password = await bcrypt.hash(normalizeString(updateData.password), 10);
+  }
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,

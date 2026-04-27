@@ -1,60 +1,378 @@
 import { randomUUID } from 'crypto';
 import {
-  DeleteItemCommand,
   GetItemCommand,
   PutItemCommand,
   ScanCommand,
+  QueryCommand,
+  DeleteItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById } from './event.service.js';
 import { updateVendorSnapshot } from './dashboardAnalytics.service.js';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function buildVendorKey(vendorId) {
-  return {
-    PK: { S: `VENDOR#${normalizeString(vendorId)}` },
-    SK: { S: 'PROFILE' },
-  };
-}
+import { normalizeString, buildStringAttribute } from '../utils/dynamoHelpers.js';
 
 function mapDynamoVendor(item) {
   if (!item) {
     return null;
   }
 
+  const vendorName = item.vendorName?.S || item.name?.S || '';
+  const contactNumber = item.contactNumber?.S || item.contactPhone?.S || '';
+  const email = item.email?.S || item.contactEmail?.S || '';
+  const availabilityStatus = item.availabilityStatus?.S || item.status?.S || 'inactive';
+
   return {
-    id: item.id?.S || item.PK?.S?.replace('VENDOR#', '') || '',
-    name: item.name?.S || '',
+    id: item.PK?.S?.replace('VENDOR#', '') || '',
+    vendorName,
+    contactPerson: item.contactPerson?.S || '',
+    contactNumber,
+    email,
+    typeOfSupply: item.typeOfSupply?.S || '',
+    servicesOffered: item.servicesOffered?.S || '',
+    pricing: item.pricing?.S || '',
     serviceType: item.serviceType?.S || '',
-    eventId: item.eventId?.S || '',
-    contactEmail: item.contactEmail?.S || '',
-    contactPhone: item.contactPhone?.S || '',
-    status: item.status?.S || 'inactive',
-    createdAt: item.createdAt?.S || '',
-    updatedAt: item.updatedAt?.S || '',
+    price: item.price?.N ? Number(item.price.N) : null,
+    availabilityStatus,
+    lastEventHandled: item.lastEventHandled?.S || '',
+    notes: item.notes?.S || '',
+    eventId: item.eventId?.S || undefined,
+    createdAt: item.created_at?.S || item.createdAt?.S || '',
+    updatedAt: item.updated_at?.S || item.updatedAt?.S || '',
   };
 }
 
 function buildDynamoVendorItem(payload) {
-  const id = normalizeString(payload.id || randomUUID());
-  const now = new Date().toISOString();
+  const vendorId = payload.id || randomUUID();
+  const createdAt = normalizeString(payload.created_at || payload.createdAt) || new Date().toISOString();
+  const updatedAt = normalizeString(payload.updated_at || payload.updatedAt) || new Date().toISOString();
+
+  const item = {
+    PK: { S: `VENDOR#${vendorId}` },
+    SK: { S: 'PROFILE' },
+    vendorName: { S: normalizeString(payload.vendorName || payload.name || '') },
+    availabilityStatus: { S: normalizeString(payload.availabilityStatus || payload.status || 'inactive') },
+    created_at: { S: createdAt },
+    updated_at: { S: updatedAt },
+  };
+
+  const contactPerson = normalizeString(payload.contactPerson || payload.contactName);
+  if (contactPerson) item.contactPerson = { S: contactPerson };
+
+  const contactNumber = normalizeString(payload.contactNumber || payload.phone || payload.contactPhone);
+  if (contactNumber) item.contactNumber = { S: contactNumber };
+
+  const email = normalizeString(payload.email || payload.contactEmail);
+  if (email) item.email = { S: email };
+
+  const typeOfSupply = normalizeString(payload.typeOfSupply || payload.supplyType);
+  if (typeOfSupply) item.typeOfSupply = { S: typeOfSupply };
+
+  const servicesOffered = normalizeString(payload.servicesOffered || payload.services);
+  if (servicesOffered) item.servicesOffered = { S: servicesOffered };
+
+  const pricing = normalizeString(payload.pricing);
+  if (pricing) item.pricing = { S: pricing };
+
+  const serviceType = normalizeString(payload.serviceType);
+  if (serviceType) item.serviceType = { S: serviceType };
+
+  const lastEventHandled = normalizeString(payload.lastEventHandled);
+  if (lastEventHandled) item.lastEventHandled = { S: lastEventHandled };
+
+  const notes = normalizeString(payload.notes);
+  if (notes) item.notes = { S: notes };
+
+  if (payload.price !== undefined && payload.price !== null && !Number.isNaN(Number(payload.price))) {
+    item.price = { N: String(Number(payload.price)) };
+  }
+
+  const eventId = normalizeString(payload.eventId);
+  if (eventId) {
+    item.eventId = { S: eventId };
+  }
+
+  return item;
+}
+
+function mapDynamoVendorWorker(item) {
+  if (!item) {
+    return null;
+  }
 
   return {
-    ...buildVendorKey(id),
-    id: { S: id },
-    entityType: { S: 'VENDOR' },
-    name: { S: normalizeString(payload.name) },
-    serviceType: { S: normalizeString(payload.serviceType) },
-    eventId: { S: normalizeString(payload.eventId) },
-    contactEmail: { S: normalizeString(payload.contactEmail) },
-    contactPhone: { S: normalizeString(payload.contactPhone) },
-    status: { S: normalizeString(payload.status || 'inactive') || 'inactive' },
-    createdAt: { S: payload.createdAt || now },
-    updatedAt: { S: payload.updatedAt || now },
+    id: item.SK?.S?.replace('WORKER#', '') || '',
+    vendorId: item.PK?.S?.replace('VENDOR#', '') || '',
+    workerName: item.workerName?.S || item.name?.S || '',
+    role: item.role?.S || '',
+    contactNumber: item.contactNumber?.S || '',
+    email: item.email?.S || '',
+    jobTitle: item.jobTitle?.S || '',
+    availabilityStatus: item.availabilityStatus?.S || 'inactive',
+    eventId: item.eventId?.S || undefined,
+    notes: item.notes?.S || '',
+    createdAt: item.created_at?.S || item.createdAt?.S || '',
+    updatedAt: item.updated_at?.S || item.updatedAt?.S || '',
   };
+}
+
+function buildDynamoVendorWorkerItem(payload) {
+  const workerId = payload.id || randomUUID();
+  const vendorId = normalizeString(payload.vendorId || payload.vendor_id || payload.vendorId);
+  const createdAt = normalizeString(payload.created_at || payload.createdAt) || new Date().toISOString();
+  const updatedAt = normalizeString(payload.updated_at || payload.updatedAt) || new Date().toISOString();
+
+  const item = {
+    PK: { S: `VENDOR#${vendorId}` },
+    SK: { S: `WORKER#${workerId}` },
+    workerName: { S: normalizeString(payload.workerName || payload.name || '') },
+    availabilityStatus: { S: normalizeString(payload.availabilityStatus || payload.status || 'inactive') },
+    created_at: { S: createdAt },
+    updated_at: { S: updatedAt },
+  };
+
+  const role = normalizeString(payload.role);
+  if (role) item.role = { S: role };
+
+  const contactNumber = normalizeString(payload.contactNumber || payload.phone);
+  if (contactNumber) item.contactNumber = { S: contactNumber };
+
+  const email = normalizeString(payload.email);
+  if (email) item.email = { S: email };
+
+  const jobTitle = normalizeString(payload.jobTitle || payload.position);
+  if (jobTitle) item.jobTitle = { S: jobTitle };
+
+  const notes = normalizeString(payload.notes);
+  if (notes) item.notes = { S: notes };
+
+  const eventId = normalizeString(payload.eventId);
+  if (eventId) {
+    item.eventId = { S: eventId };
+  }
+
+  return Object.fromEntries(Object.entries(item).filter(([, value]) => value !== undefined));
+}
+
+async function ensureVendorExists(vendorId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+
+  const vendor = await getVendorById(vendorId);
+  if (!vendor) {
+    throw new Error('Vendor not found');
+  }
+
+  return vendor;
+}
+
+export async function getVendorWorkers(vendorId, eventId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const query = {
+    TableName: DYNAMO_TABLE,
+    KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :workerPrefix)',
+    ExpressionAttributeNames: {
+      '#pk': 'PK',
+      '#sk': 'SK',
+    },
+    ExpressionAttributeValues: {
+      ':pk': { S: `VENDOR#${normalizeString(vendorId)}` },
+      ':workerPrefix': { S: 'WORKER#' },
+    },
+  };
+
+  if (eventId) {
+    query.FilterExpression = '#eventId = :eventId';
+    query.ExpressionAttributeNames['#eventId'] = 'eventId';
+    query.ExpressionAttributeValues[':eventId'] = { S: normalizeString(eventId) };
+  }
+
+  const command = new QueryCommand(query);
+  const response = await dynamoClient.send(command);
+  return (response.Items || []).map(mapDynamoVendorWorker);
+}
+
+export async function getVendorWorkerById(vendorId, workerId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!workerId) {
+    throw new Error('Worker ID is required');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `VENDOR#${normalizeString(vendorId)}` },
+      SK: { S: `WORKER#${normalizeString(workerId)}` },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoVendorWorker(response.Item);
+}
+
+export async function createVendorWorker(vendorId, workerData) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!workerData || typeof workerData !== 'object') {
+    throw new Error('Invalid worker data');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const workerName = normalizeString(workerData.workerName || workerData.name);
+  if (!workerName) {
+    throw new Error('workerName is required');
+  }
+
+  const eventId = normalizeString(workerData.eventId);
+  if (eventId) {
+    const event = await getEventById(eventId);
+    if (!event) {
+      throw new Error('Associated event not found');
+    }
+  }
+
+  const newWorker = {
+    ...workerData,
+    id: randomUUID(),
+    vendorId: normalizeString(vendorId),
+    availabilityStatus: normalizeString(workerData.availabilityStatus || workerData.status || 'inactive').toLowerCase(),
+    eventId: eventId || undefined,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: buildDynamoVendorWorkerItem(newWorker),
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+  });
+
+  await dynamoClient.send(command);
+  return mapDynamoVendorWorker(buildDynamoVendorWorkerItem(newWorker));
+}
+
+export async function updateVendorWorker(vendorId, workerId, updateData) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!workerId) {
+    throw new Error('Worker ID is required');
+  }
+  if (!updateData || typeof updateData !== 'object') {
+    throw new Error('Invalid update data');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const existing = await getVendorWorkerById(vendorId, workerId);
+  if (!existing) {
+    throw new Error('Worker not found');
+  }
+
+  const eventId = normalizeString(updateData.eventId);
+  if (updateData.eventId !== undefined && eventId) {
+    const event = await getEventById(eventId);
+    if (!event) {
+      throw new Error('Associated event not found');
+    }
+  }
+
+  const updatedWorker = {
+    ...existing,
+    ...updateData,
+    vendorId: normalizeString(vendorId),
+    id: workerId,
+    availabilityStatus: normalizeString(updateData.availabilityStatus || updateData.status || existing.availabilityStatus || 'inactive').toLowerCase(),
+    eventId: updateData.eventId !== undefined ? (eventId || undefined) : existing.eventId,
+    updated_at: new Date().toISOString(),
+  };
+
+  const command = new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: buildDynamoVendorWorkerItem(updatedWorker),
+  });
+
+  await dynamoClient.send(command);
+  return mapDynamoVendorWorker(buildDynamoVendorWorkerItem(updatedWorker));
+}
+
+export async function deleteVendorWorker(vendorId, workerId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!workerId) {
+    throw new Error('Worker ID is required');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const existing = await getVendorWorkerById(vendorId, workerId);
+  if (!existing) {
+    throw new Error('Worker not found');
+  }
+
+  const command = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `VENDOR#${normalizeString(vendorId)}` },
+      SK: { S: `WORKER#${normalizeString(workerId)}` },
+    },
+  });
+
+  await dynamoClient.send(command);
+  return existing;
+}
+
+export async function assignWorkerToEvent(vendorId, workerId, eventId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!workerId) {
+    throw new Error('Worker ID is required');
+  }
+  if (!eventId || !normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const existing = await getVendorWorkerById(vendorId, workerId);
+  if (!existing) {
+    throw new Error('Worker not found');
+  }
+
+  const event = await getEventById(eventId);
+  if (!event) {
+    throw new Error('Associated event not found');
+  }
+
+  const updatedWorker = {
+    ...existing,
+    vendorId: normalizeString(vendorId),
+    id: workerId,
+    eventId: normalizeString(eventId),
+    updated_at: new Date().toISOString(),
+  };
+
+  await dynamoClient.send(
+    new PutItemCommand({
+      TableName: DYNAMO_TABLE,
+      Item: buildDynamoVendorWorkerItem(updatedWorker),
+    })
+  );
+
+  return mapDynamoVendorWorker(buildDynamoVendorWorkerItem(updatedWorker));
 }
 
 export async function createVendor(vendorData) {
@@ -62,81 +380,29 @@ export async function createVendor(vendorData) {
     throw new Error('Invalid vendor data');
   }
 
-  const { name, serviceType, eventId, contactEmail, contactPhone, status } = vendorData;
+  const vendorName = normalizeString(vendorData.vendorName || vendorData.name);
+  const serviceType = normalizeString(vendorData.serviceType);
+  const eventId = normalizeString(vendorData.eventId);
+  const availabilityStatus = normalizeString(vendorData.availabilityStatus || vendorData.status || 'inactive');
 
-  const normalizedName = normalizeString(name);
-  const normalizedServiceType = normalizeString(serviceType);
-  const normalizedEventId = normalizeString(eventId);
-
-  if (!normalizedName || !normalizedServiceType || !normalizedEventId) {
-    throw new Error('name, serviceType and eventId are required');
+  if (!vendorName || !serviceType) {
+    throw new Error('vendorName and serviceType are required');
   }
 
-  const event = await getEventById(normalizedEventId);
-  if (!event) {
-    throw new Error('Associated event not found');
-  }
-
-  const normalizedStatus = normalizeString(status).toLowerCase() || 'inactive';
-  const newVendor = {
-    id: randomUUID(),
-    name: normalizedName,
-    serviceType: normalizedServiceType,
-    eventId: normalizedEventId,
-    contactEmail: normalizeString(contactEmail),
-    contactPhone: normalizeString(contactPhone),
-    status: normalizedStatus,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const command = new PutItemCommand({
-    TableName: DYNAMO_TABLE,
-    Item: buildDynamoVendorItem(newVendor),
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-  });
-  await dynamoClient.send(command);
-
-  if (normalizedStatus === 'active') {
-    await updateVendorSnapshot(newVendor.id, true);
-  }
-
-  return newVendor;
-}
-
-export async function createVendorPool(vendorData) {
-  if (!vendorData || typeof vendorData !== 'object') {
-    throw new Error('Invalid vendor data');
-  }
-
-  const { name, serviceType, eventId, contactEmail, contactPhone, status } = vendorData;
-
-  const normalizedName = normalizeString(name);
-  const normalizedServiceType = normalizeString(serviceType);
-
-  if (!normalizedName || !normalizedServiceType) {
-    throw new Error('name and serviceType are required');
-  }
-
-  const normalizedEventId = normalizeString(eventId);
-  if (normalizedEventId) {
-    const event = await getEventById(normalizedEventId);
+  if (eventId) {
+    const event = await getEventById(eventId);
     if (!event) {
       throw new Error('Associated event not found');
     }
   }
 
-  const normalizedStatus = normalizeString(status).toLowerCase() || 'inactive';
   const newVendor = {
+    ...vendorData,
     id: randomUUID(),
-    name: normalizedName,
-    serviceType: normalizedServiceType,
-    eventId: normalizedEventId,
-    contactEmail: normalizeString(contactEmail),
-    contactPhone: normalizeString(contactPhone),
-    status: normalizedStatus,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    availabilityStatus: availabilityStatus.toLowerCase(),
+    eventId: eventId || undefined,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   const command = new PutItemCommand({
@@ -144,31 +410,38 @@ export async function createVendorPool(vendorData) {
     Item: buildDynamoVendorItem(newVendor),
     ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
+
   await dynamoClient.send(command);
 
-  if (normalizedStatus === 'active') {
+  if (newVendor.availabilityStatus === 'active') {
     await updateVendorSnapshot(newVendor.id, true);
   }
 
-  return newVendor;
+  return mapDynamoVendor(buildDynamoVendorItem(newVendor));
 }
 
 export async function getVendors(eventId) {
-  const normalizedEventId = normalizeString(eventId);
-  const scanInput = {
+  const params = {
     TableName: DYNAMO_TABLE,
-    FilterExpression: 'begins_with(PK, :vendorPrefix)',
+    FilterExpression: '#sk = :profile AND begins_with(#pk, :vendorPrefix)',
+    ExpressionAttributeNames: {
+      '#sk': 'SK',
+      '#pk': 'PK',
+    },
     ExpressionAttributeValues: {
+      ':profile': { S: 'PROFILE' },
       ':vendorPrefix': { S: 'VENDOR#' },
     },
   };
 
-  if (normalizedEventId) {
-    scanInput.FilterExpression = 'begins_with(PK, :vendorPrefix) AND eventId = :eventId';
-    scanInput.ExpressionAttributeValues[':eventId'] = { S: normalizedEventId };
+  if (eventId) {
+    params.FilterExpression += ' AND #eventId = :eventId';
+    params.ExpressionAttributeNames['#eventId'] = 'eventId';
+    params.ExpressionAttributeValues[':eventId'] = { S: normalizeString(eventId) };
   }
 
-  const response = await dynamoClient.send(new ScanCommand(scanInput));
+  const command = new ScanCommand(params);
+  const response = await dynamoClient.send(command);
   return (response.Items || []).map(mapDynamoVendor);
 }
 
@@ -179,7 +452,10 @@ export async function getVendorById(vendorId) {
 
   const command = new GetItemCommand({
     TableName: DYNAMO_TABLE,
-    Key: buildVendorKey(vendorId),
+    Key: {
+      PK: { S: `VENDOR#${normalizeString(vendorId)}` },
+      SK: { S: 'PROFILE' },
+    },
   });
 
   const response = await dynamoClient.send(command);
@@ -191,42 +467,33 @@ export async function updateVendor(vendorId, updateData) {
     throw new Error('Vendor ID is required');
   }
 
+  if (!updateData || typeof updateData !== 'object') {
+    throw new Error('Invalid update data');
+  }
+
   const existingVendor = await getVendorById(vendorId);
   if (!existingVendor) {
     throw new Error('Vendor not found');
   }
 
-  if (!updateData || typeof updateData !== 'object') {
-    throw new Error('Invalid update data');
-  }
-
-  const { name, serviceType, eventId, contactEmail, contactPhone, status } = updateData;
-
-  if (eventId !== undefined && eventId !== existingVendor.eventId) {
-    const normalizedEventId = normalizeString(eventId);
-    if (normalizedEventId) {
-      const event = await getEventById(normalizedEventId);
-      if (!event) {
-        throw new Error('Associated event not found');
-      }
+  const eventId = normalizeString(updateData.eventId);
+  if (eventId && eventId !== existingVendor.eventId) {
+    const event = await getEventById(eventId);
+    if (!event) {
+      throw new Error('Associated event not found');
     }
   }
 
-  const normalizedStatus =
-    status !== undefined ? normalizeString(status).toLowerCase() : existingVendor.status;
+  const availabilityStatus = normalizeString(
+    updateData.availabilityStatus || updateData.status || existingVendor.availabilityStatus || 'inactive'
+  ).toLowerCase();
 
   const updatedVendor = {
     ...existingVendor,
-    name: name !== undefined ? normalizeString(name) : existingVendor.name,
-    serviceType:
-      serviceType !== undefined ? normalizeString(serviceType) : existingVendor.serviceType,
-    eventId: eventId !== undefined ? normalizeString(eventId) : existingVendor.eventId,
-    contactEmail:
-      contactEmail !== undefined ? normalizeString(contactEmail) : existingVendor.contactEmail,
-    contactPhone:
-      contactPhone !== undefined ? normalizeString(contactPhone) : existingVendor.contactPhone,
-    status: normalizedStatus,
-    updatedAt: new Date().toISOString(),
+    ...updateData,
+    eventId: updateData.eventId !== undefined ? (eventId || undefined) : existingVendor.eventId,
+    availabilityStatus,
+    updated_at: new Date().toISOString(),
   };
 
   const command = new PutItemCommand({
@@ -236,16 +503,49 @@ export async function updateVendor(vendorId, updateData) {
 
   await dynamoClient.send(command);
 
-  if (existingVendor.status !== normalizedStatus) {
-    const wasActive = existingVendor.status === 'active';
-    const nowActive = normalizedStatus === 'active';
-
+  if (existingVendor.availabilityStatus !== availabilityStatus) {
+    const wasActive = existingVendor.availabilityStatus === 'active';
+    const nowActive = availabilityStatus === 'active';
     if (wasActive !== nowActive) {
       await updateVendorSnapshot(updatedVendor.id, nowActive);
     }
   }
 
-  return updatedVendor;
+  return mapDynamoVendor(buildDynamoVendorItem(updatedVendor));
+}
+
+export async function assignVendorToEvent(vendorId, eventId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!eventId || !normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+
+  const existingVendor = await getVendorById(vendorId);
+  if (!existingVendor) {
+    throw new Error('Vendor not found');
+  }
+
+  const event = await getEventById(eventId);
+  if (!event) {
+    throw new Error('Associated event not found');
+  }
+
+  const updatedVendor = {
+    ...existingVendor,
+    eventId: normalizeString(eventId),
+    updated_at: new Date().toISOString(),
+  };
+
+  await dynamoClient.send(
+    new PutItemCommand({
+      TableName: DYNAMO_TABLE,
+      Item: buildDynamoVendorItem(updatedVendor),
+    })
+  );
+
+  return mapDynamoVendor(buildDynamoVendorItem(updatedVendor));
 }
 
 export async function deleteVendor(vendorId) {
@@ -258,14 +558,17 @@ export async function deleteVendor(vendorId) {
     throw new Error('Vendor not found');
   }
 
-  const command = new DeleteItemCommand({
-    TableName: DYNAMO_TABLE,
-    Key: buildVendorKey(vendorId),
-    ReturnValues: 'ALL_OLD',
-  });
+  await dynamoClient.send(
+    new DeleteItemCommand({
+      TableName: DYNAMO_TABLE,
+      Key: {
+        PK: { S: `VENDOR#${normalizeString(vendorId)}` },
+        SK: { S: 'PROFILE' },
+      },
+    })
+  );
 
-  const response = await dynamoClient.send(command);
-  return mapDynamoVendor(response.Attributes);
+  return existingVendor;
 }
 
 export async function getVendorsByEventId(eventId) {
@@ -273,16 +576,5 @@ export async function getVendorsByEventId(eventId) {
     throw new Error('Event ID is required');
   }
 
-  const normalizedEventId = normalizeString(eventId);
-  const command = new ScanCommand({
-    TableName: DYNAMO_TABLE,
-    FilterExpression: 'begins_with(PK, :vendorPrefix) AND eventId = :eventId',
-    ExpressionAttributeValues: {
-      ':vendorPrefix': { S: 'VENDOR#' },
-      ':eventId': { S: normalizedEventId },
-    },
-  });
-
-  const response = await dynamoClient.send(command);
-  return (response.Items || []).map(mapDynamoVendor);
+  return getVendors(eventId);
 }

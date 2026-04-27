@@ -7,7 +7,10 @@ import {
   addEventMessage as addEventMessageService,
 } from '../services/event.service.js';
 import { getVendorsByEventId as getVendorsByEventIdService } from '../services/vendor.service.js';
-import { getAttendeesByEventId as getAttendeesByEventIdService } from '../services/attendee.service.js';
+import {
+  getHeadcount as getHeadcountService,
+  getAllRsvps,
+} from '../services/rsvp.service.js';
 import {
   getOrganizerById as getOrganizerByIdService,
   getOrganizersByIds as getOrganizersByIdsService,
@@ -34,8 +37,8 @@ export async function createEvent(req, res) {
 
 export async function getEventMessages(req, res) {
   try {
-    const { id } = req.params;
-    const event = await getEventByIdService(id);
+    const eventId = req.params.eventId || req.params.id;
+    const event = await getEventByIdService(eventId);
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
@@ -58,7 +61,7 @@ export async function getEventMessages(req, res) {
 
 export async function sendEventMessage(req, res) {
   try {
-    const { id } = req.params;
+    const eventId = req.params.eventId || req.params.id;
     const { content } = req.body ?? {};
     const currentUserId = req.user?.user_id;
 
@@ -66,7 +69,7 @@ export async function sendEventMessage(req, res) {
       return res.status(400).json({ error: 'Message content is required' });
     }
 
-    const event = await getEventByIdService(id);
+    const event = await getEventByIdService(eventId);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
@@ -78,7 +81,7 @@ export async function sendEventMessage(req, res) {
     }
 
     const message = await addEventMessageService(
-      id,
+      eventId,
       currentUserId,
       req.user.role || 'ORGANIZER',
       content,
@@ -112,15 +115,15 @@ export async function getEvents(req, res) {
 
 export async function getEventById(req, res) {
   try {
-    const { id } = req.params;
-    const event = await getEventByIdService(id);
+    const eventId = req.params.eventId || req.params.id;
+    const event = await getEventByIdService(eventId);
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
     const client = event.clientId ? await getUserByUserIdService(event.clientId) : null;
-    const tasks = await getTasksByEventIdService(id);
+    const tasks = await getTasksByEventIdService(eventId);
     const groupedTasks = { TODO: [], IN_PROGRESS: [], COMPLETED: [] };
     tasks.forEach((task) => {
       if (!groupedTasks[task.status]) {
@@ -132,17 +135,16 @@ export async function getEventById(req, res) {
     const completedTasks = groupedTasks.COMPLETED.length;
     const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
-    const vendors = await getVendorsByEventIdService(id);
-    const attendees = await getAttendeesByEventIdService(id);
+    const vendors = await getVendorsByEventIdService(eventId);
+    
+    // Fetch real guests and headcount from DynamoDB RSVP data
+    const attendees = await getAllRsvps(eventId);
+    const { expectedGuests, currentHeadcount } = await getHeadcountService(eventId);
 
-    const expectedAttendee = attendees.length;
-    const arrivedAttendee = attendees.filter(
-      (x) => x.status === 'checked_in'
-    ).length;
     const percentArrived =
-      expectedAttendee === 0
+      expectedGuests === 0
         ? 0
-        : Number(((arrivedAttendee / expectedAttendee) * 100).toFixed(2));
+        : Number(((currentHeadcount / expectedGuests) * 100).toFixed(2));
 
     let headOrganizer = null;
     if (event.headOrganizerId) {
@@ -202,8 +204,8 @@ export async function getEventById(req, res) {
         headOrganizer,
         workerOrganizers,
         headcount: {
-          expectedAttendee,
-          arrivedAttendee,
+          expectedAttendee: expectedGuests,
+          arrivedAttendee: currentHeadcount,
           percentArrived,
         },
       },
@@ -217,9 +219,9 @@ export async function getEventById(req, res) {
 
 export async function updateEvent(req, res) {
   try {
-    const { id } = req.params;
+    const eventId = req.params.eventId || req.params.id;
     const updatePayload = req.body ?? {};
-    const updatedEvent = await updateEventService(id, updatePayload);
+    const updatedEvent = await updateEventService(eventId, updatePayload);
 
     return res.status(200).json({
       message: 'Event updated successfully',
@@ -238,8 +240,8 @@ export async function updateEvent(req, res) {
 
 export async function deleteEvent(req, res) {
   try {
-    const { id } = req.params;
-    await deleteEventService(id);
+    const eventId = req.params.eventId || req.params.id;
+    await deleteEventService(eventId);
 
     return res.status(200).json({ message: 'Event deleted successfully' });
   } catch (error) {

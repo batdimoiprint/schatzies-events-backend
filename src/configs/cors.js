@@ -5,8 +5,19 @@ const frontendUrl =
     ? process.env.FRONTEND_URL
     : 'http://localhost:5173';
 
+const localSwaggerUrl = 'http://localhost:3000';
+const allowedOrigins = [frontendUrl];
+if (process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push(localSwaggerUrl);
+}
+
 const corsOptions = {
-  origin: frontendUrl,
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS origin not allowed: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -17,5 +28,7 @@ const corsOptions = {
     'Authorization',
   ],
 };
+
+console.log('CORS allowed origins:', allowedOrigins);
 
 export default cors(corsOptions);

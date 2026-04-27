@@ -5,24 +5,30 @@ import {
 
 const AUTH_COOKIE_NAME = 'auth_token';
 const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const isProduction = process.env.NODE_ENV === 'production';
+const AUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure:
+    process.env.COOKIE_SECURE === 'true'
+      ? true
+      : process.env.COOKIE_SECURE === 'false'
+      ? false
+      : isProduction,
+  sameSite: process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax'),
+  path: '/',
+};
+
+console.log('Auth cookie options:', AUTH_COOKIE_OPTIONS);
 
 function setAuthCookie(res, token) {
   res.cookie(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
+    ...AUTH_COOKIE_OPTIONS,
     maxAge: AUTH_COOKIE_MAX_AGE_MS,
-    path: '/',
   });
 }
 
 function clearAuthCookie(res) {
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    path: '/',
-  });
+  res.clearCookie(AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS);
 }
 
 export function currentUser(req, res) {
@@ -52,6 +58,8 @@ export async function login(req, res) {
 
     return res.json({
       message: 'Login successful',
+      token,
+      user,
     });
   } catch {
     return res.status(500).json({ error: 'Unable to login' });

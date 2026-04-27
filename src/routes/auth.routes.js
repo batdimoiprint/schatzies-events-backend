@@ -61,7 +61,7 @@ const router = express.Router();
  *           example: 'juan@email.com'
  *         role:
  *           type: string
- *           example: 'CLIENT'
+ *           example: 'ADMIN'
  *         created_at:
  *           type: string
  *           format: date-time
@@ -83,6 +83,9 @@ const router = express.Router();
  *         message:
  *           type: string
  *           example: 'Login successful'
+ *         token:
+ *           type: string
+ *           example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
  *         user:
  *           $ref: '#/components/schemas/User'
  *     ValidateTokenSuccess:

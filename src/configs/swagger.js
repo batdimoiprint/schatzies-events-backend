@@ -28,6 +28,11 @@ const swaggerSpec = swaggerJsdoc({
           in: 'cookie',
           name: 'auth_token',
         },
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
       },
       schemas: {
         Organizer: {
@@ -123,15 +128,27 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: '550e8400-e29b-41d4-a716-446655440000',
             },
-            clientId: {
+            event_id: {
               type: 'string',
               example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            eventId: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            client_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            organizer_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440001',
             },
             eventType: {
               type: 'string',
               example: 'Wedding',
             },
-            eventPackage: {
+            eventPackageKey: {
               type: 'string',
               example: 'Gold',
             },
@@ -143,6 +160,14 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               format: 'date-time',
               example: '2025-12-31T18:00:00.000Z',
+            },
+            eventTime: {
+              type: 'string',
+              example: '18:00',
+            },
+            eventLocation: {
+              type: 'string',
+              example: 'Manila Hotel',
             },
             status: {
               type: 'string',
@@ -216,13 +241,25 @@ const swaggerSpec = swaggerJsdoc({
         },
         CreateEventRequest: {
           type: 'object',
-          required: ['title', 'startDate'],
+          required: ['eventType', 'eventDate'],
           properties: {
+            client_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            organizer_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440001',
+            },
             eventType: {
               type: 'string',
               example: 'Wedding',
             },
-            eventPackage: {
+            title: {
+              type: 'string',
+              example: 'Annual Company Party',
+            },
+            eventPackageKey: {
               type: 'string',
               example: 'Gold',
             },
@@ -235,42 +272,40 @@ const swaggerSpec = swaggerJsdoc({
               format: 'date-time',
               example: '2025-12-31T18:00:00.000Z',
             },
-            title: {
+            eventTime: {
               type: 'string',
-              example: 'Annual Company Party',
+              example: '18:00',
             },
-            description: {
-              type: 'string',
-              example: 'A year-end celebration for employees and their families.',
-            },
-            location: {
+            eventLocation: {
               type: 'string',
               example: 'Manila Hotel',
             },
-            startDate: {
+            status: {
               type: 'string',
-              format: 'date-time',
-              example: '2025-12-31T18:00:00.000Z',
-            },
-            endDate: {
-              type: 'string',
-              format: 'date-time',
-              example: '2026-01-01T01:00:00.000Z',
-            },
-            headOrganizerId: {
-              type: 'string',
-              example: '550e8400-e29b-41d4-a716-446655440001',
+              example: 'Planning',
             },
           },
         },
         UpdateEventRequest: {
           type: 'object',
           properties: {
+            client_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            organizer_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440001',
+            },
             eventType: {
               type: 'string',
               example: 'Wedding',
             },
-            eventPackage: {
+            title: {
+              type: 'string',
+              example: 'Annual Company Party',
+            },
+            eventPackageKey: {
               type: 'string',
               example: 'Gold',
             },
@@ -283,31 +318,134 @@ const swaggerSpec = swaggerJsdoc({
               format: 'date-time',
               example: '2025-12-31T18:00:00.000Z',
             },
-            title: {
+            eventTime: {
               type: 'string',
-              example: 'Annual Company Party',
+              example: '18:00',
             },
-            description: {
-              type: 'string',
-              example: 'A year-end celebration for employees and their families.',
-            },
-            location: {
+            eventLocation: {
               type: 'string',
               example: 'Manila Hotel',
             },
-            startDate: {
+            status: {
+              type: 'string',
+              example: 'Planning',
+            },
+          },
+        },
+        CostBreakdownRequest: {
+          type: 'object',
+          required: ['packagePricePerPax', 'eventPax', 'manpowerCost', 'additionalCharges'],
+          properties: {
+            packagePricePerPax: {
+              type: 'number',
+              example: 850,
+            },
+            eventPax: {
+              type: 'number',
+              example: 120,
+            },
+            manpowerCost: {
+              type: 'number',
+              example: 25000,
+            },
+            additionalCharges: {
+              type: 'number',
+              example: 15000,
+            },
+          },
+        },
+        CostBreakdown: {
+          type: 'object',
+          properties: {
+            costBreakdown_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            packagePricePerPax: {
+              type: 'number',
+              example: 850,
+            },
+            eventPax: {
+              type: 'number',
+              example: 120,
+            },
+            totalPackageCost: {
+              type: 'number',
+              example: 102000,
+            },
+            totalVendorCost: {
+              type: 'number',
+              example: 60000,
+            },
+            manpowerCost: {
+              type: 'number',
+              example: 25000,
+            },
+            additionalCharges: {
+              type: 'number',
+              example: 15000,
+            },
+            revenue: {
+              type: 'number',
+              example: 117000,
+            },
+            profit: {
+              type: 'number',
+              example: 32000,
+            },
+          },
+        },
+        CostBreakdownExport: {
+          type: 'object',
+          properties: {
+            costBreakdown_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
+            packagePricePerPax: {
+              type: 'number',
+              example: 850,
+            },
+            eventPax: {
+              type: 'number',
+              example: 120,
+            },
+            totalPackageCost: {
+              type: 'number',
+              example: 102000,
+            },
+            totalVendorCost: {
+              type: 'number',
+              example: 60000,
+            },
+            manpowerCost: {
+              type: 'number',
+              example: 25000,
+            },
+            additionalCharges: {
+              type: 'number',
+              example: 15000,
+            },
+            revenue: {
+              type: 'number',
+              example: 117000,
+            },
+            profit: {
+              type: 'number',
+              example: 32000,
+            },
+            generatedAt: {
               type: 'string',
               format: 'date-time',
-              example: '2025-12-31T18:00:00.000Z',
-            },
-            endDate: {
-              type: 'string',
-              format: 'date-time',
-              example: '2026-01-01T01:00:00.000Z',
-            },
-            headOrganizerId: {
-              type: 'string',
-              example: '550e8400-e29b-41d4-a716-446655440001',
+              example: '2026-04-20T12:00:00.000Z',
             },
           },
         },

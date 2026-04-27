@@ -2,10 +2,7 @@ import bcrypt from 'bcryptjs';
 import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand, DeleteItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
-
-function normalizeString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function mapDynamoUser(item) {
   if (!item) {
@@ -59,6 +56,22 @@ function buildDynamoItem(payload) {
   };
 }
 
+async function scanUserByEmail(email) {
+  const command = new ScanCommand({
+    TableName: DYNAMO_TABLE,
+    FilterExpression: '#email = :emailValue',
+    ExpressionAttributeNames: {
+      '#email': 'email',
+    },
+    ExpressionAttributeValues: {
+      ':emailValue': { S: email },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoUser(response.Items?.[0]);
+}
+
 export async function findUserByEmail(email) {
   const normalizedEmail = normalizeString(email).toLowerCase();
   if (!normalizedEmail) {
@@ -74,8 +87,15 @@ export async function findUserByEmail(email) {
     },
   });
 
-  const response = await dynamoClient.send(command);
-  return mapDynamoUser(response.Items?.[0]);
+  try {
+    const response = await dynamoClient.send(command);
+    return mapDynamoUser(response.Items?.[0]);
+  } catch (error) {
+    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+      return scanUserByEmail(normalizedEmail);
+    }
+    throw error;
+  }
 }
 
 export async function findUserByUserId(userId) {
@@ -103,29 +123,6 @@ export async function getAllUsers() {
     ExpressionAttributeValues: {
       ':pkPrefix': { S: 'USER#' },
       ':sk': { S: 'PROFILE' },
-    },
-  });
-
-  const response = await dynamoClient.send(command);
-  return (response.Items || []).map(mapDynamoUser);
-}
-
-export async function getUsersByRole(role) {
-  const normalizedRole = normalizeString(role).toUpperCase();
-  if (!normalizedRole) {
-    return [];
-  }
-
-  const command = new ScanCommand({
-    TableName: DYNAMO_TABLE,
-    FilterExpression: 'begins_with(PK, :pkPrefix) AND SK = :sk AND #role = :role',
-    ExpressionAttributeNames: {
-      '#role': 'role',
-    },
-    ExpressionAttributeValues: {
-      ':pkPrefix': { S: 'USER#' },
-      ':sk': { S: 'PROFILE' },
-      ':role': { S: normalizedRole },
     },
   });
 
