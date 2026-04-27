@@ -5,6 +5,7 @@ import {
   updateCalendarEntry,
   deleteCalendarEntry,
   markCalendarDate,
+  markCalendarEntryDone,
 } from '../controllers/calendar.controller.js';
 
 const router = express.Router();
@@ -146,6 +147,43 @@ router.get('/', getCalendarEntries);
  *                   $ref: '#/components/schemas/CalendarEntry'
  */
 router.put('/:entryId', updateCalendarEntry);
+
+/**
+ * @swagger
+ * /api/calendar/{entryId}/mark-done:
+ *   patch:
+ *     tags:
+ *       - Calendar
+ *     summary: Mark a calendar entry as done or not done
+ *     parameters:
+ *       - in: path
+ *         name: entryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Calendar entry ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isDone:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Calendar entry updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 entry:
+ *                   $ref: '#/components/schemas/CalendarEntry'
+ */
+router.patch('/:entryId/mark-done', markCalendarEntryDone);
 
 /**
  * @swagger

@@ -27,6 +27,7 @@ function mapCalendarItem(item) {
     location: item.location?.S || null,
     eventType: item.eventType?.S || null,
     label: item.label?.S || null,
+    isDone: (item.isDone?.BOOL ?? item.isDone?.S === 'true') || false,
     createdAt: item.createdAt?.S || '',
     updatedAt: item.updatedAt?.S || '',
   };
@@ -101,6 +102,9 @@ export async function createCalendarEntry(userId, payload) {
   }
   if (payload.label) {
     item.label = { S: normalizeString(payload.label) };
+  }
+  if (payload.isDone !== undefined) {
+    item.isDone = { BOOL: Boolean(payload.isDone) };
   }
 
   await dynamoClient.send(
@@ -231,6 +235,11 @@ export async function updateCalendarEntry(userId, entryId, payload) {
     names['#label'] = 'label';
     values[':label'] = { S: normalizeString(payload.label || '') };
   }
+  if (payload.isDone !== undefined) {
+    updates.push('#isDone = :isDone');
+    names['#isDone'] = 'isDone';
+    values[':isDone'] = { BOOL: Boolean(payload.isDone) };
+  }
 
   if (!updates.length) {
     throw new Error('No update fields provided');
@@ -263,6 +272,10 @@ export async function deleteCalendarEntry(userId, entryId) {
       },
     })
   );
+}
+
+export async function markCalendarEntryDone(userId, entryId, isDone = true) {
+  return updateCalendarEntry(userId, entryId, { isDone });
 }
 
 export async function markCalendarDate(userId, payload) {

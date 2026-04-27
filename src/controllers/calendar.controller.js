@@ -4,6 +4,7 @@ import {
   updateCalendarEntry as updateCalendarEntryService,
   deleteCalendarEntry as deleteCalendarEntryService,
   markCalendarDate as markCalendarDateService,
+  markCalendarEntryDone as markCalendarEntryDoneService,
 } from '../services/calendar.service.js';
 
 function createError(message, status = 400) {
@@ -217,6 +218,22 @@ export async function deleteCalendarEntry(req, res, next) {
 
     await deleteCalendarEntryService(userId, entryId);
     return res.status(200).json({ message: 'Calendar entry deleted' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function markCalendarEntryDone(req, res, next) {
+  try {
+    const userId = getUserId(req);
+    const { entryId } = req.params;
+    if (!entryId) {
+      throw createError('Calendar entry ID is required', 400);
+    }
+
+    const isDone = req.body.isDone === undefined ? true : Boolean(req.body.isDone);
+    const entry = await markCalendarEntryDoneService(userId, entryId, isDone);
+    return res.status(200).json({ entry });
   } catch (error) {
     return next(error);
   }
