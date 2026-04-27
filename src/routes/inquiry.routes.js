@@ -9,7 +9,8 @@ import {
   deleteInquiryController,
   updateInquiryStatusController,
   addInquiryCommunicationController,
-  scheduleMeetingController
+  scheduleMeetingController,
+  checkUserRegisteredController
 } from '../controllers/inquiry.controller.js';
 
 const router = express.Router();
@@ -168,5 +169,7 @@ router.delete('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER')
 router.patch('/:id/status', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryStatusController);
 router.post('/:id/communications', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), addInquiryCommunicationController);
 router.post('/:id/meeting', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), scheduleMeetingController);
+
+router.get('/:id/isUserRegistered', checkUserRegisteredController);
 
 export default router;

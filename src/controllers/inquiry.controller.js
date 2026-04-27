@@ -1,9 +1,17 @@
 import * as inquiryService from '../services/inquiry.service.js';
+import { sendInquiryCreatedEmail } from '../services/mailer.service.js';
 
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
   try {
     const newInquiry = await inquiryService.createInquiry(req.body);
+
+    try {
+      await sendInquiryCreatedEmail(newInquiry);
+    } catch (mailError) {
+      console.error('Failed to send inquiry created email:', mailError);
+    }
+
     res.status(201).json(newInquiry);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -89,5 +97,18 @@ export async function scheduleMeetingController(req, res) {
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+}
+
+// GET /api/inquiries/:id/isUserRegistered
+export async function checkUserRegisteredController(req, res) {
+  try {
+    const inquiry = await inquiryService.getInquiryById(req.params.id);
+    if (!inquiry) {
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+    res.json({ isUserRegistered: inquiry.is_Account_Created === true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
