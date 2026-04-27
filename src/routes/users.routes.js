@@ -170,6 +170,67 @@ router.put('/:userId', updateUserHandler);
 /**
  * @swagger
  * /api/users/{userId}:
+ *   patch:
+ *     tags:
+ *       - Users
+ *     summary: Partially update a user
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             additionalProperties: true
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               middleName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               birthDate:
+ *                 type: string
+ *               houseNumber:
+ *                 type: string
+ *               street:
+ *                 type: string
+ *               barangay:
+ *                 type: string
+ *               city:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *               gender:
+ *                 type: string
+ *               contactNumber:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated
+ *       404:
+ *         description: User not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/:userId', updateUserHandler);
+
+/**
+ * @swagger
+ * /api/users/{userId}:
  *   delete:
  *     tags:
  *       - Users

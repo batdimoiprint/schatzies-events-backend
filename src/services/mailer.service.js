@@ -95,6 +95,61 @@ export async function sendInquiryCreatedEmail(inquiry) {
   return { skipped: false, info, link: null };
 }
 
+export async function sendInquiryStatusUpdatedEmail(inquiry) {
+  if (!inquiry) {
+    throw new Error('Inquiry is required to send status updated email');
+  }
+
+  if (!inquiry.email) {
+    console.warn(`No email provided for inquiry ${inquiry.id}, skipping status updated email.`);
+    return { skipped: true, reason: 'No email provided', link: null };
+  }
+
+  const inquiryId = inquiry.id || 'N/A';
+  const fullName =
+    [inquiry.firstName, inquiry.middleName, inquiry.lastName].filter(Boolean).join(' ') || 'Client';
+  const status = inquiry.status || 'Updated';
+  const eventType = inquiry.eventType || 'N/A';
+
+  const subject = `Your event inquiry status has been updated`;
+  const text =
+    `Hello ${fullName},\n\n` +
+    `Your event inquiry status has been updated.\n\n` +
+    `Inquiry ID: ${inquiryId}\n` +
+    `Event Type: ${eventType}\n` +
+    `Current Status: ${status}\n\n` +
+    `Best regards,\nSchatzies Events`;
+  const html =
+    `<p>Hello ${escapeHtml(fullName)},</p>` +
+    `<p>Your event inquiry status has been updated.</p>` +
+    `<ul>` +
+    `<li><strong>Inquiry ID:</strong> ${escapeHtml(inquiryId)}</li>` +
+    `<li><strong>Event Type:</strong> ${escapeHtml(eventType)}</li>` +
+    `<li><strong>Current Status:</strong> ${escapeHtml(status)}</li>` +
+    `</ul>` +
+    `<p>Best regards,<br /><strong>Schatzies Events</strong></p>`;
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn('SMTP configuration is missing. Inquiry status updated email will not be sent.', {
+      to: inquiry.email,
+      subject,
+    });
+    return { skipped: true, reason: 'SMTP config missing', link: null };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: inquiry.email,
+    subject,
+    text,
+    html,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  return { skipped: false, info, link: null };
+}
+
 export async function sendWorkerRsvpEmail(organizer, event) {
   if (!organizer || !event) {
     throw new Error('Organizer and event are required to send RSVP email');

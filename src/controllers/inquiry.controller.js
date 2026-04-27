@@ -1,5 +1,5 @@
 import * as inquiryService from '../services/inquiry.service.js';
-import { sendInquiryCreatedEmail } from '../services/mailer.service.js';
+import { sendInquiryCreatedEmail, sendInquiryStatusUpdatedEmail } from '../services/mailer.service.js';
 
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
@@ -44,7 +44,26 @@ export async function getInquiryByIdController(req, res) {
 // PUT /api/inquiries/:id
 export async function updateInquiryController(req, res) {
   try {
+    const existingInquiry = await inquiryService.getInquiryById(req.params.id);
     const updated = await inquiryService.updateInquiry(req.params.id, req.body);
+
+    const didStatusChange =
+      typeof req.body?.status === 'string' &&
+      req.body.status &&
+      req.body.status !== existingInquiry?.status;
+
+    if (didStatusChange) {
+      try {
+        const mailResult = await sendInquiryStatusUpdatedEmail({
+          ...updated,
+          email: existingInquiry.email,
+        });
+        console.log('sendInquiryStatusUpdatedEmail result:', mailResult);
+      } catch (mailError) {
+        console.error('Failed to send inquiry status updated email:', mailError);
+      }
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -68,7 +87,21 @@ export async function updateInquiryStatusController(req, res) {
     if (!status) {
       return res.status(400).json({ error: 'Status is required' });
     }
+    const existingInquiry = await inquiryService.getInquiryById(req.params.id);
     const updated = await inquiryService.updateInquiryStatus(req.params.id, status);
+
+    if (status !== existingInquiry?.status) {
+      try {
+        const mailResult = await sendInquiryStatusUpdatedEmail({
+          ...updated,
+          email: updated.email || existingInquiry?.email || null,
+        });
+        console.log('sendInquiryStatusUpdatedEmail result:', mailResult);
+      } catch (mailError) {
+        console.error('Failed to send inquiry status updated email:', mailError);
+      }
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });

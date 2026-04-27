@@ -103,7 +103,7 @@ router.get('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), g
 /**
  * @swagger
  * /api/inquiries/{id}:
- *   put:
+ *   patch:
  *     summary: Update an inquiry
  *     tags: [Inquiries]
  *     parameters:
@@ -143,7 +143,7 @@ router.get('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), g
  *       404:
  *         description: Inquiry not found
  */
-router.put('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryController);
+router.patch('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryController);
 
 /**
  * @swagger

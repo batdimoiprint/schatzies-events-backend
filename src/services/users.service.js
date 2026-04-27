@@ -212,6 +212,22 @@ export async function updateUser(userId, payload) {
     'street', 'barangay', 'city', 'country', 'gender', 'contactNumber', 'role'
   ];
 
+  if (payload.email !== undefined) {
+    const normalizedEmail = normalizeString(payload.email).toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error('email cannot be empty');
+    }
+
+    const existingEmailUser = await findUserByEmail(normalizedEmail);
+    if (existingEmailUser && existingEmailUser.user_id !== normalizedUserId) {
+      throw new Error('Email is already registered');
+    }
+
+    updateExpressions.push('#email = :email');
+    expressionAttributeNames['#email'] = 'email';
+    expressionAttributeValues[':email'] = { S: normalizedEmail };
+  }
+
   for (const field of updatableFields) {
     if (payload[field] !== undefined) {
       updateExpressions.push(`#${field} = :${field}`);
