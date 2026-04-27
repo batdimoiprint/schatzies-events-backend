@@ -7,12 +7,14 @@ import {
   deleteVendor,
   getVendorsByEventId,
   assignVendorToEvent,
+  unassignVendorFromEvent,
   createVendorWorker,
   getVendorWorkers,
   getVendorWorkerById,
   updateVendorWorker,
   deleteVendorWorker,
   assignWorkerToEvent,
+  unassignWorkerFromEvent,
 } from '../controllers/vendor.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 
@@ -204,6 +206,29 @@ router.put('/:id', validateTokenMiddleware, updateVendor);
  *         description: Vendor or event not found
  */
 router.post('/:id/assign-event', validateTokenMiddleware, assignVendorToEvent);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/unassign-event:
+ *   delete:
+ *     tags:
+ *       - Vendors
+ *     summary: Unassign a vendor from its current event
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor unassigned successfully
+ *       404:
+ *         description: Vendor not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/unassign-event', validateTokenMiddleware, unassignVendorFromEvent);
 
 /**
  * @swagger
@@ -422,6 +447,34 @@ router.delete('/:id/workers/:workerId', validateTokenMiddleware, deleteVendorWor
  *         description: Worker or event not found
  */
 router.post('/:id/workers/:workerId/assign-event', validateTokenMiddleware, assignWorkerToEvent);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/workers/{workerId}/unassign-event:
+ *   delete:
+ *     tags:
+ *       - Vendors
+ *     summary: Unassign a worker from its current event
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: workerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker unassigned successfully
+ *       404:
+ *         description: Vendor or worker not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/workers/:workerId/unassign-event', validateTokenMiddleware, unassignWorkerFromEvent);
 
 /**
  * @swagger

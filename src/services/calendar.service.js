@@ -23,6 +23,7 @@ function mapCalendarItem(item) {
     startTime: item.startTime?.S || null,
     endDateKey: item.endDateKey?.S || null,
     endDate: item.endDate?.S || null,
+    endTime: item.endTime?.S || null,
     location: item.location?.S || null,
     eventType: item.eventType?.S || null,
     label: item.label?.S || null,
@@ -94,6 +95,9 @@ export async function createCalendarEntry(userId, payload) {
   }
   if (payload.eventType) {
     item.eventType = { S: normalizeString(payload.eventType) };
+  }
+  if (payload.endTime) {
+    item.endTime = { S: normalizeString(payload.endTime) };
   }
   if (payload.label) {
     item.label = { S: normalizeString(payload.label) };
@@ -206,6 +210,11 @@ export async function updateCalendarEntry(userId, entryId, payload) {
     updates.push('#endDate = :endDate');
     names['#endDate'] = 'endDate';
     values[':endDate'] = { S: normalizeString(payload.endDate || '') };
+  }
+  if (payload.endTime !== undefined) {
+    updates.push('#endTime = :endTime');
+    names['#endTime'] = 'endTime';
+    values[':endTime'] = { S: normalizeString(payload.endTime || '') };
   }
   if (payload.location !== undefined) {
     updates.push('#location = :location');

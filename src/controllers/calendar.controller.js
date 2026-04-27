@@ -87,6 +87,7 @@ export async function createCalendarEntry(req, res, next) {
         startTime: validateTimeString(startTime),
         endDateKey: validateDateString(endDateKey),
         endDate: validateDateTimeString(endDate),
+        endTime: validateTimeString(endTime),
         location: location || undefined,
         eventType: eventType || undefined,
         label: label || undefined,
@@ -188,6 +189,7 @@ export async function updateCalendarEntry(req, res, next) {
     if (startTime !== undefined) payload.startTime = validateTimeString(startTime);
     if (endDateKey !== undefined) payload.endDateKey = validateDateString(endDateKey);
     if (endDate !== undefined) payload.endDate = validateDateTimeString(endDate);
+    if (endTime !== undefined) payload.endTime = validateTimeString(endTime);
     if (location !== undefined) payload.location = location;
     if (eventType !== undefined) payload.eventType = eventType;
     if (label !== undefined) payload.label = label;
