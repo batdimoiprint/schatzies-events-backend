@@ -31,6 +31,28 @@ function validateDateString(value) {
   return normalized;
 }
 
+function validateDateTimeString(value) {
+  if (!value || typeof value !== 'string') {
+    throw createError('Date-time is required and must be a valid ISO string.', 400);
+  }
+  const normalized = value.trim();
+  if (isNaN(Date.parse(normalized))) {
+    throw createError('Date-time must be a valid ISO string.', 400);
+  }
+  return normalized;
+}
+
+function validateTimeString(value) {
+  if (!value || typeof value !== 'string') {
+    throw createError('Time is required and must be a valid string like 14:30.', 400);
+  }
+  const normalized = value.trim();
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(normalized)) {
+    throw createError('Time must be in HH:mm format.', 400);
+  }
+  return normalized;
+}
+
 function getUserId(req) {
   return String(req.user?.user_id || req.user?.id || '');
 }
@@ -38,12 +60,38 @@ function getUserId(req) {
 export async function createCalendarEntry(req, res, next) {
   try {
     const userId = getUserId(req);
-    const { title, description, date, type, eventId } = req.body;
+    const {
+      title,
+      description,
+      date,
+      type,
+      eventId,
+      startDateKey,
+      startTime,
+      endDateKey,
+      endDate,
+      location,
+      eventType,
+      label,
+    } = req.body;
     if (!title) {
       throw createError('Title is required', 400);
     }
     const calendarType = validateCalendarType(type);
     const calendarDate = validateDateString(date);
+
+    let meetingFields = {};
+    if (calendarType === 'MEETING') {
+      meetingFields = {
+        startDateKey: validateDateString(startDateKey),
+        startTime: validateTimeString(startTime),
+        endDateKey: validateDateString(endDateKey),
+        endDate: validateDateTimeString(endDate),
+        location: location || undefined,
+        eventType: eventType || undefined,
+        label: label || undefined,
+      };
+    }
 
     const entry = await createCalendarEntryService(userId, {
       title,
@@ -51,6 +99,10 @@ export async function createCalendarEntry(req, res, next) {
       date: calendarDate,
       type: calendarType,
       eventId,
+      location,
+      eventType,
+      label,
+      ...meetingFields,
     });
 
     return res.status(201).json({ entry });
@@ -108,7 +160,20 @@ export async function updateCalendarEntry(req, res, next) {
   try {
     const userId = getUserId(req);
     const { entryId } = req.params;
-    const { title, description, date, type, eventId } = req.body;
+    const {
+      title,
+      description,
+      date,
+      type,
+      eventId,
+      startDateKey,
+      startTime,
+      endDateKey,
+      endDate,
+      location,
+      eventType,
+      label,
+    } = req.body;
     if (!entryId) {
       throw createError('Calendar entry ID is required', 400);
     }
@@ -119,6 +184,13 @@ export async function updateCalendarEntry(req, res, next) {
     if (date !== undefined) payload.date = validateDateString(date);
     if (type !== undefined) payload.type = validateCalendarType(type);
     if (eventId !== undefined) payload.eventId = eventId;
+    if (startDateKey !== undefined) payload.startDateKey = validateDateString(startDateKey);
+    if (startTime !== undefined) payload.startTime = validateTimeString(startTime);
+    if (endDateKey !== undefined) payload.endDateKey = validateDateString(endDateKey);
+    if (endDate !== undefined) payload.endDate = validateDateTimeString(endDate);
+    if (location !== undefined) payload.location = location;
+    if (eventType !== undefined) payload.eventType = eventType;
+    if (label !== undefined) payload.label = label;
 
     if (!Object.keys(payload).length) {
       throw createError('At least one field must be provided to update', 400);
