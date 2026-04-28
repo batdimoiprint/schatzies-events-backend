@@ -242,7 +242,7 @@ export async function markCalendarEntryDone(req, res, next) {
 export async function markCalendarDate(req, res, next) {
   try {
     const userId = getUserId(req);
-    const { date, type, title, description, eventId } = req.body;
+    const { date, type, title, description, eventId, label } = req.body;
     const calendarType = validateCalendarType(type);
     const calendarDate = validateDateString(date);
 
@@ -252,6 +252,7 @@ export async function markCalendarDate(req, res, next) {
       date: calendarDate,
       type: calendarType,
       eventId,
+      label,
     });
 
     return res.status(201).json({ entry });

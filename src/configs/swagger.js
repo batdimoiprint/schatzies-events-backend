@@ -694,6 +694,10 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: 'Pay venue deposit before the due date',
             },
+            label: {
+              type: 'string',
+              example: 'Urgent follow-up',
+            },
           },
         },
         CalendarEntry: {

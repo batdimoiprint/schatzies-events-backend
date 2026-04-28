@@ -100,7 +100,7 @@ export async function createCalendarEntry(userId, payload) {
   if (payload.endTime) {
     item.endTime = { S: normalizeString(payload.endTime) };
   }
-  if (payload.label) {
+  if (payload.label !== undefined) {
     item.label = { S: normalizeString(payload.label) };
   }
   if (payload.isDone !== undefined) {
