@@ -83,7 +83,6 @@ router.post('/', validateTokenMiddleware, createEvent);
  *   get:
  *     tags:
  *       - Events
- *       - RSVP
  *     summary: Retrieve event details (name, description, attendees count)
  *     parameters:
  *       - in: path
@@ -104,8 +103,7 @@ router.get('/:eventId', getEventById);
  * /api/events/{eventId}/rsvp-qr:
  *   post:
  *     tags:
- *       - Events
- *       - RSVP
+ *       - Events - QR
  *     summary: Generate a QR code for RSVP
  *     parameters:
  *       - in: path
@@ -124,8 +122,7 @@ router.post('/:eventId/rsvp-qr', validateTokenMiddleware, generateRsvpQr);
  * /api/events/{eventId}/rsvps:
  *   get:
  *     tags:
- *       - Events
- *       - RSVP
+ *       - Events - QR
  *     summary: Fetch the list of guests (RSVPs) for a specific event
  *     parameters:
  *       - in: path
@@ -201,7 +198,7 @@ router.get('/confirmed', requireRole('ADMIN'), getConfirmedEvents);
  * /api/events/{eventId}/tasks:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Kanban Task
  *     summary: Create a new kanban task for an event
  *     parameters:
  *       - in: path
@@ -234,7 +231,7 @@ router.post('/:eventId/tasks', requireRole('ADMIN', 'ORGANIZER'), createTask);
  * /api/events/{eventId}/tasks:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Kanban Task
  *     summary: Retrieve all tasks for an event grouped by status
  *     parameters:
  *       - in: path
@@ -274,7 +271,7 @@ router.get('/:eventId/tasks', getTasks);
  * /api/events/{eventId}/tasks/{task_id}:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Kanban Task
  *     summary: Update an existing task for an event
  *     parameters:
  *       - in: path
@@ -311,7 +308,7 @@ router.put('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), update
  * /api/events/{eventId}/tasks/{task_id}:
  *   delete:
  *     tags:
- *       - Events
+ *       - Events - Kanban Task
  *     summary: Delete a task from an event
  *     parameters:
  *       - in: path
@@ -335,7 +332,7 @@ router.delete('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), del
  * /api/events/{eventId}/tasks/{task_id}/move:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Kanban Task
  *     summary: Move a task to a new status and order position
  *     parameters:
  *       - in: path
@@ -372,7 +369,7 @@ router.put('/:eventId/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), m
  * /api/events/{eventId}/status:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Change the event lifecycle status
  *     parameters:
  *       - in: path
@@ -397,7 +394,7 @@ router.put('/:eventId/status', requireRole('ADMIN', 'ORGANIZER'), changeEventSta
  * /api/events/{eventId}/allocation:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Create or update event allocation details
  *     parameters:
  *       - in: path
@@ -432,7 +429,7 @@ router.post('/:eventId/allocation', createEventAllocation);
  * /api/events/{eventId}/allocation:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Retrieve allocation details for an event
  *     parameters:
  *       - in: path
@@ -459,7 +456,7 @@ router.get('/:eventId/allocation', getEventAllocation);
  * /api/events/{eventId}/allocation:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Update event allocation details
  *     parameters:
  *       - in: path
@@ -494,7 +491,7 @@ router.put('/:eventId/allocation', updateEventAllocation);
  * /api/events/{eventId}/precheck:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Create pre-event verification data
  *     parameters:
  *       - in: path
@@ -529,7 +526,7 @@ router.post('/:eventId/precheck', createPrecheck);
  * /api/events/{eventId}/precheck:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Retrieve pre-event verification data
  *     parameters:
  *       - in: path
@@ -556,7 +553,7 @@ router.get('/:eventId/precheck', getPrecheck);
  * /api/events/{eventId}/precheck:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Update pre-event verification data
  *     parameters:
  *       - in: path
@@ -591,7 +588,7 @@ router.put('/:eventId/precheck', updatePrecheck);
  * /api/events/{eventId}/program-flow:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Create a program flow entry for an event
  *     parameters:
  *       - in: path
@@ -626,7 +623,7 @@ router.post('/:eventId/program-flow', createProgramFlow);
  * /api/events/{eventId}/program-flow:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Retrieve program flow entries for an event
  *     parameters:
  *       - in: path
@@ -655,7 +652,7 @@ router.get('/:eventId/program-flow', getProgramFlow);
  * /api/events/program-flow/{flow_id}:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Update a program flow entry
  *     parameters:
  *       - in: path
@@ -690,7 +687,7 @@ router.put('/program-flow/:flow_id', updateProgramFlow);
  * /api/events/program-flow/{flow_id}:
  *   delete:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Delete a program flow entry
  *     parameters:
  *       - in: path
@@ -717,7 +714,7 @@ router.delete('/program-flow/:flow_id', deleteProgramFlow);
  * /api/events/{eventId}/timeline:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Create a timeline task for an event
  *     parameters:
  *       - in: path
@@ -752,7 +749,7 @@ router.post('/:eventId/timeline', createTimelineTask);
  * /api/events/{eventId}/timeline:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Retrieve timeline tasks for an event
  *     parameters:
  *       - in: path
@@ -781,7 +778,7 @@ router.get('/:eventId/timeline', getTimelineTasks);
  * /api/events/timeline/{task_id}:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Update a timeline task
  *     parameters:
  *       - in: path
@@ -816,7 +813,7 @@ router.put('/timeline/:task_id', updateTimelineTask);
  * /api/events/{eventId}/status:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Create a resource status entry for an event
  *     parameters:
  *       - in: path
@@ -851,7 +848,7 @@ router.post('/:eventId/status', createResourceStatus);
  * /api/events/{eventId}/status:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Retrieve resource status entries for an event
  *     parameters:
  *       - in: path
@@ -880,7 +877,7 @@ router.get('/:eventId/status', getResourceStatuses);
  * /api/events/status/{id}:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - Planning
  *     summary: Update a resource status entry
  *     parameters:
  *       - in: path
@@ -969,7 +966,7 @@ router.get('/:eventId', getEventById);
  * /api/events/{eventId}/messages:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - Messages
  *     summary: Retrieve chat messages for an event
  *     parameters:
  *       - in: path
@@ -1014,7 +1011,7 @@ router.get('/:eventId/messages', validateTokenMiddleware, getEventMessages);
  * /api/events/{eventId}/messages:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - Messages
  *     summary: Send a message from head organizer to the assigned client
  *     parameters:
  *       - in: path
@@ -1105,7 +1102,7 @@ router.delete('/:eventId', validateTokenMiddleware, deleteEvent);
  * /api/events/{eventId}/rsvp:
  *   post:
  *     tags:
- *       - Events
+ *       - Events - QR
  *     summary: Create a new RSVP guest for an event
  *     parameters:
  *       - in: path
@@ -1152,7 +1149,7 @@ router.post('/:eventId/rsvp', validateTokenMiddleware, createRsvpGuest);
  * /api/events/{eventId}/rsvp:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - QR
  *     summary: Retrieve attending RSVP guests for an event
  *     parameters:
  *       - in: path
@@ -1172,7 +1169,7 @@ router.get('/:eventId/rsvp', validateTokenMiddleware, getRsvpList);
  * /api/events/{eventId}/rsvp/{guestId}/checkin:
  *   put:
  *     tags:
- *       - Events
+ *       - Events - QR
  *     summary: Manually check in an attending RSVP guest
  *     parameters:
  *       - in: path
@@ -1198,7 +1195,7 @@ router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualChe
  * /api/events/{eventId}/headcount:
  *   get:
  *     tags:
- *       - Events
+ *       - Events - QR
  *     summary: Get live RSVP headcount for an event
  *     parameters:
  *       - in: path
@@ -1244,7 +1241,7 @@ router.get('/:eventId/vendors', getVendorsByEventId);
  * /api/events/{eventId}/cost-breakdown:
  *   post:
  *     tags:
- *       - Cost Breakdown
+ *       - Events - Cost Breakdown
  *     summary: Create or compute a cost breakdown for an event
  *     parameters:
  *       - in: path
@@ -1280,7 +1277,7 @@ router.get('/:eventId/vendors', getVendorsByEventId);
  * /api/events/{eventId}/cost-breakdown:
  *   get:
  *     tags:
- *       - Cost Breakdown
+ *       - Events - Cost Breakdown
  *     summary: Retrieve the cost breakdown for an event
  *     parameters:
  *       - in: path
@@ -1308,7 +1305,7 @@ router.get('/:eventId/vendors', getVendorsByEventId);
  * /api/events/{eventId}/cost-breakdown:
  *   put:
  *     tags:
- *       - Cost Breakdown
+ *       - Events - Cost Breakdown
  *     summary: Recalculate and update the cost breakdown for an event
  *     parameters:
  *       - in: path
@@ -1344,7 +1341,7 @@ router.get('/:eventId/vendors', getVendorsByEventId);
  * /api/events/{eventId}/cost-breakdown/export:
  *   get:
  *     tags:
- *       - Cost Breakdown
+ *       - Events - Cost Breakdown
  *     summary: Export cost breakdown data for printing or export
  *     parameters:
  *       - in: path

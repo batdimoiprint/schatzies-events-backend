@@ -601,10 +601,6 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: '2026-05-01T16:00:00.000Z',
             },
-            endTime: {
-              type: 'string',
-              example: '16:00',
-            },
             location: {
               type: 'string',
               example: 'Conference Room A',

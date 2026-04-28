@@ -15,7 +15,7 @@ const USE_DYNAMO = process.env.USE_DYNAMO !== 'false'; // Default true (hardcode
 
 const inquiries = [];
 
-const TABLE = process.env.AWS_INQUIRY_TABLE || DYNAMO_TABLE;
+const TABLE = process.env.AWS_DYNAMO_TABLE || DYNAMO_TABLE;
 
 const weddingPackages = ["Bloom", "Fascinating", "Windy", "De Luxe", "Grandezza"];
 const debutPackages = ["Charming", "Irresistible", "Elegancia", "Flawless", "Grandiosa"];
@@ -39,7 +39,7 @@ function validateRequired(inquiryData) {
 
 function mapToFrontend(u) {
   return {
-    id: u.inquiry_id,
+    id: u.id || (u.PK ? u.PK.replace('INQUIRY#', '') : ''),
     firstName: u.firstName,
     middleName: u.middleName,
     lastName: u.lastName,
@@ -51,11 +51,40 @@ function mapToFrontend(u) {
     email: u.email,
     contactNumber: u.contactNumber,
     status: u.status || 'Pending Review',
+    is_Account_Created: u.is_Account_Created || false,
     communications: u.communications || [],
     meetingDetails: u.meetingDetails || null,
-    createdAt: u.created_at,
-    updatedAt: u.updated_at,
+    createdAt: u.createdAt || u.created_at,
+    updatedAt: u.updatedAt || u.updated_at,
   };
+}
+
+function isInquiryRecord(item) {
+  const pk = item.PK || '';
+  const sk = item.SK || '';
+  return (
+    pk.startsWith('INQUIRY#') &&
+    (sk === 'INQUIRY' || sk === 'META' || item.entityType === 'INQUIRY')
+  );
+}
+
+async function resolveInquiryKey(inquiryId) {
+  const keysToTry = [
+    { PK: `INQUIRY#${inquiryId}`, SK: 'INQUIRY' },
+    { PK: `INQUIRY#${inquiryId}`, SK: 'META' },
+  ];
+
+  for (const key of keysToTry) {
+    const resp = await dynamoClient.send(
+      new GetItemCommand({ TableName: TABLE, Key: marshall(key) })
+    );
+    if (resp.Item) {
+      const item = unmarshall(resp.Item);
+      if (isInquiryRecord(item)) return key;
+    }
+  }
+
+  return null;
 }
 
 export async function createInquiry(inquiryData) {
@@ -81,6 +110,7 @@ export async function createInquiry(inquiryData) {
     email: inquiryData.email || null,
     contactNumber: inquiryData.contactNumber || null,
     status: 'Pending Review',
+    is_Account_Created: false,
     communications: [],
     meetingDetails: null,
     createdAt: now,
@@ -88,7 +118,8 @@ export async function createInquiry(inquiryData) {
   };
 
   const item = {
-    inquiry_id: newInquiry.id,
+    PK : `INQUIRY#${newInquiry.id}`,
+    SK : 'INQUIRY',
     firstName: newInquiry.firstName,
     middleName: newInquiry.middleName,
     lastName: newInquiry.lastName,
@@ -100,6 +131,7 @@ export async function createInquiry(inquiryData) {
     email: newInquiry.email,
     contactNumber: newInquiry.contactNumber,
     status: newInquiry.status,
+    is_Account_Created: newInquiry.is_Account_Created,
     communications: newInquiry.communications,
     meetingDetails: newInquiry.meetingDetails,
     created_at: newInquiry.createdAt,
@@ -119,9 +151,22 @@ export async function createInquiry(inquiryData) {
 export async function getInquiries() {
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
-    const resp = await dynamoClient.send(new ScanCommand({ TableName: TABLE }));
+    const resp = await dynamoClient.send(new ScanCommand({
+      TableName: TABLE,
+      FilterExpression:
+        'begins_with(PK, :pkPrefix) AND (SK = :inquirySk OR SK = :metaSk OR entityType = :entityType)',
+      ExpressionAttributeValues: marshall({
+        ':pkPrefix': 'INQUIRY#',
+        ':inquirySk': 'INQUIRY',
+        ':metaSk': 'META',
+        ':entityType': 'INQUIRY',
+      }),
+    }));
     const items = resp.Items || [];
-    return items.map((it) => mapToFrontend(unmarshall(it)));
+    return items
+      .map((it) => unmarshall(it))
+      .filter(isInquiryRecord)
+      .map(mapToFrontend);
   }
 
   return [...inquiries];
@@ -131,10 +176,15 @@ export async function getInquiryById(inquiryId) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
-    const resp = await dynamoClient.send(new GetItemCommand({ TableName: TABLE, Key: marshall({ inquiry_id: inquiryId }) }));
-    const it = resp.Item;
-    if (!it) return null;
-    return mapToFrontend(unmarshall(it));
+    const key = await resolveInquiryKey(inquiryId);
+    if (!key) return null;
+    const resp = await dynamoClient.send(
+      new GetItemCommand({ TableName: TABLE, Key: marshall(key) })
+    );
+    if (!resp.Item) return null;
+    const item = unmarshall(resp.Item);
+    if (!isInquiryRecord(item)) return null;
+    return mapToFrontend(item);
   }
 
   return inquiries.find((inq) => inq.id === inquiryId) || null;
@@ -143,10 +193,12 @@ export async function getInquiryById(inquiryId) {
 export async function updateInquiry(inquiryId, updateData) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (!updateData || typeof updateData !== 'object') throw new Error('Invalid update data');
-  const allowed = ['firstName','middleName','lastName','date','eventType','eventPackage','eventPax','message','email','contactNumber','status','communications','meetingDetails'];
+  const allowed = ['firstName','middleName','lastName','date','eventType','eventPackage','eventPax','message','email','contactNumber','status','is_Account_Created','communications','meetingDetails'];
 
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
+    const key = await resolveInquiryKey(inquiryId);
+    if (!key) throw new Error('Inquiry not found');
     const parts = [];
     const ExpressionAttributeValues = {};
     const ExpressionAttributeNames = {};
@@ -168,7 +220,7 @@ export async function updateInquiry(inquiryId, updateData) {
 
     await dynamoClient.send(new UpdateItemCommand({
       TableName: TABLE,
-      Key: marshall({ inquiry_id: inquiryId }),
+      Key: marshall(key),
       UpdateExpression,
       ExpressionAttributeNames: ExpressionAttributeNames,
       ExpressionAttributeValues: marshall(ExpressionAttributeValues, { removeUndefinedValues: true }),
@@ -195,11 +247,13 @@ export async function deleteInquiry(inquiryId) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (USE_DYNAMO) {
     if (!TABLE) throw new Error('Inquiry table not configured');
-    const resp = await dynamoClient.send(new DeleteItemCommand({ TableName: TABLE, Key: marshall({ inquiry_id: inquiryId }), ReturnValues: 'ALL_OLD' }));
+    const key = await resolveInquiryKey(inquiryId);
+    if (!key) throw new Error('Inquiry not found');
+    const resp = await dynamoClient.send(new DeleteItemCommand({ TableName: TABLE, Key: marshall(key), ReturnValues: 'ALL_OLD' }));
     const old = resp.Attributes;
     if (!old) throw new Error('Inquiry not found');
     const u = unmarshall(old);
-    return { id: u.inquiry_id, ...u };
+    return { id: u.PK ? u.PK.replace('INQUIRY#', '') : '', ...u };
   }
 
   const index = inquiries.findIndex((inq) => inq.id === inquiryId);
