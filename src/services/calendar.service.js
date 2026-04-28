@@ -23,9 +23,11 @@ function mapCalendarItem(item) {
     startTime: item.startTime?.S || null,
     endDateKey: item.endDateKey?.S || null,
     endDate: item.endDate?.S || null,
+    endTime: item.endTime?.S || null,
     location: item.location?.S || null,
     eventType: item.eventType?.S || null,
     label: item.label?.S || null,
+    isDone: (item.isDone?.BOOL ?? item.isDone?.S === 'true') || false,
     createdAt: item.createdAt?.S || '',
     updatedAt: item.updatedAt?.S || '',
   };
@@ -95,8 +97,14 @@ export async function createCalendarEntry(userId, payload) {
   if (payload.eventType) {
     item.eventType = { S: normalizeString(payload.eventType) };
   }
+  if (payload.endTime) {
+    item.endTime = { S: normalizeString(payload.endTime) };
+  }
   if (payload.label) {
     item.label = { S: normalizeString(payload.label) };
+  }
+  if (payload.isDone !== undefined) {
+    item.isDone = { BOOL: Boolean(payload.isDone) };
   }
 
   await dynamoClient.send(
@@ -207,6 +215,11 @@ export async function updateCalendarEntry(userId, entryId, payload) {
     names['#endDate'] = 'endDate';
     values[':endDate'] = { S: normalizeString(payload.endDate || '') };
   }
+  if (payload.endTime !== undefined) {
+    updates.push('#endTime = :endTime');
+    names['#endTime'] = 'endTime';
+    values[':endTime'] = { S: normalizeString(payload.endTime || '') };
+  }
   if (payload.location !== undefined) {
     updates.push('#location = :location');
     names['#location'] = 'location';
@@ -221,6 +234,11 @@ export async function updateCalendarEntry(userId, entryId, payload) {
     updates.push('#label = :label');
     names['#label'] = 'label';
     values[':label'] = { S: normalizeString(payload.label || '') };
+  }
+  if (payload.isDone !== undefined) {
+    updates.push('#isDone = :isDone');
+    names['#isDone'] = 'isDone';
+    values[':isDone'] = { BOOL: Boolean(payload.isDone) };
   }
 
   if (!updates.length) {
@@ -254,6 +272,10 @@ export async function deleteCalendarEntry(userId, entryId) {
       },
     })
   );
+}
+
+export async function markCalendarEntryDone(userId, entryId, isDone = true) {
+  return updateCalendarEntry(userId, entryId, { isDone });
 }
 
 export async function markCalendarDate(userId, payload) {

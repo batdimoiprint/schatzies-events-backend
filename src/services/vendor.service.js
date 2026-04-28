@@ -375,6 +375,39 @@ export async function assignWorkerToEvent(vendorId, workerId, eventId) {
   return mapDynamoVendorWorker(buildDynamoVendorWorkerItem(updatedWorker));
 }
 
+export async function unassignWorkerFromEvent(vendorId, workerId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+  if (!workerId) {
+    throw new Error('Worker ID is required');
+  }
+
+  await ensureVendorExists(vendorId);
+
+  const existing = await getVendorWorkerById(vendorId, workerId);
+  if (!existing) {
+    throw new Error('Worker not found');
+  }
+
+  const updatedWorker = {
+    ...existing,
+    vendorId: normalizeString(vendorId),
+    id: workerId,
+    eventId: undefined,
+    updated_at: new Date().toISOString(),
+  };
+
+  await dynamoClient.send(
+    new PutItemCommand({
+      TableName: DYNAMO_TABLE,
+      Item: buildDynamoVendorWorkerItem(updatedWorker),
+    })
+  );
+
+  return mapDynamoVendorWorker(buildDynamoVendorWorkerItem(updatedWorker));
+}
+
 export async function createVendor(vendorData) {
   if (!vendorData || typeof vendorData !== 'object') {
     throw new Error('Invalid vendor data');
@@ -535,6 +568,32 @@ export async function assignVendorToEvent(vendorId, eventId) {
   const updatedVendor = {
     ...existingVendor,
     eventId: normalizeString(eventId),
+    updated_at: new Date().toISOString(),
+  };
+
+  await dynamoClient.send(
+    new PutItemCommand({
+      TableName: DYNAMO_TABLE,
+      Item: buildDynamoVendorItem(updatedVendor),
+    })
+  );
+
+  return mapDynamoVendor(buildDynamoVendorItem(updatedVendor));
+}
+
+export async function unassignVendorFromEvent(vendorId) {
+  if (!vendorId) {
+    throw new Error('Vendor ID is required');
+  }
+
+  const existingVendor = await getVendorById(vendorId);
+  if (!existingVendor) {
+    throw new Error('Vendor not found');
+  }
+
+  const updatedVendor = {
+    ...existingVendor,
+    eventId: undefined,
     updated_at: new Date().toISOString(),
   };
 

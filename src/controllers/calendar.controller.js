@@ -4,6 +4,7 @@ import {
   updateCalendarEntry as updateCalendarEntryService,
   deleteCalendarEntry as deleteCalendarEntryService,
   markCalendarDate as markCalendarDateService,
+  markCalendarEntryDone as markCalendarEntryDoneService,
 } from '../services/calendar.service.js';
 
 function createError(message, status = 400) {
@@ -70,6 +71,7 @@ export async function createCalendarEntry(req, res, next) {
       startTime,
       endDateKey,
       endDate,
+      endTime,
       location,
       eventType,
       label,
@@ -87,6 +89,7 @@ export async function createCalendarEntry(req, res, next) {
         startTime: validateTimeString(startTime),
         endDateKey: validateDateString(endDateKey),
         endDate: validateDateTimeString(endDate),
+        endTime: validateTimeString(endTime),
         location: location || undefined,
         eventType: eventType || undefined,
         label: label || undefined,
@@ -170,6 +173,7 @@ export async function updateCalendarEntry(req, res, next) {
       startTime,
       endDateKey,
       endDate,
+      endTime,
       location,
       eventType,
       label,
@@ -188,6 +192,7 @@ export async function updateCalendarEntry(req, res, next) {
     if (startTime !== undefined) payload.startTime = validateTimeString(startTime);
     if (endDateKey !== undefined) payload.endDateKey = validateDateString(endDateKey);
     if (endDate !== undefined) payload.endDate = validateDateTimeString(endDate);
+    if (endTime !== undefined) payload.endTime = validateTimeString(endTime);
     if (location !== undefined) payload.location = location;
     if (eventType !== undefined) payload.eventType = eventType;
     if (label !== undefined) payload.label = label;
@@ -213,6 +218,22 @@ export async function deleteCalendarEntry(req, res, next) {
 
     await deleteCalendarEntryService(userId, entryId);
     return res.status(200).json({ message: 'Calendar entry deleted' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function markCalendarEntryDone(req, res, next) {
+  try {
+    const userId = getUserId(req);
+    const { entryId } = req.params;
+    if (!entryId) {
+      throw createError('Calendar entry ID is required', 400);
+    }
+
+    const isDone = req.body.isDone === undefined ? true : Boolean(req.body.isDone);
+    const entry = await markCalendarEntryDoneService(userId, entryId, isDone);
+    return res.status(200).json({ entry });
   } catch (error) {
     return next(error);
   }
