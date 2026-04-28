@@ -172,6 +172,12 @@ export async function getInquiries() {
   return [...inquiries];
 }
 
+export async function getInquiryByEmail(email) {
+  if (!email) throw new Error('Email is required');
+  const all = await getInquiries();
+  return all.find((inq) => inq.email?.toLowerCase() === email.toLowerCase()) || null;
+}
+
 export async function getInquiryById(inquiryId) {
   if (!inquiryId) throw new Error('Inquiry ID is required');
   if (USE_DYNAMO) {

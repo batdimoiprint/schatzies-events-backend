@@ -10,6 +10,7 @@ import inquiryRoutes from './inquiry.routes.js';
 import rsvpRoutes from './rsvp.routes.js';
 import usersRoutes from './users.routes.js';
 import scannerRoutes from './scanner.routes.js';
+import messageRoutes from './message.routes.js';
 
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import { authLimiter } from '../configs/rate-limit.js';
@@ -33,6 +34,7 @@ router.use('/attendees', validateTokenMiddleware, attendeeRoutes);
 router.use('/organizers', validateTokenMiddleware, organizerRoutes);
 router.use('/scanner', validateTokenMiddleware, scannerRoutes);
 router.use('/users', validateTokenMiddleware, usersRoutes);
+router.use('/messages', messageRoutes);
 
 router.use('/auth', authLimiter, authRoutes);
 
