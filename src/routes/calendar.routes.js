@@ -2,6 +2,7 @@ import express from 'express';
 import {
   createCalendarEntry,
   getCalendarEntries,
+  getAllCalendar,
   updateCalendarEntry,
   deleteCalendarEntry,
   markCalendarDate,
@@ -113,7 +114,12 @@ router.post('/', createCalendarEntry);
  *                   items:
  *                     $ref: '#/components/schemas/CalendarEntry'
  */
-router.get('/', getCalendarEntries);
+router.get('/', (req, res, next) => {
+  if (req.user?.role === 'ADMIN') {
+    return getAllCalendar(req, res, next);
+  }
+  return getCalendarEntries(req, res, next);
+});
 
 /**
  * @swagger

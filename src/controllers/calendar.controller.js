@@ -1,6 +1,7 @@
 import {
   createCalendarEntry as createCalendarEntryService,
   getCalendarEntries as getCalendarEntriesService,
+  getAllCalendarEntries as getAllCalendarEntriesService,
   updateCalendarEntry as updateCalendarEntryService,
   deleteCalendarEntry as deleteCalendarEntryService,
   markCalendarDate as markCalendarDateService,
@@ -14,19 +15,30 @@ function createError(message, status = 400) {
 }
 
 function validateCalendarType(type) {
-  const value = String(type || '').trim().toUpperCase();
+  const value = String(type || '')
+    .trim()
+    .toUpperCase();
   if (!['REMINDER', 'MEETING', 'TASK'].includes(value)) {
-    throw createError('Invalid calendar entry type. Use REMINDER, MEETING, or TASK.', 400);
+    throw createError(
+      'Invalid calendar entry type. Use REMINDER, MEETING, or TASK.',
+      400
+    );
   }
   return value;
 }
 
 function validateDateString(value) {
   if (!value || typeof value !== 'string') {
-    throw createError('Calendar date is required and must be an ISO string.', 400);
+    throw createError(
+      'Calendar date is required and must be an ISO string.',
+      400
+    );
   }
   const normalized = value.trim();
-  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(normalized) && isNaN(Date.parse(normalized))) {
+  if (
+    !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(normalized) &&
+    isNaN(Date.parse(normalized))
+  ) {
     throw createError('Date must be an ISO date string like 2026-01-03.', 400);
   }
   return normalized;
@@ -34,7 +46,10 @@ function validateDateString(value) {
 
 function validateDateTimeString(value) {
   if (!value || typeof value !== 'string') {
-    throw createError('Date-time is required and must be a valid ISO string.', 400);
+    throw createError(
+      'Date-time is required and must be a valid ISO string.',
+      400
+    );
   }
   const normalized = value.trim();
   if (isNaN(Date.parse(normalized))) {
@@ -45,7 +60,10 @@ function validateDateTimeString(value) {
 
 function validateTimeString(value) {
   if (!value || typeof value !== 'string') {
-    throw createError('Time is required and must be a valid string like 14:30.', 400);
+    throw createError(
+      'Time is required and must be a valid string like 14:30.',
+      400
+    );
   }
   const normalized = value.trim();
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(normalized)) {
@@ -67,6 +85,8 @@ export async function createCalendarEntry(req, res, next) {
       date,
       type,
       eventId,
+      organizerId,
+      inquiryUserId,
       startDateKey,
       startTime,
       endDateKey,
@@ -96,12 +116,13 @@ export async function createCalendarEntry(req, res, next) {
       };
     }
 
-    const entry = await createCalendarEntryService(userId, {
+    const entry = await createCalendarEntryService(organizerId || userId, {
       title,
       description,
       date: calendarDate,
       type: calendarType,
       eventId,
+      inquiryUserId,
       location,
       eventType,
       label,
@@ -117,8 +138,12 @@ export async function createCalendarEntry(req, res, next) {
 export async function getCalendarEntries(req, res, next) {
   try {
     const userId = getUserId(req);
-    const view = String(req.query.view || '').trim().toLowerCase();
-    const type = req.query.type ? validateCalendarType(req.query.type) : undefined;
+    const view = String(req.query.view || '')
+      .trim()
+      .toLowerCase();
+    const type = req.query.type
+      ? validateCalendarType(req.query.type)
+      : undefined;
 
     const filters = {};
 
@@ -130,10 +155,15 @@ export async function getCalendarEntries(req, res, next) {
       const month = String(req.query.month || '').padStart(2, '0');
       const year = String(req.query.year || '').trim();
       if (!/^[0-9]{4}$/.test(year) || !/^(0[1-9]|1[0-2])$/.test(month)) {
-        throw createError('Monthly view requires valid month and year parameters.', 400);
+        throw createError(
+          'Monthly view requires valid month and year parameters.',
+          400
+        );
       }
       const startDate = `${year}-${month}-01`;
-      const endDate = new Date(Date.UTC(Number(year), Number(month), 0)).toISOString().slice(0, 10);
+      const endDate = new Date(Date.UTC(Number(year), Number(month), 0))
+        .toISOString()
+        .slice(0, 10);
       filters.startDate = startDate;
       filters.endDate = endDate;
     } else if (view === 'weekly') {
@@ -159,6 +189,59 @@ export async function getCalendarEntries(req, res, next) {
   }
 }
 
+export async function getAllCalendar(req, res, next) {
+  try {
+    const view = String(req.query.view || '')
+      .trim()
+      .toLowerCase();
+    const type = req.query.type
+      ? validateCalendarType(req.query.type)
+      : undefined;
+
+    const filters = {};
+
+    if (type) {
+      filters.type = type;
+    }
+
+    if (view === 'monthly') {
+      const month = String(req.query.month || '').padStart(2, '0');
+      const year = String(req.query.year || '').trim();
+      if (!/^[0-9]{4}$/.test(year) || !/^(0[1-9]|1[0-2])$/.test(month)) {
+        throw createError(
+          'Monthly view requires valid month and year parameters.',
+          400
+        );
+      }
+      const startDate = `${year}-${month}-01`;
+      const endDate = new Date(Date.UTC(Number(year), Number(month), 0))
+        .toISOString()
+        .slice(0, 10);
+      filters.startDate = startDate;
+      filters.endDate = endDate;
+    } else if (view === 'weekly') {
+      const startDate = validateDateString(req.query.startDate);
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      filters.startDate = start.toISOString().slice(0, 10);
+      filters.endDate = end.toISOString().slice(0, 10);
+    } else if (req.query.startDate) {
+      const startDate = validateDateString(req.query.startDate);
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      filters.startDate = start.toISOString().slice(0, 10);
+      filters.endDate = end.toISOString().slice(0, 10);
+    }
+
+    const entries = await getAllCalendarEntriesService(filters);
+    return res.status(200).json({ entries });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function updateCalendarEntry(req, res, next) {
   try {
     const userId = getUserId(req);
@@ -169,6 +252,8 @@ export async function updateCalendarEntry(req, res, next) {
       date,
       type,
       eventId,
+      organizerId,
+      inquiryUserId,
       startDateKey,
       startTime,
       endDateKey,
@@ -188,10 +273,16 @@ export async function updateCalendarEntry(req, res, next) {
     if (date !== undefined) payload.date = validateDateString(date);
     if (type !== undefined) payload.type = validateCalendarType(type);
     if (eventId !== undefined) payload.eventId = eventId;
-    if (startDateKey !== undefined) payload.startDateKey = validateDateString(startDateKey);
-    if (startTime !== undefined) payload.startTime = validateTimeString(startTime);
-    if (endDateKey !== undefined) payload.endDateKey = validateDateString(endDateKey);
-    if (endDate !== undefined) payload.endDate = validateDateTimeString(endDate);
+    if (organizerId !== undefined) payload.organizerId = organizerId;
+    if (inquiryUserId !== undefined) payload.inquiryUserId = inquiryUserId;
+    if (startDateKey !== undefined)
+      payload.startDateKey = validateDateString(startDateKey);
+    if (startTime !== undefined)
+      payload.startTime = validateTimeString(startTime);
+    if (endDateKey !== undefined)
+      payload.endDateKey = validateDateString(endDateKey);
+    if (endDate !== undefined)
+      payload.endDate = validateDateTimeString(endDate);
     if (endTime !== undefined) payload.endTime = validateTimeString(endTime);
     if (location !== undefined) payload.location = location;
     if (eventType !== undefined) payload.eventType = eventType;
@@ -231,7 +322,8 @@ export async function markCalendarEntryDone(req, res, next) {
       throw createError('Calendar entry ID is required', 400);
     }
 
-    const isDone = req.body.isDone === undefined ? true : Boolean(req.body.isDone);
+    const isDone =
+      req.body.isDone === undefined ? true : Boolean(req.body.isDone);
     const entry = await markCalendarEntryDoneService(userId, entryId, isDone);
     return res.status(200).json({ entry });
   } catch (error) {

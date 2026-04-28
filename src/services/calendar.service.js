@@ -1,5 +1,10 @@
 import { randomUUID } from 'crypto';
-import { PutItemCommand, QueryCommand, UpdateItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  PutItemCommand,
+  QueryCommand,
+  UpdateItemCommand,
+  DeleteItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
@@ -14,6 +19,7 @@ function mapCalendarItem(item) {
   return {
     entryId: item.entryId?.S || item.SK?.S?.replace('CALENDAR#', '') || '',
     userId: item.userId?.S || '',
+    inquiryUserId: item.inquiryUserId?.S || '',
     title: item.title?.S || '',
     description: item.description?.S || '',
     date: item.date?.S || '',
@@ -30,6 +36,31 @@ function mapCalendarItem(item) {
     isDone: (item.isDone?.BOOL ?? item.isDone?.S === 'true') || false,
     createdAt: item.createdAt?.S || '',
     updatedAt: item.updatedAt?.S || '',
+  };
+}
+
+function mapMeetingDetailsFromCalendarItem(item) {
+  const mapped = mapCalendarItem(item);
+  if (!mapped || String(mapped.type || '').toUpperCase() !== 'MEETING') {
+    return null;
+  }
+
+  return {
+    entryId: mapped.entryId,
+    title: mapped.title,
+    date: mapped.startDateKey || mapped.date,
+    time: mapped.startTime,
+    startDateKey: mapped.startDateKey,
+    startTime: mapped.startTime,
+    endDateKey: mapped.endDateKey,
+    endDate: mapped.endDate,
+    endTime: mapped.endTime,
+    label: mapped.label,
+    location: mapped.location,
+    description: mapped.description,
+    eventType: mapped.eventType,
+    organizerId: mapped.userId,
+    inquiryUserId: mapped.inquiryUserId || '',
   };
 }
 
@@ -51,7 +82,9 @@ function buildQueryFilters(filters) {
     values[':endDate'] = { S: filters.endDate };
   }
 
-  const FilterExpression = expressionParts.length ? expressionParts.join(' AND ') : undefined;
+  const FilterExpression = expressionParts.length
+    ? expressionParts.join(' AND ')
+    : undefined;
 
   return {
     FilterExpression,
@@ -78,6 +111,9 @@ export async function createCalendarEntry(userId, payload) {
 
   if (payload.eventId) {
     item.eventId = { S: normalizeString(payload.eventId) };
+  }
+  if (payload.inquiryUserId !== undefined) {
+    item.inquiryUserId = { S: normalizeString(payload.inquiryUserId || '') };
   }
   if (payload.startDateKey) {
     item.startDateKey = { S: normalizeString(payload.startDateKey) };
@@ -132,9 +168,16 @@ export async function getCalendarEntries(userId, filters = {}) {
     ScanIndexForward: true,
   };
 
-  const { FilterExpression, ExpressionAttributeNames, ExpressionAttributeValues } = buildQueryFilters(filters);
+  const {
+    FilterExpression,
+    ExpressionAttributeNames,
+    ExpressionAttributeValues,
+  } = buildQueryFilters(filters);
   if (FilterExpression) {
-    queryInput.FilterExpression = [queryInput.FilterExpression, FilterExpression]
+    queryInput.FilterExpression = [
+      queryInput.FilterExpression,
+      FilterExpression,
+    ]
       .filter(Boolean)
       .join(' AND ');
     queryInput.ExpressionAttributeNames = {
@@ -158,6 +201,90 @@ export async function getCalendarEntries(userId, filters = {}) {
     });
 
   return entries;
+}
+
+export async function getAllCalendarEntries(filters = {}) {
+  const queryInput = {
+    TableName: DYNAMO_TABLE,
+    KeyConditionExpression: 'PK = :pk',
+    ExpressionAttributeValues: {
+      ':pk': { S: buildPK() },
+    },
+    ScanIndexForward: true,
+  };
+
+  const {
+    FilterExpression,
+    ExpressionAttributeNames,
+    ExpressionAttributeValues,
+  } = buildQueryFilters(filters);
+  if (FilterExpression) {
+    queryInput.FilterExpression = FilterExpression;
+    queryInput.ExpressionAttributeNames = ExpressionAttributeNames;
+    queryInput.ExpressionAttributeValues = {
+      ...queryInput.ExpressionAttributeValues,
+      ...ExpressionAttributeValues,
+    };
+  }
+
+  const response = await dynamoClient.send(new QueryCommand(queryInput));
+  const items = response.Items || [];
+  const entries = items
+    .map(mapCalendarItem)
+    .filter(Boolean)
+    .sort((a, b) => {
+      const byDate = a.date.localeCompare(b.date);
+      return byDate || a.createdAt.localeCompare(b.createdAt);
+    });
+
+  return entries;
+}
+
+export async function getMeetingDetailsByInquiryIds(inquiryIds = []) {
+  const normalizedIds = Array.from(
+    new Set(inquiryIds.map((value) => normalizeString(value)).filter(Boolean))
+  );
+
+  if (!normalizedIds.length) {
+    return {};
+  }
+
+  const response = await dynamoClient.send(
+    new QueryCommand({
+      TableName: DYNAMO_TABLE,
+      KeyConditionExpression: 'PK = :pk',
+      FilterExpression: '#type = :type',
+      ExpressionAttributeNames: {
+        '#type': 'type',
+      },
+      ExpressionAttributeValues: {
+        ':pk': { S: buildPK() },
+        ':type': { S: 'MEETING' },
+      },
+      ScanIndexForward: true,
+    })
+  );
+
+  const meetingMap = {};
+
+  for (const item of response.Items || []) {
+    const eventId = item.eventId?.S || '';
+    if (!normalizedIds.includes(eventId)) {
+      continue;
+    }
+
+    const meetingDetails = mapMeetingDetailsFromCalendarItem(item);
+    if (!meetingDetails) {
+      continue;
+    }
+
+    const existingMeeting = meetingMap[eventId];
+    if (!existingMeeting || existingMeeting.date < meetingDetails.date) {
+      meetingMap[eventId] = meetingDetails;
+    }
+  }
+
+  return meetingMap;
 }
 
 export async function updateCalendarEntry(userId, entryId, payload) {
@@ -195,10 +322,24 @@ export async function updateCalendarEntry(userId, entryId, payload) {
     names['#eventId'] = 'eventId';
     values[':eventId'] = { S: normalizeString(payload.eventId || '') };
   }
+  if (payload.organizerId !== undefined) {
+    updates.push('#userId = :userId');
+    names['#userId'] = 'userId';
+    values[':userId'] = { S: normalizeString(payload.organizerId || '') };
+  }
+  if (payload.inquiryUserId !== undefined) {
+    updates.push('#inquiryUserId = :inquiryUserId');
+    names['#inquiryUserId'] = 'inquiryUserId';
+    values[':inquiryUserId'] = {
+      S: normalizeString(payload.inquiryUserId || ''),
+    };
+  }
   if (payload.startDateKey !== undefined) {
     updates.push('#startDateKey = :startDateKey');
     names['#startDateKey'] = 'startDateKey';
-    values[':startDateKey'] = { S: normalizeString(payload.startDateKey || '') };
+    values[':startDateKey'] = {
+      S: normalizeString(payload.startDateKey || ''),
+    };
   }
   if (payload.startTime !== undefined) {
     updates.push('#startTime = :startTime');

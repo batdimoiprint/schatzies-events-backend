@@ -1,5 +1,8 @@
 import * as inquiryService from '../services/inquiry.service.js';
-import { sendInquiryCreatedEmail, sendInquiryStatusUpdatedEmail } from '../services/mailer.service.js';
+import {
+  sendInquiryCreatedEmail,
+  sendInquiryStatusUpdatedEmail,
+} from '../services/mailer.service.js';
 
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
@@ -60,7 +63,10 @@ export async function updateInquiryController(req, res) {
         });
         console.log('sendInquiryStatusUpdatedEmail result:', mailResult);
       } catch (mailError) {
-        console.error('Failed to send inquiry status updated email:', mailError);
+        console.error(
+          'Failed to send inquiry status updated email:',
+          mailError
+        );
       }
     }
 
@@ -88,7 +94,10 @@ export async function updateInquiryStatusController(req, res) {
       return res.status(400).json({ error: 'Status is required' });
     }
     const existingInquiry = await inquiryService.getInquiryById(req.params.id);
-    const updated = await inquiryService.updateInquiryStatus(req.params.id, status);
+    const updated = await inquiryService.updateInquiryStatus(
+      req.params.id,
+      status
+    );
 
     if (status !== existingInquiry?.status) {
       try {
@@ -98,7 +107,10 @@ export async function updateInquiryStatusController(req, res) {
         });
         console.log('sendInquiryStatusUpdatedEmail result:', mailResult);
       } catch (mailError) {
-        console.error('Failed to send inquiry status updated email:', mailError);
+        console.error(
+          'Failed to send inquiry status updated email:',
+          mailError
+        );
       }
     }
 
@@ -112,7 +124,10 @@ export async function updateInquiryStatusController(req, res) {
 export async function addInquiryCommunicationController(req, res) {
   try {
     const communication = req.body;
-    const updated = await inquiryService.addCommunication(req.params.id, communication);
+    const updated = await inquiryService.addCommunication(
+      req.params.id,
+      communication
+    );
     res.status(201).json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -122,11 +137,45 @@ export async function addInquiryCommunicationController(req, res) {
 // POST /api/inquiries/:id/meeting
 export async function scheduleMeetingController(req, res) {
   try {
-    const { date, time, location, organizerId } = req.body;
-    if (!date || !time || !location || !organizerId) {
-      return res.status(400).json({ error: 'date, time, location, and organizerId are required' });
+    const {
+      title,
+      startDateKey,
+      startTime,
+      endDateKey,
+      endTime,
+      label,
+      organizerId,
+      location,
+      description,
+      eventType,
+      inquiryUserId,
+    } = req.body;
+    if (
+      !title ||
+      !startDateKey ||
+      !startTime ||
+      !endDateKey ||
+      !endTime ||
+      !organizerId
+    ) {
+      return res.status(400).json({
+        error:
+          'title, startDateKey, startTime, endDateKey, endTime, and organizerId are required',
+      });
     }
-    const updated = await inquiryService.scheduleMeeting(req.params.id, { date, time, location, organizerId });
+    const updated = await inquiryService.scheduleMeeting(req.params.id, {
+      title,
+      startDateKey,
+      startTime,
+      endDateKey,
+      endTime,
+      label,
+      organizerId,
+      location,
+      description,
+      eventType,
+      inquiryUserId,
+    });
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
