@@ -50,6 +50,49 @@ jobs:
 
       - name: Update Lambda Environment Variables
         run: |
-          aws lambda update-function-configuration \
-            --function-name ${{ steps.target.outputs.function_name }} \
-            --environment "Variables={API_PREFIX=${{ steps.target.outputs.api_prefix }}}"
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import tempfile
+
+          function_name = "${{ steps.target.outputs.function_name }}"
+          api_prefix = "${{ steps.target.outputs.api_prefix }}"
+
+          current_env = subprocess.check_output(
+              [
+                  "aws",
+                  "lambda",
+                  "get-function-configuration",
+                  "--function-name",
+                  function_name,
+                  "--query",
+                  "Environment.Variables",
+                  "--output",
+                  "json",
+              ],
+              text=True,
+          )
+          variables = json.loads(current_env or "{}")
+          variables["API_PREFIX"] = api_prefix
+
+          payload = {"Variables": variables}
+          with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as temp:
+              json.dump(payload, temp)
+              temp_path = temp.name
+
+          try:
+              subprocess.check_call(
+                  [
+                      "aws",
+                      "lambda",
+                      "update-function-configuration",
+                      "--function-name",
+                      function_name,
+                      "--environment",
+                      f"file://{temp_path}",
+                  ]
+              )
+          finally:
+              os.remove(temp_path)
+          PY
