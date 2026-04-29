@@ -252,7 +252,9 @@ export async function updateUpcomingEventsSnapshot(events = []) {
       uniqueEvents.push({
         id: eventKey,
         title: event.title || event.name || '',
+        eventTitle: event.title || event.name || '',
         date: event.date || event.eventDate || event.startDate || '',
+        startTime: event.eventTime || event.time || event.startTime || '',
         status: event.status || '',
         eventId: event.eventId || event.id || null,
         eventType: event.eventType || '',
@@ -288,10 +290,13 @@ export async function updateUpcomingEventsSnapshot(events = []) {
           M: {
             id: { S: entry.id },
             title: { S: normalizeString(entry.title) },
+            eventTitle: { S: normalizeString(entry.eventTitle) },
             date: { S: normalizeString(entry.date) },
+            startTime: { S: normalizeString(entry.startTime) },
             status: { S: normalizeString(entry.status) },
             eventId: { S: normalizeString(entry.eventId || '') },
             eventType: { S: normalizeString(entry.eventType || '') },
+            clientId: { S: normalizeString(entry.clientId || '') },
             clientName: { S: normalizeString(entry.clientName || '') },
           },
         })),
@@ -375,11 +380,14 @@ function parseDashboardItem(item) {
       ? item.upcomingEvents.L.map((entry) => ({
           id: entry.M?.id?.S || '',
           title: entry.M?.title?.S || '',
+          eventTitle: entry.M?.eventTitle?.S || '',
           date: entry.M?.date?.S || '',
+          startTime: entry.M?.startTime?.S || '',
           status: entry.M?.status?.S || '',
           eventId: entry.M?.eventId?.S || '',
           eventType: entry.M?.eventType?.S || '',
           clientName: entry.M?.clientName?.S || '',
+          clientId: entry.M?.clientId?.S || '',
         }))
       : [],
     activeVendorCount: parseNumberAttribute(item.activeVendorCount),

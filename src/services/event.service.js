@@ -10,6 +10,7 @@ import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import {
   updateKPIAnalytics,
   updateStatusAnalytics,
+  updateUpcomingEventsSnapshot,
 } from './dashboardAnalytics.service.js';
 import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
 
@@ -309,6 +310,7 @@ export async function createEvent(eventData, clientId) {
     ...eventPayload,
     status: eventPayload.status || 'PLANNING',
   });
+  await updateUpcomingEventsSnapshot(await getEventsService());
 
   return mapDynamoEvent(buildDynamoEventItem(eventPayload));
 }
@@ -347,6 +349,7 @@ export async function updateEvent(eventId, updateData) {
   if (normalizeString(existingEvent.status).toUpperCase() !== normalizeString(mergedEvent.status).toUpperCase()) {
     await updateStatusAnalytics(existingEvent.status, mergedEvent.status, mergedEvent);
   }
+  await updateUpcomingEventsSnapshot(await getEventsService());
 
   return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
 }
