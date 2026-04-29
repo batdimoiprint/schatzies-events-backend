@@ -401,8 +401,8 @@ async function refreshUpcomingSnapshotIfMissing(upcoming) {
     return upcoming;
   }
 
-  const { getEventsService } = await import('./event.service.js');
-  const events = await getEventsService();
+  const { getEvents } = await import('./event.service.js');
+  const events = await getEvents();
   await updateUpcomingEventsSnapshot(events);
 
   const refreshCommand = new BatchGetItemCommand({

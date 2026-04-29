@@ -316,7 +316,7 @@ export async function createEvent(eventData, clientId) {
     ...eventPayload,
     status: eventPayload.status || 'PLANNING',
   });
-  await updateUpcomingEventsSnapshot(await getEventsService());
+  await updateUpcomingEventsSnapshot(await getEvents());
 
   return mapDynamoEvent(buildDynamoEventItem(eventPayload));
 }
@@ -355,7 +355,7 @@ export async function updateEvent(eventId, updateData) {
   if (normalizeString(existingEvent.status).toUpperCase() !== normalizeString(mergedEvent.status).toUpperCase()) {
     await updateStatusAnalytics(existingEvent.status, mergedEvent.status, mergedEvent);
   }
-  await updateUpcomingEventsSnapshot(await getEventsService());
+  await updateUpcomingEventsSnapshot(await getEvents());
 
   return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
 }
@@ -534,6 +534,6 @@ export async function deleteEvent(eventId) {
   });
 
   await dynamoClient.send(command);
-  await updateUpcomingEventsSnapshot(await getEventsService());
+  await updateUpcomingEventsSnapshot(await getEvents());
   return existingEvent;
 }
