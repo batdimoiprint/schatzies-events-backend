@@ -10,6 +10,7 @@ import {
   unassignVendorFromEvent,
   createVendorWorker,
   getVendorWorkers,
+  getAllVendorWorkers,
   getVendorWorkerById,
   updateVendorWorker,
   deleteVendorWorker,
@@ -300,6 +301,32 @@ router.post('/:id/workers', validateTokenMiddleware, createVendorWorker);
  *       500:
  *         description: Server error
  */
+/**
+ * @swagger
+ * /api/vendors/workers:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve all workers across all vendors
+ *     parameters:
+ *       - in: query
+ *         name: vendorId
+ *         schema:
+ *           type: string
+ *         description: Optional vendor ID to filter workers by vendor
+ *       - in: query
+ *         name: eventId
+ *         schema:
+ *           type: string
+ *         description: Optional event ID to filter workers assigned to an event
+ *     responses:
+ *       200:
+ *         description: List of workers across vendors
+ *       500:
+ *         description: Server error
+ */
+router.get('/workers', validateTokenMiddleware, getAllVendorWorkers);
+
 router.get('/:id/workers', getVendorWorkers);
 
 /**
