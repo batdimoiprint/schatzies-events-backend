@@ -396,6 +396,28 @@ function parseDashboardItem(item) {
   };
 }
 
+async function refreshUpcomingSnapshotIfMissing(upcoming) {
+  if (Array.isArray(upcoming.upcomingEvents) && upcoming.upcomingEvents.length > 0) {
+    return upcoming;
+  }
+
+  const { getEventsService } = await import('./event.service.js');
+  const events = await getEventsService();
+  await updateUpcomingEventsSnapshot(events);
+
+  const refreshCommand = new BatchGetItemCommand({
+    RequestItems: {
+      [DASHBOARD_ANALYTICS_TABLE]: {
+        Keys: [buildKey(ANALYTICS_TYPES.UPCOMING, 'SNAPSHOT#CURRENT')],
+      },
+    },
+  });
+
+  const refreshResponse = await dynamoClient.send(refreshCommand);
+  const refreshedItem = refreshResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE]?.[0] || null;
+  return parseDashboardItem(refreshedItem) || {};
+}
+
 export async function getDashboardSummary() {
   const now = new Date();
   const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -432,8 +454,10 @@ export async function getDashboardSummary() {
   const yearlyStatus = find('STATUS', `YEAR#${yearKey}`) || {};
   const weeklyStatus = find('STATUS', `WEEK#${getWeekKey(now.toISOString())}`) || {};
   const semiAnnual = find('SEMI_ANNUAL', `YEAR#${yearKey}`) || {};
-  const upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
+  let upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
   const vendors = find('VENDORS', 'SNAPSHOT#CURRENT') || {};
+
+  upcoming = await refreshUpcomingSnapshotIfMissing(upcoming);
 
   const activeVendorIds = Array.isArray(vendors.activeVendorIds) ? vendors.activeVendorIds : [];
   const topVendorIds = activeVendorIds.slice(0, MAX_ACTIVE_VENDOR_DISPLAY);
