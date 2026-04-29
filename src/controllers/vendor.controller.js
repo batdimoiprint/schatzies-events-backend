@@ -9,6 +9,7 @@ import {
   unassignVendorFromEvent as unassignVendorFromEventService,
   createVendorWorker as createVendorWorkerService,
   getVendorWorkers as getVendorWorkersService,
+  getAllVendorWorkers as getAllVendorWorkersService,
   getVendorWorkerById as getVendorWorkerByIdService,
   updateVendorWorker as updateVendorWorkerService,
   deleteVendorWorker as deleteVendorWorkerService,
@@ -154,6 +155,17 @@ export async function getVendorWorkers(req, res) {
       return res.status(404).json({ error: error.message });
     }
 
+    const message = error instanceof Error ? error.message : 'Unable to fetch workers';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function getAllVendorWorkers(req, res) {
+  try {
+    const { vendorId, eventId } = req.query;
+    const workers = await getAllVendorWorkersService({ vendorId, eventId });
+    return res.status(200).json({ workers });
+  } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to fetch workers';
     return res.status(500).json({ error: message });
   }

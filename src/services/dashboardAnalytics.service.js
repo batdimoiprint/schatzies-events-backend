@@ -252,7 +252,9 @@ export async function updateUpcomingEventsSnapshot(events = []) {
       uniqueEvents.push({
         id: eventKey,
         title: event.title || event.name || '',
+        eventTitle: event.title || event.name || '',
         date: event.date || event.eventDate || event.startDate || '',
+        startTime: event.eventTime || event.time || event.startTime || '',
         status: event.status || '',
         eventId: event.eventId || event.id || null,
         eventType: event.eventType || '',
@@ -288,10 +290,13 @@ export async function updateUpcomingEventsSnapshot(events = []) {
           M: {
             id: { S: entry.id },
             title: { S: normalizeString(entry.title) },
+            eventTitle: { S: normalizeString(entry.eventTitle) },
             date: { S: normalizeString(entry.date) },
+            startTime: { S: normalizeString(entry.startTime) },
             status: { S: normalizeString(entry.status) },
             eventId: { S: normalizeString(entry.eventId || '') },
             eventType: { S: normalizeString(entry.eventType || '') },
+            clientId: { S: normalizeString(entry.clientId || '') },
             clientName: { S: normalizeString(entry.clientName || '') },
           },
         })),
@@ -375,17 +380,42 @@ function parseDashboardItem(item) {
       ? item.upcomingEvents.L.map((entry) => ({
           id: entry.M?.id?.S || '',
           title: entry.M?.title?.S || '',
+          eventTitle: entry.M?.eventTitle?.S || '',
           date: entry.M?.date?.S || '',
+          startTime: entry.M?.startTime?.S || '',
           status: entry.M?.status?.S || '',
           eventId: entry.M?.eventId?.S || '',
           eventType: entry.M?.eventType?.S || '',
           clientName: entry.M?.clientName?.S || '',
+          clientId: entry.M?.clientId?.S || '',
         }))
       : [],
     activeVendorCount: parseNumberAttribute(item.activeVendorCount),
     activeVendorIds: Array.isArray(item.activeVendorIds?.SS) ? item.activeVendorIds.SS : [],
     updatedAt: item.updatedAt?.S || '',
   };
+}
+
+async function refreshUpcomingSnapshotIfMissing(upcoming) {
+  if (Array.isArray(upcoming.upcomingEvents) && upcoming.upcomingEvents.length > 0) {
+    return upcoming;
+  }
+
+  const { getEvents } = await import('./event.service.js');
+  const events = await getEvents();
+  await updateUpcomingEventsSnapshot(events);
+
+  const refreshCommand = new BatchGetItemCommand({
+    RequestItems: {
+      [DASHBOARD_ANALYTICS_TABLE]: {
+        Keys: [buildKey(ANALYTICS_TYPES.UPCOMING, 'SNAPSHOT#CURRENT')],
+      },
+    },
+  });
+
+  const refreshResponse = await dynamoClient.send(refreshCommand);
+  const refreshedItem = refreshResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE]?.[0] || null;
+  return parseDashboardItem(refreshedItem) || {};
 }
 
 export async function getDashboardSummary() {
@@ -424,8 +454,10 @@ export async function getDashboardSummary() {
   const yearlyStatus = find('STATUS', `YEAR#${yearKey}`) || {};
   const weeklyStatus = find('STATUS', `WEEK#${getWeekKey(now.toISOString())}`) || {};
   const semiAnnual = find('SEMI_ANNUAL', `YEAR#${yearKey}`) || {};
-  const upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
+  let upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
   const vendors = find('VENDORS', 'SNAPSHOT#CURRENT') || {};
+
+  upcoming = await refreshUpcomingSnapshotIfMissing(upcoming);
 
   const activeVendorIds = Array.isArray(vendors.activeVendorIds) ? vendors.activeVendorIds : [];
   const topVendorIds = activeVendorIds.slice(0, MAX_ACTIVE_VENDOR_DISPLAY);

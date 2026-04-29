@@ -109,6 +109,7 @@ function mapDynamoVendorWorker(item) {
     jobTitle: item.jobTitle?.S || '',
     availabilityStatus: item.availabilityStatus?.S || 'inactive',
     eventId: item.eventId?.S || undefined,
+    eventTitle: item.eventTitle?.S || undefined,
     notes: item.notes?.S || '',
     createdAt: item.created_at?.S || item.createdAt?.S || '',
     updatedAt: item.updated_at?.S || item.updatedAt?.S || '',
@@ -150,6 +151,11 @@ function buildDynamoVendorWorkerItem(payload) {
     item.eventId = { S: eventId };
   }
 
+  const eventTitle = normalizeString(payload.eventTitle || payload.eventName || '');
+  if (eventTitle) {
+    item.eventTitle = { S: eventTitle };
+  }
+
   return Object.fromEntries(Object.entries(item).filter(([, value]) => value !== undefined));
 }
 
@@ -164,6 +170,32 @@ async function ensureVendorExists(vendorId) {
   }
 
   return vendor;
+}
+
+async function enrichWorkersWithEventTitles(workers) {
+  if (!Array.isArray(workers) || workers.length === 0) {
+    return workers;
+  }
+
+  const eventIds = [...new Set(workers.filter((worker) => worker.eventId).map((worker) => worker.eventId))];
+  if (eventIds.length === 0) {
+    return workers;
+  }
+
+  const eventTitles = {};
+  await Promise.all(eventIds.map(async (eventId) => {
+    try {
+      const event = await getEventById(eventId);
+      eventTitles[eventId] = event?.title || event?.eventTitle || '';
+    } catch {
+      eventTitles[eventId] = '';
+    }
+  }));
+
+  return workers.map((worker) => ({
+    ...worker,
+    eventTitle: worker.eventId ? worker.eventTitle || eventTitles[worker.eventId] || '' : undefined,
+  }));
 }
 
 export async function getVendorWorkers(vendorId, eventId) {
@@ -194,7 +226,39 @@ export async function getVendorWorkers(vendorId, eventId) {
 
   const command = new QueryCommand(query);
   const response = await dynamoClient.send(command);
-  return (response.Items || []).map(mapDynamoVendorWorker);
+  const workers = (response.Items || []).map(mapDynamoVendorWorker);
+  return enrichWorkersWithEventTitles(workers);
+}
+
+export async function getAllVendorWorkers({ vendorId, eventId } = {}) {
+  const params = {
+    TableName: DYNAMO_TABLE,
+    FilterExpression: 'begins_with(#sk, :workerPrefix)',
+    ExpressionAttributeNames: {
+      '#sk': 'SK',
+    },
+    ExpressionAttributeValues: {
+      ':workerPrefix': { S: 'WORKER#' },
+    },
+  };
+
+  if (vendorId) {
+    const normalizedVendorId = normalizeString(vendorId);
+    params.FilterExpression += ' AND #pk = :pk';
+    params.ExpressionAttributeNames['#pk'] = 'PK';
+    params.ExpressionAttributeValues[':pk'] = { S: `VENDOR#${normalizedVendorId}` };
+  }
+
+  if (eventId) {
+    params.FilterExpression += ' AND #eventId = :eventId';
+    params.ExpressionAttributeNames['#eventId'] = 'eventId';
+    params.ExpressionAttributeValues[':eventId'] = { S: normalizeString(eventId) };
+  }
+
+  const command = new ScanCommand(params);
+  const response = await dynamoClient.send(command);
+  const workers = (response.Items || []).map(mapDynamoVendorWorker);
+  return enrichWorkersWithEventTitles(workers);
 }
 
 export async function getVendorWorkerById(vendorId, workerId) {
@@ -235,11 +299,13 @@ export async function createVendorWorker(vendorId, workerData) {
   }
 
   const eventId = normalizeString(workerData.eventId);
+  let eventTitle;
   if (eventId) {
     const event = await getEventById(eventId);
     if (!event) {
       throw new Error('Associated event not found');
     }
+    eventTitle = event.title || event.eventTitle || '';
   }
 
   const newWorker = {
@@ -248,6 +314,7 @@ export async function createVendorWorker(vendorId, workerData) {
     vendorId: normalizeString(vendorId),
     availabilityStatus: normalizeString(workerData.availabilityStatus || workerData.status || 'inactive').toLowerCase(),
     eventId: eventId || undefined,
+    eventTitle: eventTitle || undefined,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -281,10 +348,16 @@ export async function updateVendorWorker(vendorId, workerId, updateData) {
   }
 
   const eventId = normalizeString(updateData.eventId);
-  if (updateData.eventId !== undefined && eventId) {
-    const event = await getEventById(eventId);
-    if (!event) {
-      throw new Error('Associated event not found');
+  let eventTitle;
+  if (updateData.eventId !== undefined) {
+    if (eventId) {
+      const event = await getEventById(eventId);
+      if (!event) {
+        throw new Error('Associated event not found');
+      }
+      eventTitle = event.title || event.eventTitle || '';
+    } else {
+      eventTitle = undefined;
     }
   }
 
@@ -295,6 +368,7 @@ export async function updateVendorWorker(vendorId, workerId, updateData) {
     id: workerId,
     availabilityStatus: normalizeString(updateData.availabilityStatus || updateData.status || existing.availabilityStatus || 'inactive').toLowerCase(),
     eventId: updateData.eventId !== undefined ? (eventId || undefined) : existing.eventId,
+    eventTitle: updateData.eventId !== undefined ? (eventTitle || undefined) : existing.eventTitle,
     updated_at: new Date().toISOString(),
   };
 
@@ -362,6 +436,7 @@ export async function assignWorkerToEvent(vendorId, workerId, eventId) {
     vendorId: normalizeString(vendorId),
     id: workerId,
     eventId: normalizeString(eventId),
+    eventTitle: event.title || event.eventTitle || undefined,
     updated_at: new Date().toISOString(),
   };
 
@@ -395,6 +470,7 @@ export async function unassignWorkerFromEvent(vendorId, workerId) {
     vendorId: normalizeString(vendorId),
     id: workerId,
     eventId: undefined,
+    eventTitle: undefined,
     updated_at: new Date().toISOString(),
   };
 

@@ -24,6 +24,7 @@ function mapDynamoUser(item) {
     city: item.city?.S || '',
     country: item.country?.S || '',
     gender: item.gender?.S || '',
+    isOnline: item.isOnline?.BOOL || false,
     created_at: item.created_at?.S || '',
   };
 }
@@ -52,6 +53,7 @@ function buildDynamoItem(payload) {
     city: { S: normalizeString(payload.city) },
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
+    isOnline: { BOOL: payload.isOnline ?? false },
     created_at: { S: payload.created_at || new Date().toISOString() },
   };
 }
@@ -59,11 +61,13 @@ function buildDynamoItem(payload) {
 async function scanUserByEmail(email) {
   const command = new ScanCommand({
     TableName: DYNAMO_TABLE,
-    FilterExpression: '#email = :emailValue',
+    FilterExpression: 'begins_with(PK, :pkPrefix) AND SK = :sk AND #email = :emailValue',
     ExpressionAttributeNames: {
       '#email': 'email',
     },
     ExpressionAttributeValues: {
+      ':pkPrefix': { S: 'USER#' },
+      ':sk': { S: 'PROFILE' },
       ':emailValue': { S: email },
     },
   });
@@ -89,7 +93,8 @@ export async function findUserByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    return mapDynamoUser(response.Items?.[0]);
+    const userItem = (response.Items || []).find(item => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE');
+    return userItem ? mapDynamoUser(userItem) : null;
   } catch (error) {
     if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
       return scanUserByEmail(normalizedEmail);
@@ -176,6 +181,7 @@ export async function createUser(payload) {
     city: payload.city || '',
     country: payload.country || '',
     gender: payload.gender || '',
+    isOnline: false,
     created_at: new Date().toISOString(),
   };
 
@@ -211,6 +217,12 @@ export async function updateUser(userId, payload) {
     'firstName', 'middleName', 'lastName', 'birthDate', 'houseNumber',
     'street', 'barangay', 'city', 'country', 'gender', 'contactNumber', 'role'
   ];
+
+  if (payload.isOnline !== undefined) {
+    updateExpressions.push('#isOnline = :isOnline');
+    expressionAttributeNames['#isOnline'] = 'isOnline';
+    expressionAttributeValues[':isOnline'] = { BOOL: payload.isOnline };
+  }
 
   if (payload.email !== undefined) {
     const normalizedEmail = normalizeString(payload.email).toLowerCase();

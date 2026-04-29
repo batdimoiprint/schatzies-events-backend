@@ -10,6 +10,7 @@ import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import {
   updateKPIAnalytics,
   updateStatusAnalytics,
+  updateUpcomingEventsSnapshot,
 } from './dashboardAnalytics.service.js';
 import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
 
@@ -48,6 +49,7 @@ function mapDynamoEvent(item) {
     eventPax: item.eventPax?.N ? Number(item.eventPax.N) : null,
     eventDate: item.eventDate?.S || '',
     eventTime: item.eventTime?.S || '',
+    startTime: item.startTime?.S || item.eventTime?.S || '',
     eventLocation: item.eventLocation?.S || item.location?.S || '',
     status: item.status?.S || '',
     id: item.SK?.S?.replace('EVENT#', '') || '',
@@ -109,7 +111,8 @@ function buildDynamoEventItem(payload) {
   }
 
   const eventDate = normalizeString(payload.eventDate || '');
-  const eventTime = normalizeString(payload.eventTime || '');
+  const eventTime = normalizeString(payload.eventTime || payload.startTime || payload.time || '');
+  const startTime = buildStringAttribute(payload.startTime || payload.eventTime || payload.time);
   const eventLocation = normalizeString(payload.eventLocation || payload.location || '');
   const eventType = normalizeString(payload.eventType || '');
   const eventPackageKey = normalizeString(payload.eventPackageKey || payload.eventPackage || '');
@@ -174,6 +177,10 @@ function buildDynamoEventItem(payload) {
 
   if (eventTime) {
     item.eventTime = { S: eventTime };
+  }
+
+  if (startTime) {
+    item.startTime = startTime;
   }
 
   if (eventLocation) {
@@ -309,6 +316,7 @@ export async function createEvent(eventData, clientId) {
     ...eventPayload,
     status: eventPayload.status || 'PLANNING',
   });
+  await updateUpcomingEventsSnapshot(await getEvents());
 
   return mapDynamoEvent(buildDynamoEventItem(eventPayload));
 }
@@ -347,6 +355,7 @@ export async function updateEvent(eventId, updateData) {
   if (normalizeString(existingEvent.status).toUpperCase() !== normalizeString(mergedEvent.status).toUpperCase()) {
     await updateStatusAnalytics(existingEvent.status, mergedEvent.status, mergedEvent);
   }
+  await updateUpcomingEventsSnapshot(await getEvents());
 
   return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
 }
@@ -525,5 +534,6 @@ export async function deleteEvent(eventId) {
   });
 
   await dynamoClient.send(command);
+  await updateUpcomingEventsSnapshot(await getEvents());
   return existingEvent;
 }
