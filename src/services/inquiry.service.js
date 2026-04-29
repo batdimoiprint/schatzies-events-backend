@@ -76,6 +76,7 @@ function mapToFrontend(u, meetingDetails = null) {
     contactNumber: u.contactNumber,
     status: u.status || 'Pending Review',
     is_Account_Created: u.is_Account_Created || false,
+    userId: u.userId || u.user_id || '',
     communications: u.communications || [],
     meetingDetails,
     createdAt: u.createdAt || u.created_at,
@@ -176,6 +177,7 @@ export async function createInquiry(inquiryData) {
     contactNumber: newInquiry.contactNumber,
     status: newInquiry.status,
     is_Account_Created: newInquiry.is_Account_Created,
+    userId: '',
     communications: newInquiry.communications,
     created_at: newInquiry.createdAt,
     updated_at: newInquiry.updatedAt,
@@ -269,6 +271,7 @@ export async function updateInquiry(inquiryId, updateData) {
     'contactNumber',
     'status',
     'is_Account_Created',
+    'userId',
     'communications',
   ];
 

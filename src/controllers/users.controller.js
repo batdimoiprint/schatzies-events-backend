@@ -39,7 +39,10 @@ export async function createUserHandler(req, res) {
 
     if (req.body.inquiryId) {
       try {
-        await updateInquiry(req.body.inquiryId, { is_Account_Created: true });
+        await updateInquiry(req.body.inquiryId, {
+          is_Account_Created: true,
+          userId: user.user_id,
+        });
       } catch (err) {
         console.error('Failed to update inquiry is_Account_Created:', err);
       }

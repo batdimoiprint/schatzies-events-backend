@@ -21,7 +21,7 @@ import { getEventsByFilter as getEventsByFilterService, getTasksByEventId as get
 export async function createEvent(req, res) {
   try {
     const eventPayload = req.body ?? {};
-    const clientId = req.user?.user_id;
+    const clientId = eventPayload.client_id || eventPayload.clientId || req.user?.user_id;
     const createdEvent = await createEventService(eventPayload, clientId);
 
     return res.status(201).json({
