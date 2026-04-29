@@ -45,6 +45,9 @@ jobs:
             --function-name ${{ steps.target.outputs.function_name }} \
             --zip-file fileb://function.zip
 
+      - name: Wait for Lambda update to complete
+        run: sleep 15
+
       - name: Update Lambda Environment Variables
         run: |
           aws lambda update-function-configuration \
