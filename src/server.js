@@ -55,7 +55,10 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes
-app.use('/api', routes);
+const apiPrefix = process.env.API_PREFIX || '/api';
+const normalizedPrefix = apiPrefix.startsWith('/') ? apiPrefix : `/${apiPrefix}`;
+console.log(`Routing API to: ${normalizedPrefix}`);
+app.use(normalizedPrefix, routes);
 
 // 404 Handler
 app.use((req, res) => {
