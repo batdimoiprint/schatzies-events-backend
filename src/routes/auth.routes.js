@@ -1,5 +1,12 @@
 import express from 'express';
-import { login, logout, currentUser } from '../controllers/auth.controller.js';
+import {
+  currentUser,
+  login,
+  logout,
+  requestPasswordReset,
+  resetPassword,
+  verifyPasswordReset,
+} from '../controllers/auth.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import tokenRoutes from './token.routes.js';
 
@@ -148,6 +155,9 @@ const router = express.Router();
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/login', login);
+router.post('/forgot-password', requestPasswordReset);
+router.post('/forgot-password/verify', verifyPasswordReset);
+router.post('/forgot-password/reset', resetPassword);
 
 /**
  * @swagger
