@@ -25,6 +25,7 @@ function mapDynamoUser(item) {
     country: item.country?.S || '',
     gender: item.gender?.S || '',
     isOnline: item.isOnline?.BOOL || false,
+    profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
   };
 }
@@ -54,6 +55,7 @@ function buildDynamoItem(payload) {
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
     isOnline: { BOOL: payload.isOnline ?? false },
+    profilePic: { S: normalizeString(payload.profilePic) },
     created_at: { S: payload.created_at || new Date().toISOString() },
   };
 }
@@ -215,7 +217,7 @@ export async function updateUser(userId, payload) {
 
   const updatableFields = [
     'firstName', 'middleName', 'lastName', 'birthDate', 'houseNumber',
-    'street', 'barangay', 'city', 'country', 'gender', 'contactNumber', 'role'
+    'street', 'barangay', 'city', 'country', 'gender', 'contactNumber', 'role', 'profilePic'
   ];
 
   if (payload.isOnline !== undefined) {
