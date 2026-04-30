@@ -2,9 +2,11 @@ import express from 'express';
 import {
   createCalendarEntry,
   getCalendarEntries,
+  getAllCalendar,
   updateCalendarEntry,
   deleteCalendarEntry,
   markCalendarDate,
+  markCalendarEntryDone,
 } from '../controllers/calendar.controller.js';
 
 const router = express.Router();
@@ -110,16 +112,14 @@ router.post('/', createCalendarEntry);
  *                 entries:
  *                   type: array
  *                   items:
- *                     type: object
- *                     properties:
- *                       date:
- *                         type: string
- *                       entries:
- *                         type: array
- *                         items:
- *                           $ref: '#/components/schemas/CalendarEntry'
+ *                     $ref: '#/components/schemas/CalendarEntry'
  */
-router.get('/', getCalendarEntries);
+router.get('/', (req, res, next) => {
+  if (req.user?.role === 'ADMIN') {
+    return getAllCalendar(req, res, next);
+  }
+  return getCalendarEntries(req, res, next);
+});
 
 /**
  * @swagger
@@ -153,6 +153,43 @@ router.get('/', getCalendarEntries);
  *                   $ref: '#/components/schemas/CalendarEntry'
  */
 router.put('/:entryId', updateCalendarEntry);
+
+/**
+ * @swagger
+ * /api/calendar/{entryId}/mark-done:
+ *   patch:
+ *     tags:
+ *       - Calendar
+ *     summary: Mark a calendar entry as done or not done
+ *     parameters:
+ *       - in: path
+ *         name: entryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Calendar entry ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isDone:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Calendar entry updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 entry:
+ *                   $ref: '#/components/schemas/CalendarEntry'
+ */
+router.patch('/:entryId/mark-done', markCalendarEntryDone);
 
 /**
  * @swagger

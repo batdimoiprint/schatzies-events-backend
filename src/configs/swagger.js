@@ -585,6 +585,34 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: '550e8400-e29b-41d4-a716-446655440000',
             },
+            startDateKey: {
+              type: 'string',
+              example: '2026-05-01',
+            },
+            startTime: {
+              type: 'string',
+              example: '14:30',
+            },
+            endDateKey: {
+              type: 'string',
+              example: '2026-05-01',
+            },
+            endDate: {
+              type: 'string',
+              example: '2026-05-01T16:00:00.000Z',
+            },
+            location: {
+              type: 'string',
+              example: 'Conference Room A',
+            },
+            eventType: {
+              type: 'string',
+              example: 'Wedding',
+            },
+            label: {
+              type: 'string',
+              example: 'Client check-in',
+            },
           },
         },
         CalendarUpdateRequest: {
@@ -611,6 +639,38 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: '550e8400-e29b-41d4-a716-446655440000',
             },
+            startDateKey: {
+              type: 'string',
+              example: '2026-05-01',
+            },
+            startTime: {
+              type: 'string',
+              example: '14:30',
+            },
+            endDateKey: {
+              type: 'string',
+              example: '2026-05-01',
+            },
+            endDate: {
+              type: 'string',
+              example: '2026-05-01T16:00:00.000Z',
+            },
+            endTime: {
+              type: 'string',
+              example: '16:00',
+            },
+            location: {
+              type: 'string',
+              example: 'Conference Room A',
+            },
+            eventType: {
+              type: 'string',
+              example: 'Wedding',
+            },
+            label: {
+              type: 'string',
+              example: 'Client check-in',
+            },
           },
         },
         CalendarMarkDateRequest: {
@@ -633,6 +693,10 @@ const swaggerSpec = swaggerJsdoc({
             description: {
               type: 'string',
               example: 'Pay venue deposit before the due date',
+            },
+            label: {
+              type: 'string',
+              example: 'Urgent follow-up',
             },
           },
         },
@@ -664,6 +728,38 @@ const swaggerSpec = swaggerJsdoc({
               type: 'string',
               example: '550e8400-e29b-41d4-a716-446655440000',
             },
+            startDateKey: {
+              type: 'string',
+              example: '2026-05-01',
+            },
+            startTime: {
+              type: 'string',
+              example: '14:30',
+            },
+            endDateKey: {
+              type: 'string',
+              example: '2026-05-01',
+            },
+            endDate: {
+              type: 'string',
+              example: '2026-05-01T16:00:00.000Z',
+            },
+            endTime: {
+              type: 'string',
+              example: '16:00',
+            },
+            location: {
+              type: 'string',
+              example: 'Conference Room A',
+            },
+            eventType: {
+              type: 'string',
+              example: 'Wedding',
+            },
+            label: {
+              type: 'string',
+              example: 'Client check-in',
+            },
             createdAt: {
               type: 'string',
               format: 'date-time',
@@ -682,6 +778,17 @@ const swaggerSpec = swaggerJsdoc({
             kpi: {
               type: 'object',
               properties: {
+                week: {
+                  type: 'object',
+                  properties: {
+                    totalEvents: { type: 'integer', example: 25 },
+                    planning: { type: 'integer', example: 8 },
+                    execution: { type: 'integer', example: 10 },
+                    completed: { type: 'integer', example: 7 },
+                    completedRevenue: { type: 'number', example: 65000 },
+                    completedProfit: { type: 'number', example: 18000 },
+                  },
+                },
                 month: {
                   type: 'object',
                   properties: {
@@ -704,11 +811,38 @@ const swaggerSpec = swaggerJsdoc({
                     completedProfit: { type: 'number', example: 155000 },
                   },
                 },
+                semiAnnual: {
+                  type: 'object',
+                  properties: {
+                    year: { type: 'string', example: '2026' },
+                    monthlyGraph: {
+                      type: 'object',
+                      additionalProperties: {
+                        type: 'number',
+                      },
+                      example: {
+                        '01': 12,
+                        '02': 14,
+                        '03': 16,
+                      },
+                    },
+                  },
+                },
               },
             },
             status: {
               type: 'object',
               properties: {
+                week: {
+                  type: 'object',
+                  properties: {
+                    planning: { type: 'integer', example: 8 },
+                    execution: { type: 'integer', example: 10 },
+                    completed: { type: 'integer', example: 7 },
+                    completedRevenue: { type: 'number', example: 65000 },
+                    completedProfit: { type: 'number', example: 18000 },
+                  },
+                },
                 month: {
                   type: 'object',
                   properties: {
@@ -755,15 +889,32 @@ const swaggerSpec = swaggerJsdoc({
                 properties: {
                   id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
                   title: { type: 'string', example: 'Annual Company Party' },
+                  eventTitle: { type: 'string', example: 'Annual Company Party' },
                   date: { type: 'string', example: '2026-05-01' },
+                  startTime: { type: 'string', example: '14:00' },
                   status: { type: 'string', example: 'PLANNING' },
                   eventId: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+                  eventType: { type: 'string', example: 'Wedding' },
+                  clientName: { type: 'string', example: 'Jane Doe' },
+                  clientId: { type: 'string', example: 'client-123' },
                 },
               },
             },
             activeVendors: {
-              type: 'integer',
-              example: 28,
+              type: 'object',
+              properties: {
+                count: { type: 'integer', example: 28 },
+                topVendors: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', example: 'vendor-123' },
+                      vendorName: { type: 'string', example: 'Floral Design Co.' },
+                    },
+                  },
+                },
+              },
             },
           },
         },

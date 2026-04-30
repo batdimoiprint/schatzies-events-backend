@@ -6,12 +6,17 @@ import {
   deleteVendor as deleteVendorService,
   getVendorsByEventId as getVendorsByEventIdService,
   assignVendorToEvent as assignVendorToEventService,
+  unassignVendorFromEvent as unassignVendorFromEventService,
   createVendorWorker as createVendorWorkerService,
   getVendorWorkers as getVendorWorkersService,
+  getAllVendorWorkers as getAllVendorWorkersService,
   getVendorWorkerById as getVendorWorkerByIdService,
+  getVendorEvents as getVendorEventsService,
+  getWorkerEventsByWorkerId as getWorkerEventsService,
   updateVendorWorker as updateVendorWorkerService,
   deleteVendorWorker as deleteVendorWorkerService,
   assignWorkerToEvent as assignWorkerToEventService,
+  unassignWorkerFromEvent as unassignWorkerFromEventService,
 } from '../services/vendor.service.js';
 
 export async function createVendor(req, res) {
@@ -157,6 +162,17 @@ export async function getVendorWorkers(req, res) {
   }
 }
 
+export async function getAllVendorWorkers(req, res) {
+  try {
+    const { vendorId, eventId } = req.query;
+    const workers = await getAllVendorWorkersService({ vendorId, eventId });
+    return res.status(200).json({ workers });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to fetch workers';
+    return res.status(500).json({ error: message });
+  }
+}
+
 export async function getVendorWorkerById(req, res) {
   try {
     const { id, workerId } = req.params;
@@ -173,6 +189,36 @@ export async function getVendorWorkerById(req, res) {
     }
 
     const message = error instanceof Error ? error.message : 'Unable to fetch worker';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function getVendorEvents(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await getVendorEventsService(id);
+    return res.status(200).json(result.events ?? []);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Vendor not found') {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to fetch vendor events';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function getWorkerEvents(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await getWorkerEventsService(id);
+    return res.status(200).json(result.events ?? []);
+  } catch (error) {
+    if (error instanceof Error && ['Worker not found'].includes(error.message)) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to fetch worker events';
     return res.status(500).json({ error: message });
   }
 }
@@ -225,6 +271,36 @@ export async function assignWorkerToEvent(req, res) {
     }
 
     const message = error instanceof Error ? error.message : 'Unable to assign worker to event';
+    return res.status(400).json({ error: message });
+  }
+}
+
+export async function unassignWorkerFromEvent(req, res) {
+  try {
+    const { id, workerId } = req.params;
+    const worker = await unassignWorkerFromEventService(id, workerId);
+    return res.status(200).json({ message: 'Worker unassigned from event successfully', worker });
+  } catch (error) {
+    if (error instanceof Error && ['Vendor not found', 'Worker not found'].includes(error.message)) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to unassign worker from event';
+    return res.status(400).json({ error: message });
+  }
+}
+
+export async function unassignVendorFromEvent(req, res) {
+  try {
+    const { id } = req.params;
+    const vendor = await unassignVendorFromEventService(id);
+    return res.status(200).json({ message: 'Vendor unassigned from event successfully', vendor });
+  } catch (error) {
+    if (error instanceof Error && ['Vendor not found'].includes(error.message)) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to unassign vendor from event';
     return res.status(400).json({ error: message });
   }
 }

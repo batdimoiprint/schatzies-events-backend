@@ -1,6 +1,12 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand } from '@aws-sdk/client-dynamodb';
+import {
+  GetItemCommand,
+  PutItemCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
 import { normalizeString } from '../utils/dynamoHelpers.js';
@@ -9,6 +15,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET env var is required');
 }
+
+const PASSWORD_RESET_CODE_TTL_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_TOKEN_TTL_SECONDS = 15 * 60;
 
 function mapDynamoUser(item) {
   if (!item) {
@@ -32,6 +41,9 @@ function mapDynamoUser(item) {
     country: item.country?.S || '',
     gender: item.gender?.S || '',
     created_at: item.created_at?.S || '',
+    passwordResetCodeHash: item.passwordResetCodeHash?.S || '',
+    passwordResetCodeExpiresAt: item.passwordResetCodeExpiresAt?.S || '',
+    passwordResetCodeIssuedAt: item.passwordResetCodeIssuedAt?.S || '',
   };
 }
 
@@ -40,7 +52,13 @@ function stripPassword(user) {
     return null;
   }
 
-  const { password, ...safeUser } = user;
+  const {
+    password,
+    passwordResetCodeHash,
+    passwordResetCodeExpiresAt,
+    passwordResetCodeIssuedAt,
+    ...safeUser
+  } = user;
   return safeUser;
 }
 
@@ -89,7 +107,7 @@ async function scanUserByEmail(email) {
   return mapDynamoUser(response.Items?.[0]);
 }
 
-export async function findUserByEmail(email) {
+async function queryUserRecordByEmail(email) {
   const normalizedEmail = normalizeString(email).toLowerCase();
   if (!normalizedEmail) {
     return null;
@@ -106,13 +124,104 @@ export async function findUserByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    return mapDynamoUser(response.Items?.[0]);
+    const userItem = (response.Items || []).find(
+      (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
+    );
+    return userItem ? mapDynamoUser(userItem) : null;
   } catch (error) {
-    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+    if (
+      error.name === 'ValidationException' ||
+      error.name === 'ResourceNotFoundException'
+    ) {
       return scanUserByEmail(normalizedEmail);
     }
     throw error;
   }
+}
+
+async function updateUserFields(userId, updateFields) {
+  const normalizedUserId = normalizeString(userId);
+  if (!normalizedUserId) {
+    throw new Error('userId is required');
+  }
+
+  const updateExpressions = [];
+  const expressionAttributeNames = {};
+  const expressionAttributeValues = {};
+
+  for (const [field, value] of Object.entries(updateFields)) {
+    updateExpressions.push(`#${field} = :${field}`);
+    expressionAttributeNames[`#${field}`] = field;
+    expressionAttributeValues[`:${field}`] = { S: value };
+  }
+
+  if (updateExpressions.length === 0) {
+    return null;
+  }
+
+  const command = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizedUserId}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+    ExpressionAttributeNames: expressionAttributeNames,
+    ExpressionAttributeValues: expressionAttributeValues,
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoUser(response.Attributes);
+}
+
+async function clearPasswordResetFields(userId) {
+  const normalizedUserId = normalizeString(userId);
+  if (!normalizedUserId) {
+    throw new Error('userId is required');
+  }
+
+  const command = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizedUserId}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression:
+      'REMOVE #passwordResetCodeHash, #passwordResetCodeExpiresAt, #passwordResetCodeIssuedAt',
+    ExpressionAttributeNames: {
+      '#passwordResetCodeHash': 'passwordResetCodeHash',
+      '#passwordResetCodeExpiresAt': 'passwordResetCodeExpiresAt',
+      '#passwordResetCodeIssuedAt': 'passwordResetCodeIssuedAt',
+    },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const response = await dynamoClient.send(command);
+  return mapDynamoUser(response.Attributes);
+}
+
+function createPasswordResetCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function createPasswordResetToken(user) {
+  return jwt.sign(
+    {
+      user_id: user.user_id,
+      email: user.email,
+      purpose: 'password-reset',
+    },
+    JWT_SECRET,
+    {
+      expiresIn: `${PASSWORD_RESET_TOKEN_TTL_SECONDS}s`,
+    }
+  );
+}
+
+export async function findUserByEmail(email) {
+  const user = await queryUserRecordByEmail(email);
+  return stripPassword(user);
 }
 
 export async function findUserByUserId(userId) {
@@ -185,7 +294,8 @@ export async function registerUser(payload) {
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: buildDynamoItem(userPayload),
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression:
+      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
 
   await dynamoClient.send(command);
@@ -200,7 +310,7 @@ export async function authenticateUser(identifier, plainPassword) {
     return null;
   }
 
-  const user = await findUserByEmail(normalizedIdentifier);
+  const user = await queryUserRecordByEmail(normalizedIdentifier);
   if (!user?.password) {
     return null;
   }
@@ -225,6 +335,119 @@ export function signAuthToken(user) {
       expiresIn: '7d',
     }
   );
+}
+
+export async function createPasswordResetChallenge(email) {
+  const user = await queryUserRecordByEmail(email);
+  if (!user?.user_id) {
+    return null;
+  }
+
+  const code = createPasswordResetCode();
+  const codeHash = await bcrypt.hash(code, 10);
+  const expiresAt = new Date(
+    Date.now() + PASSWORD_RESET_CODE_TTL_MS
+  ).toISOString();
+  const issuedAt = new Date().toISOString();
+
+  const updatedUser = await updateUserFields(user.user_id, {
+    passwordResetCodeHash: codeHash,
+    passwordResetCodeExpiresAt: expiresAt,
+    passwordResetCodeIssuedAt: issuedAt,
+  });
+
+  return {
+    user: stripPassword(updatedUser || user),
+    code,
+    expiresAt,
+  };
+}
+
+export async function verifyPasswordResetCode(email, code) {
+  const user = await queryUserRecordByEmail(email);
+  const providedCode = normalizeString(code);
+
+  if (
+    !user?.user_id ||
+    !user.passwordResetCodeHash ||
+    !user.passwordResetCodeExpiresAt ||
+    !providedCode
+  ) {
+    return null;
+  }
+
+  const expiresAt = new Date(user.passwordResetCodeExpiresAt).getTime();
+  if (Number.isNaN(expiresAt) || expiresAt < Date.now()) {
+    await clearPasswordResetFields(user.user_id);
+    return null;
+  }
+
+  const isValid = await bcrypt.compare(
+    providedCode,
+    user.passwordResetCodeHash
+  );
+  if (!isValid) {
+    return null;
+  }
+
+  const resetToken = createPasswordResetToken(user);
+  await clearPasswordResetFields(user.user_id);
+
+  return {
+    user: stripPassword(user),
+    resetToken,
+  };
+}
+
+export async function resetPasswordWithToken(resetToken, newPassword) {
+  if (!resetToken || !newPassword) {
+    return null;
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, JWT_SECRET);
+  } catch {
+    return null;
+  }
+
+  if (
+    !payload ||
+    payload.purpose !== 'password-reset' ||
+    !payload.email ||
+    !payload.user_id
+  ) {
+    return null;
+  }
+
+  const user = await queryUserRecordByEmail(payload.email);
+  if (!user || user.user_id !== payload.user_id) {
+    return null;
+  }
+
+  const hashedPassword = await bcrypt.hash(normalizeString(newPassword), 10);
+  const command = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${user.user_id}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression:
+      'SET #password = :password REMOVE #passwordResetCodeHash, #passwordResetCodeExpiresAt, #passwordResetCodeIssuedAt',
+    ExpressionAttributeNames: {
+      '#password': 'password',
+      '#passwordResetCodeHash': 'passwordResetCodeHash',
+      '#passwordResetCodeExpiresAt': 'passwordResetCodeExpiresAt',
+      '#passwordResetCodeIssuedAt': 'passwordResetCodeIssuedAt',
+    },
+    ExpressionAttributeValues: {
+      ':password': { S: hashedPassword },
+    },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const response = await dynamoClient.send(command);
+  return stripPassword(mapDynamoUser(response.Attributes));
 }
 
 export function verifyAuthToken(token) {

@@ -1,14 +1,17 @@
 import { BatchGetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
-import dynamoClient, { DASHBOARD_ANALYTICS_TABLE } from '../configs/dynamo.js';
+import dynamoClient, { DASHBOARD_ANALYTICS_TABLE, DYNAMO_TABLE } from '../configs/dynamo.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
+import { findUserByUserId } from './users.service.js';
 
 const ZERO = { N: '0' };
 const ONE = { N: '1' };
 const MINUS_ONE = { N: '-1' };
+const MAX_ACTIVE_VENDOR_DISPLAY = 3;
 
 const ANALYTICS_TYPES = {
   GLOBAL: 'GLOBAL',
   STATUS: 'STATUS',
+  WEEKLY: 'WEEKLY',
   SEMI_ANNUAL: 'SEMI_ANNUAL',
   UPCOMING: 'UPCOMING',
   VENDORS: 'VENDORS',
@@ -26,6 +29,24 @@ function getMonthKey(dateString) {
 function getYearKey(dateString) {
   const date = normalizeString(dateString);
   return date.slice(0, 4);
+}
+
+function getWeekKey(dateString) {
+  const normalizedDate = normalizeString(dateString);
+  const date = new Date(normalizedDate);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const shiftedDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayOfWeek = (shiftedDate.getUTCDay() + 6) % 7;
+  shiftedDate.setUTCDate(shiftedDate.getUTCDate() - dayOfWeek + 3);
+
+  const firstThursday = new Date(Date.UTC(shiftedDate.getUTCFullYear(), 0, 4));
+  const firstThursdayDayOfWeek = (firstThursday.getUTCDay() + 6) % 7;
+  const weekNumber = 1 + Math.round(((shiftedDate - firstThursday) / 86400000 - 3 + firstThursdayDayOfWeek) / 7);
+
+  return `${shiftedDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
 }
 
 function buildKey(type, sk) {
@@ -102,7 +123,8 @@ export async function updateKPIAnalytics(event) {
   const status = normalizeStatus(event.status);
   const monthKey = getMonthKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
   const yearKey = getYearKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  if (!monthKey || monthKey.length !== 7 || !yearKey || yearKey.length !== 4) {
+  const weekKey = getWeekKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
+  if (!monthKey || monthKey.length !== 7 || !yearKey || yearKey.length !== 4 || !weekKey) {
     return;
   }
 
@@ -141,13 +163,15 @@ export async function updateKPIAnalytics(event) {
   await Promise.all([
     updateAnalyticsRecord(ANALYTICS_TYPES.GLOBAL, `MONTH#${monthKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
     updateAnalyticsRecord(ANALYTICS_TYPES.GLOBAL, `YEAR#${yearKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
+    updateAnalyticsRecord(ANALYTICS_TYPES.GLOBAL, `WEEK#${weekKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
   ]);
 }
 
 export async function updateStatusAnalytics(oldStatus, newStatus, event) {
   const monthKey = getMonthKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
   const yearKey = getYearKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  if (!monthKey || monthKey.length !== 7 || !yearKey || yearKey.length !== 4) {
+  const weekKey = getWeekKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
+  if (!monthKey || monthKey.length !== 7 || !yearKey || yearKey.length !== 4 || !weekKey) {
     return;
   }
 
@@ -180,6 +204,7 @@ export async function updateStatusAnalytics(oldStatus, newStatus, event) {
   await Promise.all([
     updateAnalyticsRecord(ANALYTICS_TYPES.STATUS, `MONTH#${monthKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
     updateAnalyticsRecord(ANALYTICS_TYPES.STATUS, `YEAR#${yearKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
+    updateAnalyticsRecord(ANALYTICS_TYPES.STATUS, `WEEK#${weekKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
   ]);
 }
 
@@ -218,24 +243,38 @@ export async function updateUpcomingEventsSnapshot(events = []) {
   const uniqueEvents = [];
   const seen = new Set();
 
-  events
-    .filter((event) => event && event.id)
-    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
-    .forEach((event) => {
-      if (!seen.has(event.id)) {
-        seen.add(event.id);
-        uniqueEvents.push({
-          id: event.id,
-          title: event.title || '',
-          date: event.date || '',
-          status: event.status || '',
-          eventId: event.eventId || null,
-        });
-      }
-    });
+  for (const event of events
+    .filter((entry) => entry && (entry.id || entry.eventId))
+    .sort((a, b) => String(a.date || a.eventDate || a.startDate || '').localeCompare(String(b.date || b.eventDate || b.startDate || '')))) {
+    const eventKey = event.id || event.eventId;
+    if (!seen.has(eventKey)) {
+      seen.add(eventKey);
+      uniqueEvents.push({
+        id: eventKey,
+        title: event.title || event.name || '',
+        eventTitle: event.title || event.name || '',
+        date: event.date || event.eventDate || event.startDate || '',
+        startTime: event.eventTime || event.time || event.startTime || '',
+        status: event.status || '',
+        eventId: event.eventId || event.id || null,
+        eventType: event.eventType || '',
+        clientId: event.clientId || event.client_id || '',
+        clientName: event.clientName || '',
+      });
+    }
+  }
 
   const snapshot = uniqueEvents.slice(0, 10);
   const now = new Date().toISOString();
+
+  await Promise.all(snapshot.map(async (entry) => {
+    if (!entry.clientName && entry.clientId) {
+      const client = await findUserByUserId(entry.clientId);
+      if (client) {
+        entry.clientName = `${client.firstName || ''}${client.lastName ? ` ${client.lastName}` : ''}`.trim();
+      }
+    }
+  }));
 
   const command = new UpdateItemCommand({
     TableName: DASHBOARD_ANALYTICS_TABLE,
@@ -251,9 +290,14 @@ export async function updateUpcomingEventsSnapshot(events = []) {
           M: {
             id: { S: entry.id },
             title: { S: normalizeString(entry.title) },
+            eventTitle: { S: normalizeString(entry.eventTitle) },
             date: { S: normalizeString(entry.date) },
+            startTime: { S: normalizeString(entry.startTime) },
             status: { S: normalizeString(entry.status) },
             eventId: { S: normalizeString(entry.eventId || '') },
+            eventType: { S: normalizeString(entry.eventType || '') },
+            clientId: { S: normalizeString(entry.clientId || '') },
+            clientName: { S: normalizeString(entry.clientName || '') },
           },
         })),
       },
@@ -336,14 +380,42 @@ function parseDashboardItem(item) {
       ? item.upcomingEvents.L.map((entry) => ({
           id: entry.M?.id?.S || '',
           title: entry.M?.title?.S || '',
+          eventTitle: entry.M?.eventTitle?.S || '',
           date: entry.M?.date?.S || '',
+          startTime: entry.M?.startTime?.S || '',
           status: entry.M?.status?.S || '',
           eventId: entry.M?.eventId?.S || '',
+          eventType: entry.M?.eventType?.S || '',
+          clientName: entry.M?.clientName?.S || '',
+          clientId: entry.M?.clientId?.S || '',
         }))
       : [],
     activeVendorCount: parseNumberAttribute(item.activeVendorCount),
+    activeVendorIds: Array.isArray(item.activeVendorIds?.SS) ? item.activeVendorIds.SS : [],
     updatedAt: item.updatedAt?.S || '',
   };
+}
+
+async function refreshUpcomingSnapshotIfMissing(upcoming) {
+  if (Array.isArray(upcoming.upcomingEvents) && upcoming.upcomingEvents.length > 0) {
+    return upcoming;
+  }
+
+  const { getEvents } = await import('./event.service.js');
+  const events = await getEvents();
+  await updateUpcomingEventsSnapshot(events);
+
+  const refreshCommand = new BatchGetItemCommand({
+    RequestItems: {
+      [DASHBOARD_ANALYTICS_TABLE]: {
+        Keys: [buildKey(ANALYTICS_TYPES.UPCOMING, 'SNAPSHOT#CURRENT')],
+      },
+    },
+  });
+
+  const refreshResponse = await dynamoClient.send(refreshCommand);
+  const refreshedItem = refreshResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE]?.[0] || null;
+  return parseDashboardItem(refreshedItem) || {};
 }
 
 export async function getDashboardSummary() {
@@ -370,22 +442,65 @@ export async function getDashboardSummary() {
   });
 
   const response = await dynamoClient.send(command);
-  const returned = response.Responses?.[DASHBOARD_ANALYTICS_TABLE] || [];
+  const analyticsReturned = response.Responses?.[DASHBOARD_ANALYTICS_TABLE] || [];
+  const analyticsItems = analyticsReturned.filter((item) => item.PK?.S?.startsWith('ANALYTICS#')).map(parseDashboardItem);
 
-  const items = returned.map(parseDashboardItem);
-
-  const find = (pk, sk) => items.find((item) => item.pk === `ANALYTICS#${pk}` && item.sk === sk) || null;
+  const find = (pk, sk) => analyticsItems.find((item) => item.pk === `ANALYTICS#${pk}` && item.sk === sk) || null;
 
   const monthlyKpi = find('GLOBAL', `MONTH#${monthKey}`) || {};
   const yearlyKpi = find('GLOBAL', `YEAR#${yearKey}`) || {};
+  const weeklyKpi = find('GLOBAL', `WEEK#${getWeekKey(now.toISOString())}`) || {};
   const monthlyStatus = find('STATUS', `MONTH#${monthKey}`) || {};
   const yearlyStatus = find('STATUS', `YEAR#${yearKey}`) || {};
+  const weeklyStatus = find('STATUS', `WEEK#${getWeekKey(now.toISOString())}`) || {};
   const semiAnnual = find('SEMI_ANNUAL', `YEAR#${yearKey}`) || {};
-  const upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
+  let upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
   const vendors = find('VENDORS', 'SNAPSHOT#CURRENT') || {};
+
+  upcoming = await refreshUpcomingSnapshotIfMissing(upcoming);
+
+  const activeVendorIds = Array.isArray(vendors.activeVendorIds) ? vendors.activeVendorIds : [];
+  const topVendorIds = activeVendorIds.slice(0, MAX_ACTIVE_VENDOR_DISPLAY);
+
+  let topActiveVendors = [];
+  if (topVendorIds.length > 0) {
+    const vendorRequestItems = { Keys: topVendorIds.map((vendorId) => ({
+      PK: { S: `VENDOR#${normalizeString(vendorId)}` },
+      SK: { S: 'PROFILE' },
+    })) };
+
+    if (DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE) {
+      requestItems[DASHBOARD_ANALYTICS_TABLE].Keys.push(...vendorRequestItems.Keys);
+    } else {
+      requestItems[DYNAMO_TABLE] = vendorRequestItems;
+    }
+
+    const vendorCommand = new BatchGetItemCommand({ RequestItems: requestItems });
+    const vendorResponse = await dynamoClient.send(vendorCommand);
+    const vendorResponseItems = DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE
+      ? vendorResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE] || []
+      : vendorResponse.Responses?.[DYNAMO_TABLE] || [];
+
+    topActiveVendors = vendorResponseItems
+      .filter((item) => item.PK?.S?.startsWith('VENDOR#'))
+      .map((item) => ({
+        id: item.PK?.S?.replace('VENDOR#', '') || '',
+        vendorName: item.vendorName?.S || item.name?.S || '',
+      }))
+      .sort((a, b) => a.vendorName.localeCompare(b.vendorName))
+      .slice(0, MAX_ACTIVE_VENDOR_DISPLAY);
+  }
 
   return {
     kpi: {
+      week: {
+        totalEvents: weeklyKpi.totalEvents || 0,
+        planning: weeklyKpi.planning || 0,
+        execution: weeklyKpi.execution || 0,
+        completed: weeklyKpi.completed || 0,
+        completedRevenue: weeklyKpi.completedRevenue || 0,
+        completedProfit: weeklyKpi.completedProfit || 0,
+      },
       month: {
         totalEvents: monthlyKpi.totalEvents || 0,
         planning: monthlyKpi.planning || 0,
@@ -402,8 +517,19 @@ export async function getDashboardSummary() {
         completedRevenue: yearlyKpi.completedRevenue || 0,
         completedProfit: yearlyKpi.completedProfit || 0,
       },
+      semiAnnual: {
+        year: yearKey,
+        monthlyGraph: semiAnnual.monthlyGraph || {},
+      },
     },
     status: {
+      week: {
+        planning: weeklyStatus.planning || 0,
+        execution: weeklyStatus.execution || 0,
+        completed: weeklyStatus.completed || 0,
+        completedRevenue: weeklyStatus.completedRevenue || 0,
+        completedProfit: weeklyStatus.completedProfit || 0,
+      },
       month: {
         planning: monthlyStatus.planning || 0,
         execution: monthlyStatus.execution || 0,
@@ -424,6 +550,9 @@ export async function getDashboardSummary() {
       monthlyGraph: semiAnnual.monthlyGraph || {},
     },
     upcomingEvents: upcoming.upcomingEvents || [],
-    activeVendors: vendors.activeVendorCount || 0,
+    activeVendors: {
+      count: vendors.activeVendorCount || 0,
+      topVendors: topActiveVendors,
+    },
   };
 }

@@ -1,9 +1,20 @@
 import * as inquiryService from '../services/inquiry.service.js';
+import {
+  sendInquiryCreatedEmail,
+  sendInquiryStatusUpdatedEmail,
+} from '../services/mailer.service.js';
 
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
   try {
     const newInquiry = await inquiryService.createInquiry(req.body);
+
+    try {
+      await sendInquiryCreatedEmail(newInquiry);
+    } catch (mailError) {
+      console.error('Failed to send inquiry created email:', mailError);
+    }
+
     res.status(201).json(newInquiry);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -36,7 +47,29 @@ export async function getInquiryByIdController(req, res) {
 // PUT /api/inquiries/:id
 export async function updateInquiryController(req, res) {
   try {
+    const existingInquiry = await inquiryService.getInquiryById(req.params.id);
     const updated = await inquiryService.updateInquiry(req.params.id, req.body);
+
+    const didStatusChange =
+      typeof req.body?.status === 'string' &&
+      req.body.status &&
+      req.body.status !== existingInquiry?.status;
+
+    if (didStatusChange) {
+      try {
+        const mailResult = await sendInquiryStatusUpdatedEmail({
+          ...updated,
+          email: existingInquiry.email,
+        });
+        console.log('sendInquiryStatusUpdatedEmail result:', mailResult);
+      } catch (mailError) {
+        console.error(
+          'Failed to send inquiry status updated email:',
+          mailError
+        );
+      }
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -60,7 +93,27 @@ export async function updateInquiryStatusController(req, res) {
     if (!status) {
       return res.status(400).json({ error: 'Status is required' });
     }
-    const updated = await inquiryService.updateInquiryStatus(req.params.id, status);
+    const existingInquiry = await inquiryService.getInquiryById(req.params.id);
+    const updated = await inquiryService.updateInquiryStatus(
+      req.params.id,
+      status
+    );
+
+    if (status !== existingInquiry?.status) {
+      try {
+        const mailResult = await sendInquiryStatusUpdatedEmail({
+          ...updated,
+          email: updated.email || existingInquiry?.email || null,
+        });
+        console.log('sendInquiryStatusUpdatedEmail result:', mailResult);
+      } catch (mailError) {
+        console.error(
+          'Failed to send inquiry status updated email:',
+          mailError
+        );
+      }
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -71,7 +124,10 @@ export async function updateInquiryStatusController(req, res) {
 export async function addInquiryCommunicationController(req, res) {
   try {
     const communication = req.body;
-    const updated = await inquiryService.addCommunication(req.params.id, communication);
+    const updated = await inquiryService.addCommunication(
+      req.params.id,
+      communication
+    );
     res.status(201).json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -81,13 +137,60 @@ export async function addInquiryCommunicationController(req, res) {
 // POST /api/inquiries/:id/meeting
 export async function scheduleMeetingController(req, res) {
   try {
-    const { date, time, location, organizerId } = req.body;
-    if (!date || !time || !location || !organizerId) {
-      return res.status(400).json({ error: 'date, time, location, and organizerId are required' });
+    const {
+      title,
+      startDateKey,
+      startTime,
+      endDateKey,
+      endTime,
+      label,
+      organizerId,
+      location,
+      description,
+      eventType,
+      inquiryUserId,
+    } = req.body;
+    if (
+      !title ||
+      !startDateKey ||
+      !startTime ||
+      !endDateKey ||
+      !endTime ||
+      !organizerId
+    ) {
+      return res.status(400).json({
+        error:
+          'title, startDateKey, startTime, endDateKey, endTime, and organizerId are required',
+      });
     }
-    const updated = await inquiryService.scheduleMeeting(req.params.id, { date, time, location, organizerId });
+    const updated = await inquiryService.scheduleMeeting(req.params.id, {
+      title,
+      startDateKey,
+      startTime,
+      endDateKey,
+      endTime,
+      label,
+      organizerId,
+      location,
+      description,
+      eventType,
+      inquiryUserId,
+    });
     res.json(updated);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+}
+
+// GET /api/inquiries/:id/isUserRegistered
+export async function checkUserRegisteredController(req, res) {
+  try {
+    const inquiry = await inquiryService.getInquiryById(req.params.id);
+    if (!inquiry) {
+      return res.status(404).json({ error: 'Inquiry not found' });
+    }
+    res.json({ isUserRegistered: inquiry.is_Account_Created === true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }

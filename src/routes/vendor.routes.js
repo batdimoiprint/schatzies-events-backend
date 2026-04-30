@@ -7,12 +7,17 @@ import {
   deleteVendor,
   getVendorsByEventId,
   assignVendorToEvent,
+  unassignVendorFromEvent,
   createVendorWorker,
   getVendorWorkers,
+  getAllVendorWorkers,
   getVendorWorkerById,
+  getVendorEvents,
+  getWorkerEvents,
   updateVendorWorker,
   deleteVendorWorker,
   assignWorkerToEvent,
+  unassignWorkerFromEvent,
 } from '../controllers/vendor.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 
@@ -90,6 +95,75 @@ router.post('/', validateTokenMiddleware, createVendor);
  *         description: Server error
  */
 router.get('/', getVendors);
+
+/**
+ * @swagger
+ * /api/vendors/{id}:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve vendor by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor found
+ *       404:
+ *         description: Vendor not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/workers', validateTokenMiddleware, getAllVendorWorkers);
+
+/**
+ * @swagger
+ * /api/vendors/workers/{id}/events:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve the current and past event assignments for a worker
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker event timeline
+ *       404:
+ *         description: Worker not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/workers/:id/events', getWorkerEvents);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/events:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve the current and past event assignments for a vendor
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor event timeline
+ *       404:
+ *         description: Vendor not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/events', getVendorEvents);
 
 /**
  * @swagger
@@ -207,6 +281,29 @@ router.post('/:id/assign-event', validateTokenMiddleware, assignVendorToEvent);
 
 /**
  * @swagger
+ * /api/vendors/{id}/unassign-event:
+ *   delete:
+ *     tags:
+ *       - Vendors
+ *     summary: Unassign a vendor from its current event
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor unassigned successfully
+ *       404:
+ *         description: Vendor not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/unassign-event', validateTokenMiddleware, unassignVendorFromEvent);
+
+/**
+ * @swagger
  * /api/vendors/{id}/workers:
  *   post:
  *     tags:
@@ -275,6 +372,30 @@ router.post('/:id/workers', validateTokenMiddleware, createVendorWorker);
  *       500:
  *         description: Server error
  */
+/**
+ * @swagger
+ * /api/vendors/workers:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve all workers across all vendors
+ *     parameters:
+ *       - in: query
+ *         name: vendorId
+ *         schema:
+ *           type: string
+ *         description: Optional vendor ID to filter workers by vendor
+ *       - in: query
+ *         name: eventId
+ *         schema:
+ *           type: string
+ *         description: Optional event ID to filter workers assigned to an event
+ *     responses:
+ *       200:
+ *         description: List of workers across vendors
+ *       500:
+ *         description: Server error
+ */
 router.get('/:id/workers', getVendorWorkers);
 
 /**
@@ -304,6 +425,34 @@ router.get('/:id/workers', getVendorWorkers);
  *         description: Server error
  */
 router.get('/:id/workers/:workerId', getVendorWorkerById);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/workers/{workerId}/events:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve the current and past event assignments for a worker
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: workerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker event timeline
+ *       404:
+ *         description: Vendor or worker not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/workers/:workerId/events', getWorkerEvents);
 
 /**
  * @swagger
@@ -422,6 +571,34 @@ router.delete('/:id/workers/:workerId', validateTokenMiddleware, deleteVendorWor
  *         description: Worker or event not found
  */
 router.post('/:id/workers/:workerId/assign-event', validateTokenMiddleware, assignWorkerToEvent);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/workers/{workerId}/unassign-event:
+ *   delete:
+ *     tags:
+ *       - Vendors
+ *     summary: Unassign a worker from its current event
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: workerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker unassigned successfully
+ *       404:
+ *         description: Vendor or worker not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/workers/:workerId/unassign-event', validateTokenMiddleware, unassignWorkerFromEvent);
 
 /**
  * @swagger

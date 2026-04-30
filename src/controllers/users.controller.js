@@ -5,6 +5,7 @@ import {
   updateUser,
   deleteUser,
 } from '../services/users.service.js';
+import { updateInquiry } from '../services/inquiry.service.js';
 
 export async function getUsers(req, res) {
   try {
@@ -35,6 +36,17 @@ export async function getUserById(req, res) {
 export async function createUserHandler(req, res) {
   try {
     const user = await createUser(req.body ?? {});
+
+    if (req.body.inquiryId) {
+      try {
+        await updateInquiry(req.body.inquiryId, {
+          is_Account_Created: true,
+          userId: user.user_id,
+        });
+      } catch (err) {
+        console.error('Failed to update inquiry is_Account_Created:', err);
+      }
+    }
 
     return res.status(201).json({
       message: `${user.email} created successfully`,
