@@ -115,6 +115,7 @@ router.get('/', getVendors);
  *       500:
  *         description: Server error
  */
+router.get('/workers', validateTokenMiddleware, getAllVendorWorkers);
 router.get('/:id', getVendorById);
 
 /**
@@ -325,8 +326,6 @@ router.post('/:id/workers', validateTokenMiddleware, createVendorWorker);
  *       500:
  *         description: Server error
  */
-router.get('/workers', validateTokenMiddleware, getAllVendorWorkers);
-
 router.get('/:id/workers', getVendorWorkers);
 
 /**
