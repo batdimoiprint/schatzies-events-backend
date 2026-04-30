@@ -196,8 +196,8 @@ export async function getVendorWorkerById(req, res) {
 export async function getVendorEvents(req, res) {
   try {
     const { id } = req.params;
-    const events = await getVendorEventsService(id);
-    return res.status(200).json({ events });
+    const result = await getVendorEventsService(id);
+    return res.status(200).json(result.events ?? []);
   } catch (error) {
     if (error instanceof Error && error.message === 'Vendor not found') {
       return res.status(404).json({ error: error.message });
@@ -211,8 +211,8 @@ export async function getVendorEvents(req, res) {
 export async function getWorkerEvents(req, res) {
   try {
     const { id } = req.params;
-    const events = await getWorkerEventsService(id);
-    return res.status(200).json({ events });
+    const result = await getWorkerEventsService(id);
+    return res.status(200).json(result.events ?? []);
   } catch (error) {
     if (error instanceof Error && ['Worker not found'].includes(error.message)) {
       return res.status(404).json({ error: error.message });
