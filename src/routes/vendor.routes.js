@@ -12,6 +12,8 @@ import {
   getVendorWorkers,
   getAllVendorWorkers,
   getVendorWorkerById,
+  getVendorEvents,
+  getWorkerEvents,
   updateVendorWorker,
   deleteVendorWorker,
   assignWorkerToEvent,
@@ -116,6 +118,74 @@ router.get('/', getVendors);
  *         description: Server error
  */
 router.get('/workers', validateTokenMiddleware, getAllVendorWorkers);
+
+/**
+ * @swagger
+ * /api/vendors/workers/{id}/events:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve the current and past event assignments for a worker
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker event timeline
+ *       404:
+ *         description: Worker not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/workers/:id/events', getWorkerEvents);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/events:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve the current and past event assignments for a vendor
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor event timeline
+ *       404:
+ *         description: Vendor not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/events', getVendorEvents);
+
+/**
+ * @swagger
+ * /api/vendors/{id}:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve vendor by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor found
+ *       404:
+ *         description: Vendor not found
+ *       500:
+ *         description: Server error
+ */
 router.get('/:id', getVendorById);
 
 /**
@@ -355,6 +425,34 @@ router.get('/:id/workers', getVendorWorkers);
  *         description: Server error
  */
 router.get('/:id/workers/:workerId', getVendorWorkerById);
+
+/**
+ * @swagger
+ * /api/vendors/{id}/workers/{workerId}/events:
+ *   get:
+ *     tags:
+ *       - Vendors
+ *     summary: Retrieve the current and past event assignments for a worker
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: workerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Worker event timeline
+ *       404:
+ *         description: Vendor or worker not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/workers/:workerId/events', getWorkerEvents);
 
 /**
  * @swagger

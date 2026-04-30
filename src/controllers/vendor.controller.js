@@ -11,6 +11,8 @@ import {
   getVendorWorkers as getVendorWorkersService,
   getAllVendorWorkers as getAllVendorWorkersService,
   getVendorWorkerById as getVendorWorkerByIdService,
+  getVendorEvents as getVendorEventsService,
+  getWorkerEventsByWorkerId as getWorkerEventsService,
   updateVendorWorker as updateVendorWorkerService,
   deleteVendorWorker as deleteVendorWorkerService,
   assignWorkerToEvent as assignWorkerToEventService,
@@ -187,6 +189,36 @@ export async function getVendorWorkerById(req, res) {
     }
 
     const message = error instanceof Error ? error.message : 'Unable to fetch worker';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function getVendorEvents(req, res) {
+  try {
+    const { id } = req.params;
+    const events = await getVendorEventsService(id);
+    return res.status(200).json({ events });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Vendor not found') {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to fetch vendor events';
+    return res.status(500).json({ error: message });
+  }
+}
+
+export async function getWorkerEvents(req, res) {
+  try {
+    const { id } = req.params;
+    const events = await getWorkerEventsService(id);
+    return res.status(200).json({ events });
+  } catch (error) {
+    if (error instanceof Error && ['Worker not found'].includes(error.message)) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    const message = error instanceof Error ? error.message : 'Unable to fetch worker events';
     return res.status(500).json({ error: message });
   }
 }
