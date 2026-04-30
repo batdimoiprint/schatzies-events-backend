@@ -6,6 +6,7 @@ import {
   deleteUser,
 } from '../services/users.service.js';
 import { updateInquiry } from '../services/inquiry.service.js';
+import { sendAccountCreatedEmail } from '../services/mailer.service.js';
 
 export async function getUsers(req, res) {
   try {
@@ -35,7 +36,28 @@ export async function getUserById(req, res) {
 
 export async function createUserHandler(req, res) {
   try {
+    const temporaryPassword = req.body?.password;
+    
+    if (!temporaryPassword) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+
     const user = await createUser(req.body ?? {});
+
+    // Send account creation email with temporary password
+    try {
+      const emailResult = await sendAccountCreatedEmail(
+        { ...user, email: req.body.email },
+        temporaryPassword
+      );
+      
+      if (emailResult.skipped) {
+        console.warn('Account created email was skipped:', emailResult.reason);
+      }
+    } catch (emailError) {
+      console.error('Failed to send account creation email:', emailError);
+      // Don't fail the user creation if email fails
+    }
 
     if (req.body.inquiryId) {
       try {
