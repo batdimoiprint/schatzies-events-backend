@@ -584,3 +584,97 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
   const info = await transporter.sendMail(mailOptions);
   return { skipped: false, info, link: resolvedLoginLink };
 }
+
+export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
+  if (!guest || !event || !verificationUrl) {
+    throw new Error(
+      'Guest, event, and verification URL are required to send RSVP verification email'
+    );
+  }
+
+  if (!guest.email) {
+    console.warn(
+      `No email provided for guest, skipping RSVP verification email.`
+    );
+    return { skipped: true, reason: 'No email provided', link: verificationUrl };
+  }
+
+  const guestName =
+    [guest.guestfirstName, guest.guestlastName].filter(Boolean).join(' ') ||
+    'Guest';
+  const eventTitle = event.title || event.eventType || 'the event';
+  const isAttending = String(guest.status || '').toUpperCase() === 'ATTENDING';
+
+  const subject = isAttending 
+    ? `Verify your RSVP for ${eventTitle}` 
+    : `Please verify your response for ${eventTitle}`;
+
+  const introText = isAttending
+    ? `Thank you for confirming your attendance at ${eventTitle}!`
+    : `Thank you for letting us know that you won't be attending ${eventTitle}.`;
+
+  const instructionText = isAttending
+    ? `To complete your RSVP and receive your event QR code for check-in, please verify your email by clicking the link below:`
+    : `To complete your response, please verify your email by clicking the link below:`;
+
+  const text =
+    `Hello ${guestName},\n\n` +
+    `${introText}\n\n` +
+    `${instructionText}\n\n` +
+    `${verificationUrl}\n\n` +
+    `This link expires in 24 hours. If you did not submit an RSVP, please ignore this email.\n\n` +
+    `Best regards,\nSchatzies Events PH`;
+
+  const buttonText = isAttending ? 'Verify Email & Get QR Code' : null;
+
+  const bodyHtml =
+    `<p style="margin:0 0 16px;">Hello ${escapeHtml(guestName)},</p>` +
+    `<p style="margin:0 0 16px;">${escapeHtml(introText)}</p>` +
+    (buttonText ? 
+      `<p style="margin:0 0 16px;">${escapeHtml(instructionText)}</p>` +
+      `<div style="text-align:center;margin:24px 0;">` +
+      `<a href="${escapeHtml(verificationUrl)}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#ec4899 0%,#a855f7 100%);color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;">${escapeHtml(buttonText)}</a>` +
+      `</div>` +
+      `<p style="margin:0 0 16px;font-size:14px;color:#666;">Or copy and paste this link in your browser:<br/><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all;color:#555;">${escapeHtml(verificationUrl)}</span></p>` +
+      `<p style="margin:0 0 16px;font-size:13px;color:#999;">This link expires in 24 hours. If you did not submit an RSVP, please ignore this email.</p>`
+      : `<p style="margin:0 0 16px;">Your response has been recorded. Thank you for letting us know!</p>`
+    ) +
+    `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
+
+  const emailTitle = isAttending ? 'Verify your RSVP' : 'Response Received';
+  const html = wrapEmailHtml({
+    preheader: isAttending 
+      ? `Verify your email to complete your RSVP for ${eventTitle}.`
+      : `We've received your response for ${eventTitle}.`,
+    title: emailTitle,
+    bodyHtml,
+  });
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn(
+      'SMTP configuration is missing. RSVP verification email will not be sent.',
+      {
+        to: guest.email,
+        subject,
+      }
+    );
+    return { skipped: true, reason: 'SMTP config missing', link: verificationUrl };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: guest.email,
+    subject,
+    text,
+    html,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return { skipped: false, info, link: verificationUrl };
+  } catch (error) {
+    console.error('Error sending RSVP verification email:', error);
+    return { skipped: true, reason: 'Email send failed', link: verificationUrl, error: error.message };
+  }
+}

@@ -63,7 +63,8 @@ export async function login(req, res) {
       token,
       user,
     });
-  } catch {
+  } catch (error) {
+    console.error('Login error:', error);
     return res.status(500).json({ error: 'Unable to login' });
   }
 }
