@@ -13,6 +13,7 @@ import {
   updateEvent as updateEventService,
   getEvents as getEventsService,
 } from './event.service.js';
+import { getVendorsByEventId } from './vendor.service.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function parseJsonAttribute(attr) {
@@ -36,12 +37,30 @@ function sanitizeChecklistItem(item) {
   };
 }
 
+function normalizeAllocationVendors(vendors) {
+  if (!Array.isArray(vendors)) return [];
+  return vendors
+    .map((vendor) => {
+      if (!vendor || typeof vendor !== 'object') return null;
+      const id = normalizeString(vendor.id || vendor.vendorId || vendor.vendor_id || '');
+      const name = normalizeString(
+        vendor.name || vendor.vendorName || vendor.businessName || vendor.clientName || ''
+      );
+      return {
+        ...vendor,
+        id,
+        name,
+      };
+    })
+    .filter((vendor) => vendor && vendor.id);
+}
+
 function mapAllocationItem(item) {
   if (!item) return null;
 
   return {
     event_id: item.event_id?.S || '',
-    vendors: parseJsonAttribute(item.vendors),
+    vendors: normalizeAllocationVendors(parseJsonAttribute(item.vendors)),
     manpower: parseJsonAttribute(item.manpower),
     supplies: parseJsonAttribute(item.supplies),
     decorations: parseJsonAttribute(item.decorations),
@@ -899,11 +918,41 @@ export async function createOrUpdateAllocation(eventId, payload) {
 
 export async function getAllocation(eventId) {
   const allocation = await findAllocationByEventId(eventId);
+  const assignedVendors = await getVendorsByEventId(eventId);
+  const assignedVendorEntries = assignedVendors.map((vendor) => ({
+    id: vendor.id,
+    name: vendor.vendorName || vendor.name || '',
+    contactNumber: vendor.contactNumber,
+    email: vendor.email,
+    eventId: vendor.eventId,
+    eventTitle: vendor.eventTitle,
+    availabilityStatus: vendor.availabilityStatus,
+  }));
+
   if (!allocation) {
-    const error = new Error('Allocation not found');
-    error.status = 404;
-    throw error;
+    return {
+      event_id: eventId,
+      vendors: assignedVendorEntries,
+      manpower: [],
+      supplies: [],
+      decorations: [],
+      flow_type: '',
+      food_package: '',
+      created_at: '',
+      updated_at: '',
+    };
   }
+
+  if (!Array.isArray(allocation.vendors) || allocation.vendors.length === 0) {
+    allocation.vendors = assignedVendorEntries;
+  } else {
+    const existingIds = new Set(allocation.vendors.map((vendor) => vendor.id));
+    allocation.vendors = [
+      ...allocation.vendors,
+      ...assignedVendorEntries.filter((vendor) => vendor.id && !existingIds.has(vendor.id)),
+    ];
+  }
+
   return allocation;
 }
 
