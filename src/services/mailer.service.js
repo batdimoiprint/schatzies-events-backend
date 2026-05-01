@@ -517,3 +517,70 @@ export async function sendAccountCreatedEmail(user, temporaryPassword) {
   const info = await transporter.sendMail(mailOptions);
   return { skipped: false, info, link: null, userId: user.user_id };
 }
+
+export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
+  if (!user) {
+    throw new Error('User is required to send account credentials email');
+  }
+
+  if (!user.email) {
+    console.warn(
+      `No email provided for user ${user.user_id || 'unknown'}, skipping credentials email.`
+    );
+    return { skipped: true, reason: 'No email provided', link: loginLink || null };
+  }
+
+  if (!plainPassword) {
+    console.warn(
+      `No plain password provided for user ${user.user_id || 'unknown'}, skipping credentials email.`
+    );
+    return { skipped: true, reason: 'No password provided', link: loginLink || null };
+  }
+
+  const fullName =
+    [user.firstName, user.middleName, user.lastName]
+      .filter(Boolean)
+      .join(' ') || 'Customer';
+  const username = user.email;
+  const resolvedLoginLink = loginLink || process.env.FRONTEND_URL || 'http://localhost:3000/login';
+  const subject = 'Your Schatzies Events account credentials';
+  const text =
+    `Hello ${fullName},\n\n` +
+    `Your account has been created successfully.\n\n` +
+    `Username: ${username}\n` +
+    `Password: ${plainPassword}\n` +
+    `Login Link: ${resolvedLoginLink}\n\n` +
+    `For your security, please log in and change your password as soon as possible.\n\n` +
+    `Best regards,\nSchatzies Events`;
+  const html =
+    `<p>Hello ${escapeHtml(fullName)},</p>` +
+    `<p>Your account has been created successfully.</p>` +
+    `<p><strong>Username:</strong> ${escapeHtml(username)}<br />` +
+    `<strong>Password:</strong> ${escapeHtml(plainPassword)}<br />` +
+    `<strong>Login Link:</strong> <a href="${escapeHtml(resolvedLoginLink)}">${escapeHtml(resolvedLoginLink)}</a></p>` +
+    `<p>For your security, please log in and change your password as soon as possible.</p>` +
+    `<p>Best regards,<br /><strong>Schatzies Events</strong></p>`;
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn(
+      'SMTP configuration is missing. Account credentials email will not be sent.',
+      {
+        to: user.email,
+        subject,
+      }
+    );
+    return { skipped: true, reason: 'SMTP config missing', link: resolvedLoginLink };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: user.email,
+    subject,
+    text,
+    html,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  return { skipped: false, info, link: resolvedLoginLink };
+}
