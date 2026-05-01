@@ -28,6 +28,28 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+export async function sendSmtpMail({ to, subject, text, html, from }) {
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn('SMTP configuration is missing. Email will not be sent.', {
+      to,
+      subject,
+    });
+    return { skipped: true, reason: 'SMTP config missing', info: null };
+  }
+
+  const mailOptions = {
+    from: from ?? fromAddress,
+    to,
+    subject,
+    text,
+    html,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  return { skipped: false, info };
+}
+
 function wrapEmailHtml({ preheader = '', title, bodyHtml }) {
   const safePre = escapeHtml(preheader);
   const safeTitle = escapeHtml(title);

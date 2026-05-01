@@ -1,4 +1,5 @@
 import * as inquiryService from '../services/inquiry.service.js';
+import { isEmailVerified } from '../services/emailVerification.service.js';
 import {
   sendInquiryCreatedEmail,
   sendInquiryStatusUpdatedEmail,
@@ -7,6 +8,21 @@ import {
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
   try {
+    const { email } = req.body ?? {};
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required to submit an inquiry' });
+    }
+
+    // Requirement: Check if email is verified
+    const verified = await isEmailVerified(email);
+    if (!verified) {
+      return res.status(403).json({ 
+        error: 'Email not verified',
+        message: 'Please verify your email address before submitting the inquiry form.'
+      });
+    }
+
     const newInquiry = await inquiryService.createInquiry(req.body);
 
     try {

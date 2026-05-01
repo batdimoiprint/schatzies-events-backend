@@ -191,7 +191,7 @@ export async function getEventById(req, res) {
         clientEmail: client?.email || '',
         eventType: event.eventType || '',
         package: {
-          name: event.eventPackage || '',
+          name: event.eventPackageKey || event.eventPackage || '',
           pax: event.eventPax || 0,
         },
         venue: event.venue || '',

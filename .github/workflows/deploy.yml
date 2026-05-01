@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - dev
   workflow_dispatch:
 
 jobs:
@@ -14,17 +13,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Set deploy target
-        id: target
-        run: |
-          if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "function_name=schatzies-backend" >> $GITHUB_OUTPUT
-            echo "api_prefix=/api" >> $GITHUB_OUTPUT
-          else
-            echo "function_name=schatzies-backend-dev" >> $GITHUB_OUTPUT
-            echo "api_prefix=/dev/api" >> $GITHUB_OUTPUT
-          fi
 
       - name: Install dependencies
         run: npm install --production
@@ -42,57 +30,5 @@ jobs:
       - name: Upload to Lambda
         run: |
           aws lambda update-function-code \
-            --function-name ${{ steps.target.outputs.function_name }} \
+            --function-name schatzies-backend \
             --zip-file fileb://function.zip
-
-      - name: Wait for Lambda update to complete
-        run: sleep 15
-
-      - name: Update Lambda Environment Variables
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import subprocess
-          import tempfile
-
-          function_name = "${{ steps.target.outputs.function_name }}"
-          api_prefix = "${{ steps.target.outputs.api_prefix }}"
-
-          current_env = subprocess.check_output(
-              [
-                  "aws",
-                  "lambda",
-                  "get-function-configuration",
-                  "--function-name",
-                  function_name,
-                  "--query",
-                  "Environment.Variables",
-                  "--output",
-                  "json",
-              ],
-              text=True,
-          )
-          variables = json.loads(current_env or "{}")
-          variables["API_PREFIX"] = api_prefix
-
-          payload = {"Variables": variables}
-          with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as temp:
-              json.dump(payload, temp)
-              temp_path = temp.name
-
-          try:
-              subprocess.check_call(
-                  [
-                      "aws",
-                      "lambda",
-                      "update-function-configuration",
-                      "--function-name",
-                      function_name,
-                      "--environment",
-                      f"file://{temp_path}",
-                  ]
-              )
-          finally:
-              os.remove(temp_path)
-          PY
