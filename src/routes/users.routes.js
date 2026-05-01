@@ -6,6 +6,7 @@ import {
   updateUserHandler,
   deleteUserHandler,
 } from '../controllers/users.controller.js';
+import upload from '../middleware/upload.middleware.js';
 
 const router = express.Router();
 
@@ -112,64 +113,6 @@ router.post('/', createUserHandler);
 /**
  * @swagger
  * /api/users/{userId}:
- *   put:
- *     tags:
- *       - Users
- *     summary: Update a user
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               firstName:
- *                 type: string
- *               middleName:
- *                 type: string
- *               lastName:
- *                 type: string
- *               birthDate:
- *                 type: string
- *               houseNumber:
- *                 type: string
- *               street:
- *                 type: string
- *               barangay:
- *                 type: string
- *               city:
- *                 type: string
- *               country:
- *                 type: string
- *               gender:
- *                 type: string
- *               contactNumber:
- *                 type: string
- *               role:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: User updated
- *       404:
- *         description: User not found
- *       401:
- *         description: Unauthorized
- */
-router.put('/:userId', updateUserHandler);
-
-/**
- * @swagger
- * /api/users/{userId}:
  *   patch:
  *     tags:
  *       - Users
@@ -226,7 +169,7 @@ router.put('/:userId', updateUserHandler);
  *       401:
  *         description: Unauthorized
  */
-router.patch('/:userId', updateUserHandler);
+router.patch('/:userId', upload.single('profilePic'), updateUserHandler);
 
 /**
  * @swagger

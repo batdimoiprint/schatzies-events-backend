@@ -12,7 +12,31 @@ import {
   updateStatusAnalytics,
   updateUpcomingEventsSnapshot,
 } from './dashboardAnalytics.service.js';
-import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
+import { normalizeString, buildStringAttribute, buildJsonAttribute, buildJsonOrStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
+
+function parseJsonAttribute(attr) {
+  if (!attr || typeof attr.S !== 'string') {
+    return [];
+  }
+
+  try {
+    return JSON.parse(attr.S);
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonOrString(attr) {
+  if (!attr || typeof attr.S !== 'string') {
+    return '';
+  }
+
+  try {
+    return JSON.parse(attr.S);
+  } catch {
+    return attr.S;
+  }
+}
 
 function ensureWorkerAssignments(event) {
   if (!Array.isArray(event.workerOrganizerAssignments)) {
@@ -59,7 +83,7 @@ function mapDynamoEvent(item) {
     description: item.description?.S || '',
     location: item.location?.S || '',
     venue: item.venue?.S || '',
-    notes: item.notes?.S || '',
+    notes: parseJsonOrString(item.notes),
     confirmedBy: item.confirmedBy?.S || '',
     startDate: item.startDate?.S || '',
     endDate: item.endDate?.S || '',
@@ -84,6 +108,7 @@ function mapDynamoEvent(item) {
           createdAt: entry.M?.createdAt?.S || '',
         }))
       : [],
+    checklist: parseJsonAttribute(item.checklist),
     createdAt: item.created_at?.S || '',
     updatedAt: item.updated_at?.S || '',
   };
@@ -210,9 +235,15 @@ function buildDynamoEventItem(payload) {
     item.venue = venue;
   }
 
-  const notes = buildStringAttribute(payload.notes);
-  if (notes) {
-    item.notes = notes;
+  if (payload.notes !== undefined) {
+    const notesAttribute = buildJsonOrStringAttribute(payload.notes);
+    if (notesAttribute) {
+      item.notes = notesAttribute;
+    }
+  }
+
+  if (payload.checklist !== undefined) {
+    item.checklist = buildJsonAttribute(payload.checklist);
   }
 
   const confirmedBy = buildStringAttribute(payload.confirmedBy || payload.confirmed_by);

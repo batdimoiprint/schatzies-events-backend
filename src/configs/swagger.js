@@ -952,9 +952,15 @@ const swaggerSpec = swaggerJsdoc({
                 },
               },
             },
-            theme: {
-              type: 'string',
-              example: 'Modern Minimalist',
+            decorations: {
+              type: 'object',
+              properties: {
+                theme: { type: 'string', example: 'Rustic Garden' },
+                materials: {
+                  type: 'array',
+                  items: { type: 'string', example: 'Wooden Arch' },
+                },
+              },
             },
             flow_type: {
               type: 'string',
@@ -1001,7 +1007,16 @@ const swaggerSpec = swaggerJsdoc({
                 },
               },
             },
-            theme: { type: 'string', example: 'Modern Minimalist' },
+            decorations: {
+              type: 'object',
+              properties: {
+                theme: { type: 'string', example: 'Rustic Garden' },
+                materials: {
+                  type: 'array',
+                  items: { type: 'string', example: 'White Curtains' },
+                },
+              },
+            },
             flow_type: { type: 'string', example: 'Cocktail Reception' },
             food_package: { type: 'string', example: 'Buffet Deluxe' },
             created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },

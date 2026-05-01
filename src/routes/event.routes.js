@@ -14,6 +14,15 @@ import {
   createEventAllocation,
   getEventAllocation,
   updateEventAllocation,
+  deleteEventAllocation,
+  getEventNotes,
+  updateEventNotes,
+  deleteEventNotes,
+  getEventChecklist,
+  createEventChecklist,
+  updateEventChecklist,
+  patchEventChecklist,
+  deleteEventChecklist,
   createPrecheck,
   getPrecheck,
   updatePrecheck,
@@ -485,6 +494,283 @@ router.get('/:eventId/allocation', getEventAllocation);
  *                   $ref: '#/components/schemas/Allocation'
  */
 router.put('/:eventId/allocation', updateEventAllocation);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/allocation:
+ *   delete:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Delete event allocation details
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event ID
+ *     responses:
+ *       200:
+ *         description: Event allocation deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+router.delete('/:eventId/allocation', deleteEventAllocation);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notes:
+ *   get:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Retrieve notes for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event notes returned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 notes:
+ *                   type: string
+ */
+router.get('/:eventId/notes', getEventNotes);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notes:
+ *   put:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Update notes for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Event notes updated successfully
+ */
+router.put('/:eventId/notes', updateEventNotes);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notes:
+ *   delete:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Delete notes for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event notes deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+router.delete('/:eventId/notes', deleteEventNotes);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   get:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Retrieve checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event checklist returned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 checklist:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       label:
+ *                         type: string
+ *                       done:
+ *                         type: boolean
+ */
+router.get('/:eventId/checklist', getEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   post:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Add new checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checklist:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     label:
+ *                       type: string
+ *                     done:
+ *                       type: boolean
+ *     responses:
+ *       201:
+ *         description: Checklist items added successfully
+ */
+router.post('/:eventId/checklist', createEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist/{itemId}:
+ *   delete:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Delete a checklist item from an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Checklist item deleted successfully
+ */
+router.delete('/:eventId/checklist/:itemId', deleteEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   put:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Update checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checklist:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     label:
+ *                       type: string
+ *                     done:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Event checklist updated successfully
+ */
+router.put('/:eventId/checklist', updateEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   patch:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Partially update checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checklist:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     label:
+ *                       type: string
+ *                     done:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Event checklist partially updated successfully
+ */
+router.patch('/:eventId/checklist', patchEventChecklist);
 
 /**
  * @swagger
