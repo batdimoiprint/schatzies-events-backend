@@ -1,12 +1,10 @@
 import cors from 'cors';
 
-const frontendUrl =
-  process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL
-    : 'http://localhost:5173';
-
+const frontendUrl = process.env.FRONTEND_URL;
+const localUrl = 'http://localhost:5173';
 const localSwaggerUrl = 'http://localhost:3000';
-const allowedOrigins = [frontendUrl];
+
+const allowedOrigins = [frontendUrl, localUrl, localSwaggerUrl].filter(Boolean);
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push(localSwaggerUrl);
 }

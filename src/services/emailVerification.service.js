@@ -1,19 +1,25 @@
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { sendSmtpMail } from './mailer.service.js';
+import { sendSmtpMail, sendInquiryCreatedEmail } from './mailer.service.js';
 import {
   DeleteItemCommand,
   GetItemCommand,
   PutItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
-import { getInquiryByEmail } from './inquiry.service.js';
+import { getInquiriesByEmail, createInquiry } from './inquiry.service.js';
+
+const MAX_INQUIRIES_PER_EMAIL = 3;
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const VERIFICATION_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
-const FRONTEND_URL =
-  process.env.FRONTEND_URL || 'http://localhost:5173';
+/**
+ * Get the frontend URL from environment variables, defaulting to localhost for development.
+ */
+function getFrontendUrl() {
+  return process.env.FRONTEND_URL || 'http://localhost:5173';
+}
 
 // ─── Gmail Account Pool ─────────────────────────────────────────────────────
 //
@@ -171,21 +177,27 @@ function generateVerificationToken() {
  *
  * Attributes: email, expiresAt (ISO), ttl (epoch seconds for DynamoDB TTL).
  */
-async function storeVerificationToken(token, email) {
+async function storeVerificationToken(token, email, pendingInquiry = null) {
   const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
   const ttlEpoch = Math.floor(expiresAt.getTime() / 1000);
 
+  const item = {
+    PK: { S: `VERIFY_TOKEN#${token}` },
+    SK: { S: 'TOKEN' },
+    email: { S: email.toLowerCase().trim() },
+    expiresAt: { S: expiresAt.toISOString() },
+    ttl: { N: String(ttlEpoch) },
+    used: { S: 'false' },
+    createdAt: { S: new Date().toISOString() },
+  };
+
+  if (pendingInquiry) {
+    item.pendingInquiry = { S: JSON.stringify(pendingInquiry) };
+  }
+
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
-    Item: {
-      PK: { S: `VERIFY_TOKEN#${token}` },
-      SK: { S: 'TOKEN' },
-      email: { S: email.toLowerCase().trim() },
-      expiresAt: { S: expiresAt.toISOString() },
-      ttl: { N: String(ttlEpoch) },
-      used: { S: 'false' },
-      createdAt: { S: new Date().toISOString() },
-    },
+    Item: item,
     // Prevent overwriting an existing token (extremely unlikely collision)
     ConditionExpression:
       'attribute_not_exists(PK) AND attribute_not_exists(SK)',
@@ -217,6 +229,9 @@ async function getVerificationToken(token) {
     email: response.Item.email?.S || '',
     expiresAt: response.Item.expiresAt?.S || '',
     used: response.Item.used?.S === 'true',
+    pendingInquiry: response.Item.pendingInquiry?.S
+      ? JSON.parse(response.Item.pendingInquiry.S)
+      : null,
   };
 }
 
@@ -352,17 +367,20 @@ function buildVerificationEmailHtml(verifyUrl) {
  * If yes  → returns { verified: true }
  * If no   → generates token, sends email, returns { verified: false, emailSent: true }
  */
-export async function checkOrSendVerification(email) {
+export async function checkOrSendVerification(email, pendingInquiry = null) {
   if (!email) {
     throw new Error('email is required');
   }
 
   const normalizedEmail = email.toLowerCase().trim();
 
-  // 0. Check if already used by an inquiry
-  const existingInquiry = await getInquiryByEmail(normalizedEmail);
-  if (existingInquiry) {
-    return { alreadyUsed: true };
+  // 0. Check inquiry limit for this email
+  const userInquiries = await getInquiriesByEmail(normalizedEmail);
+  if (userInquiries.length >= MAX_INQUIRIES_PER_EMAIL) {
+    return { 
+      alreadyUsed: true, 
+      reason: `You have reached the maximum limit of ${MAX_INQUIRIES_PER_EMAIL} inquiries for this email address.` 
+    };
   }
 
   // 1. Already verified? Return immediately.
@@ -373,10 +391,10 @@ export async function checkOrSendVerification(email) {
 
   // 2. Generate and store token
   const token = generateVerificationToken();
-  const record = await storeVerificationToken(token, normalizedEmail);
+  const record = await storeVerificationToken(token, normalizedEmail, pendingInquiry);
 
   // 3. Build verification URL
-  const verifyUrl = `${FRONTEND_URL}/verify?token=${token}`;
+  const verifyUrl = `${getFrontendUrl()}/verify?token=${token}`;
 
   // 4. Send email via Gmail pool (round-robin with failover)
   const subject = 'Verify your email – Schatzies Events';
@@ -468,8 +486,23 @@ export async function verifyEmailToken(token) {
   // 4. Mark email as verified
   const verifiedRecord = await markEmailVerified(record.email);
 
-  // 5. Invalidate token (single-use)
+  // 5. If there's a pending inquiry, create it now!
+  let inquiryCreated = false;
+  if (record.pendingInquiry) {
+    try {
+      const newInquiry = await createInquiry(record.pendingInquiry);
+      inquiryCreated = true;
+
+      // Notify admin/client
+      await sendInquiryCreatedEmail(newInquiry);
+    } catch (err) {
+      console.error('Failed to auto-create inquiry after verification:', err);
+      // We don't fail the verification itself, but we log the error
+    }
+  }
+
+  // 6. Invalidate token (single-use)
   await deleteVerificationToken(token);
 
-  return { success: true, email: verifiedRecord.email };
+  return { success: true, email: verifiedRecord.email, inquiryCreated };
 }
