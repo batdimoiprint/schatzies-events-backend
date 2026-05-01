@@ -64,6 +64,34 @@ export const moveTaskSchema = Joi.object({
   newOrder: Joi.number().integer().min(1).required(),
 });
 
+export const notesSchema = Joi.object({
+  notes: Joi.string().trim().allow('').required(),
+});
+
+export const checklistSchema = Joi.object({
+  checklist: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().required(),
+        task: Joi.string().trim().required(),
+        done: Joi.boolean().required(),
+      })
+    )
+    .required(),
+});
+
+export const patchChecklistSchema = Joi.object({
+  checklist: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().required(),
+        task: Joi.string().trim().optional(),
+        done: Joi.boolean().required(),
+      })
+    )
+    .required(),
+});
+
 export const eventStatusSchema = Joi.object({
   status: Joi.string().valid('PLANNING', 'EXECUTION', 'COMPLETED').required(),
 });
