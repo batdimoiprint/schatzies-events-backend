@@ -3,6 +3,10 @@ import {
   getConfirmedEvents as getConfirmedEventsService,
   createOrUpdateAllocation as createOrUpdateAllocationService,
   getAllocation as getAllocationService,
+  getEventNotes as getEventNotesService,
+  updateEventNotes as updateEventNotesService,
+  getEventChecklist as getEventChecklistService,
+  updateEventChecklist as updateEventChecklistService,
   createPrecheck as createPrecheckService,
   updatePrecheck as updatePrecheckService,
   getPrecheck as getPrecheckService,
@@ -26,6 +30,8 @@ import {
 import {
   confirmEventSchema,
   allocationSchema,
+  notesSchema,
+  checklistSchema,
   precheckSchema,
   programFlowSchema,
   updateProgramFlowSchema,
@@ -86,6 +92,48 @@ export async function getEventAllocation(req, res, next) {
     const eventId = req.params.eventId || req.params.id;
     const allocation = await getAllocationService(eventId);
     return res.status(200).json({ allocation });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getEventNotes(req, res, next) {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    const notes = await getEventNotesService(eventId);
+    return res.status(200).json(notes);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateEventNotes(req, res, next) {
+  try {
+    const payload = validateSchema(notesSchema, req.body);
+    const eventId = req.params.eventId || req.params.id;
+    const updatedNotes = await updateEventNotesService(eventId, payload);
+    return res.status(200).json({ message: 'Event notes updated', notes: updatedNotes.notes || payload.notes });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getEventChecklist(req, res, next) {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    const checklist = await getEventChecklistService(eventId);
+    return res.status(200).json(checklist);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateEventChecklist(req, res, next) {
+  try {
+    const payload = validateSchema(checklistSchema, req.body);
+    const eventId = req.params.eventId || req.params.id;
+    const updatedChecklist = await updateEventChecklistService(eventId, payload);
+    return res.status(200).json({ message: 'Event checklist updated', checklist: updatedChecklist.checklist || payload.checklist });
   } catch (error) {
     return next(error);
   }

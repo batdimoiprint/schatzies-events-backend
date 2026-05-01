@@ -14,6 +14,10 @@ import {
   createEventAllocation,
   getEventAllocation,
   updateEventAllocation,
+  getEventNotes,
+  updateEventNotes,
+  getEventChecklist,
+  updateEventChecklist,
   createPrecheck,
   getPrecheck,
   updatePrecheck,
@@ -485,6 +489,169 @@ router.get('/:eventId/allocation', getEventAllocation);
  *                   $ref: '#/components/schemas/Allocation'
  */
 router.put('/:eventId/allocation', updateEventAllocation);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notes:
+ *   get:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Retrieve notes for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event notes returned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 notes:
+ *                   type: string
+ */
+router.get('/:eventId/notes', getEventNotes);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/notes:
+ *   put:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Update notes for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Event notes updated successfully
+ */
+router.put('/:eventId/notes', updateEventNotes);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   get:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Retrieve checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event checklist returned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 checklist:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       task:
+ *                         type: string
+ *                       done:
+ *                         type: boolean
+ */
+router.get('/:eventId/checklist', getEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   put:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Update checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checklist:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     task:
+ *                       type: string
+ *                     done:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Event checklist updated successfully
+ */
+router.put('/:eventId/checklist', updateEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   patch:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Partially update checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checklist:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     task:
+ *                       type: string
+ *                     done:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Event checklist partially updated successfully
+ */
+router.patch('/:eventId/checklist', updateEventChecklist);
 
 /**
  * @swagger

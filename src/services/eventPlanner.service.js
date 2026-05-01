@@ -898,6 +898,46 @@ export async function getAllocation(eventId) {
   return allocation;
 }
 
+export async function getEventNotes(eventId) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  return { notes: event.notes || '' };
+}
+
+export async function updateEventNotes(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  return updateEventService(eventId, { notes: payload.notes });
+}
+
+export async function getEventChecklist(eventId) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  return { checklist: Array.isArray(event.checklist) ? event.checklist : [] };
+}
+
+export async function updateEventChecklist(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  return updateEventService(eventId, { checklist: payload.checklist });
+}
+
 export async function createPrecheck(eventId, payload) {
   const event = await getEventByIdService(eventId);
   if (!event) {

@@ -12,7 +12,19 @@ import {
   updateStatusAnalytics,
   updateUpcomingEventsSnapshot,
 } from './dashboardAnalytics.service.js';
-import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
+import { normalizeString, buildStringAttribute, buildJsonAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
+
+function parseJsonAttribute(attr) {
+  if (!attr || typeof attr.S !== 'string') {
+    return [];
+  }
+
+  try {
+    return JSON.parse(attr.S);
+  } catch {
+    return [];
+  }
+}
 
 function ensureWorkerAssignments(event) {
   if (!Array.isArray(event.workerOrganizerAssignments)) {
@@ -84,6 +96,7 @@ function mapDynamoEvent(item) {
           createdAt: entry.M?.createdAt?.S || '',
         }))
       : [],
+    checklist: parseJsonAttribute(item.checklist),
     createdAt: item.created_at?.S || '',
     updatedAt: item.updated_at?.S || '',
   };
@@ -213,6 +226,10 @@ function buildDynamoEventItem(payload) {
   const notes = buildStringAttribute(payload.notes);
   if (notes) {
     item.notes = notes;
+  }
+
+  if (payload.checklist !== undefined) {
+    item.checklist = buildJsonAttribute(payload.checklist);
   }
 
   const confirmedBy = buildStringAttribute(payload.confirmedBy || payload.confirmed_by);
