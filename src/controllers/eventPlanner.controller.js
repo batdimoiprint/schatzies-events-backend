@@ -7,6 +7,7 @@ import {
   updateEventNotes as updateEventNotesService,
   getEventChecklist as getEventChecklistService,
   updateEventChecklist as updateEventChecklistService,
+  patchEventChecklist as patchEventChecklistService,
   createPrecheck as createPrecheckService,
   updatePrecheck as updatePrecheckService,
   getPrecheck as getPrecheckService,
@@ -32,6 +33,7 @@ import {
   allocationSchema,
   notesSchema,
   checklistSchema,
+  patchChecklistSchema,
   precheckSchema,
   programFlowSchema,
   updateProgramFlowSchema,
@@ -134,6 +136,17 @@ export async function updateEventChecklist(req, res, next) {
     const eventId = req.params.eventId || req.params.id;
     const updatedChecklist = await updateEventChecklistService(eventId, payload);
     return res.status(200).json({ message: 'Event checklist updated', checklist: updatedChecklist.checklist || payload.checklist });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function patchEventChecklist(req, res, next) {
+  try {
+    const payload = validateSchema(patchChecklistSchema, req.body);
+    const eventId = req.params.eventId || req.params.id;
+    const updatedChecklist = await patchEventChecklistService(eventId, payload);
+    return res.status(200).json({ message: 'Event checklist partially updated', checklist: updatedChecklist.checklist || payload.checklist });
   } catch (error) {
     return next(error);
   }

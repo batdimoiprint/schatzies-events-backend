@@ -80,6 +80,18 @@ export const checklistSchema = Joi.object({
     .required(),
 });
 
+export const patchChecklistSchema = Joi.object({
+  checklist: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().required(),
+        task: Joi.string().trim().optional(),
+        done: Joi.boolean().required(),
+      })
+    )
+    .required(),
+});
+
 export const eventStatusSchema = Joi.object({
   status: Joi.string().valid('PLANNING', 'EXECUTION', 'COMPLETED').required(),
 });

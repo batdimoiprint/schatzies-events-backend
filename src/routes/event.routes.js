@@ -18,6 +18,7 @@ import {
   updateEventNotes,
   getEventChecklist,
   updateEventChecklist,
+  patchEventChecklist,
   createPrecheck,
   getPrecheck,
   updatePrecheck,
@@ -651,7 +652,7 @@ router.put('/:eventId/checklist', updateEventChecklist);
  *       200:
  *         description: Event checklist partially updated successfully
  */
-router.patch('/:eventId/checklist', updateEventChecklist);
+router.patch('/:eventId/checklist', patchEventChecklist);
 
 /**
  * @swagger

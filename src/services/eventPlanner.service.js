@@ -938,6 +938,35 @@ export async function updateEventChecklist(eventId, payload) {
   return updateEventService(eventId, { checklist: payload.checklist });
 }
 
+export async function patchEventChecklist(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const updatedChecklist = existingChecklist.map((item) => {
+    const patchItem = payload.checklist.find((patch) => patch.id === item.id);
+    if (!patchItem) {
+      return item;
+    }
+    return {
+      ...item,
+      task: patchItem.task !== undefined ? patchItem.task : item.task,
+      done: patchItem.done,
+    };
+  });
+
+  const newItems = payload.checklist.filter(
+    (patchItem) => !existingChecklist.some((item) => item.id === patchItem.id)
+  );
+
+  const finalChecklist = [...updatedChecklist, ...newItems];
+  return updateEventService(eventId, { checklist: finalChecklist });
+}
+
 export async function createPrecheck(eventId, payload) {
   const event = await getEventByIdService(eventId);
   if (!event) {
