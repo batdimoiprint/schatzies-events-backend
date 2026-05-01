@@ -25,6 +25,7 @@ function mapDynamoUser(item) {
     country: item.country?.S || '',
     gender: item.gender?.S || '',
     isOnline: item.isOnline?.BOOL || false,
+    isPasswordChanged: item.isPasswordChanged?.BOOL ?? false,
     profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
   };
@@ -55,6 +56,7 @@ function buildDynamoItem(payload) {
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
     isOnline: { BOOL: payload.isOnline ?? false },
+    isPasswordChanged: { BOOL: payload.isPasswordChanged ?? false },
     profilePic: { S: normalizeString(payload.profilePic) },
     created_at: { S: payload.created_at || new Date().toISOString() },
   };
@@ -184,6 +186,7 @@ export async function createUser(payload) {
     country: payload.country || '',
     gender: payload.gender || '',
     isOnline: false,
+    isPasswordChanged: false,
     created_at: new Date().toISOString(),
   };
 
@@ -299,4 +302,58 @@ export async function deleteUser(userId) {
 
   await dynamoClient.send(command);
   return { message: 'User deleted successfully' };
+}
+
+export async function replacePassword(userId, currentPassword, newPassword) {
+  const normalizedUserId = normalizeString(userId);
+  if (!normalizedUserId) {
+    throw new Error('userId is required');
+  }
+
+  // Fetch full user record including hashed password
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizedUserId}` },
+      SK: { S: 'PROFILE' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  if (!response.Item) {
+    throw new Error('User not found');
+  }
+
+  const storedHash = response.Item.password?.S || '';
+  if (!storedHash) {
+    throw new Error('User has no password set');
+  }
+
+  const isValid = await bcrypt.compare(normalizeString(currentPassword), storedHash);
+  if (!isValid) {
+    throw new Error('Current password is incorrect');
+  }
+
+  const hashedNewPassword = await bcrypt.hash(normalizeString(newPassword), 10);
+
+  const updateCommand = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizedUserId}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression: 'SET #password = :password, #isPasswordChanged = :isPasswordChanged',
+    ExpressionAttributeNames: {
+      '#password': 'password',
+      '#isPasswordChanged': 'isPasswordChanged',
+    },
+    ExpressionAttributeValues: {
+      ':password': { S: hashedNewPassword },
+      ':isPasswordChanged': { BOOL: true },
+    },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const updateResponse = await dynamoClient.send(updateCommand);
+  return mapDynamoUser(updateResponse.Attributes);
 }

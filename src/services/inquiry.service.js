@@ -21,7 +21,7 @@ const inquiries = [];
 const TABLE = process.env.AWS_DYNAMO_TABLE || DYNAMO_TABLE;
 
 const weddingPackages = [
-  'Bloom',
+  'Blooms',
   'Fascinating',
   'Windy',
   'De Luxe',
@@ -55,7 +55,7 @@ function validateRequired(inquiryData) {
     throw new Error('Invalid Debut package');
   }
   const validPax =
-    eventPackage === 'Bloom' ? [50, 100, 150, 200] : [100, 150, 200];
+    eventPackage === 'Blooms' ? [50, 100, 150, 200] : [100, 150, 200];
   if (!validPax.includes(eventPax)) {
     throw new Error(`Invalid number of pax for ${eventPackage}`);
   }

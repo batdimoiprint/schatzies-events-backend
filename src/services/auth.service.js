@@ -40,6 +40,7 @@ function mapDynamoUser(item) {
     city: item.city?.S || '',
     country: item.country?.S || '',
     gender: item.gender?.S || '',
+    isPasswordChanged: item.isPasswordChanged?.BOOL ?? false,
     profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
     passwordResetCodeHash: item.passwordResetCodeHash?.S || '',

@@ -5,6 +5,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  replacePassword,
 } from '../services/users.service.js';
 import { updateInquiry } from '../services/inquiry.service.js';
 import { uploadFile, generateUniqueFileName } from '../services/s3.service.js';
@@ -139,6 +140,31 @@ export async function deleteUserHandler(req, res) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to delete user';
     const status = message.includes('not found') ? 404 : 500;
+
+    return res.status(status).json({ error: message });
+  }
+}
+
+export async function replacePasswordHandler(req, res) {
+  try {
+    const { userId } = req.params;
+    const { currentPassword, newPassword } = req.body ?? {};
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+    }
+
+    const user = await replacePassword(userId, currentPassword, newPassword);
+
+    return res.json({
+      message: 'Password changed successfully',
+      user,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to change password';
+    const status = message.includes('not found') ? 404
+      : message.includes('incorrect') ? 401
+      : 400;
 
     return res.status(status).json({ error: message });
   }
