@@ -25,8 +25,8 @@ export function validateSendMessage(req, res, next) {
  * Validates the conversationId path parameter.
  */
 const conversationIdSchema = Joi.object({
-  conversationId: Joi.string().uuid().required().messages({
-    'string.guid': 'Invalid conversation ID format',
+  conversationId: Joi.string().required().messages({
+    'string.empty': 'Conversation ID cannot be empty',
     'any.required': 'Conversation ID is required',
   }),
 });

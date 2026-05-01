@@ -58,7 +58,12 @@ app.get('/health', (req, res) => {
 const apiPrefix = process.env.API_PREFIX || '/api';
 const normalizedPrefix = apiPrefix.startsWith('/') ? apiPrefix : `/${apiPrefix}`;
 console.log(`Routing API to: ${normalizedPrefix}`);
+// Mount all API feature routes under the shared prefix.
 app.use(normalizedPrefix, routes);
+console.log('Loaded API routes:', {
+  auth: `${normalizedPrefix}/auth`,
+  inquiry: [`${normalizedPrefix}/inquiry`, `${normalizedPrefix}/inquiries`],
+});
 
 // 404 Handler
 app.use((req, res) => {

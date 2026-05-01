@@ -28,6 +28,28 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+<<<<<<< HEAD
+export async function sendSmtpMail({ to, subject, text, html, from }) {
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn('SMTP configuration is missing. Email will not be sent.', {
+      to,
+      subject,
+    });
+    return { skipped: true, reason: 'SMTP config missing', info: null };
+  }
+
+  const mailOptions = {
+    from: from ?? fromAddress,
+    to,
+    subject,
+    text,
+    html,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  return { skipped: false, info };
+=======
 function wrapEmailHtml({ preheader = '', title, bodyHtml }) {
   const safePre = escapeHtml(preheader);
   const safeTitle = escapeHtml(title);
@@ -57,6 +79,7 @@ function wrapEmailHtml({ preheader = '', title, bodyHtml }) {
     `</td></tr>` +
     `</table></td></tr></table></body></html>`
   );
+>>>>>>> 84cc252de0e209a98a1ca32907813cb80b40aed6
 }
 
 export async function sendInquiryCreatedEmail(inquiry) {

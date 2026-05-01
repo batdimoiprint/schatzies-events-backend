@@ -56,14 +56,24 @@ function mapConversationMeta(item) {
 function mapMessage(item) {
   if (!item) return null;
 
+  const messageId = item.messageId?.S || '';
+  const senderId = item.sender_id?.S || '';
+  const body = item.message?.S || '';
+  const createdAt = item.created_at?.S || '';
+
   return {
-    id: item.messageId?.S || '',
+    // Canonical fields (matches frontend ChatMessage interface)
+    id: messageId,
     conversationId: item.PK?.S?.replace('CHAT#', '') || '',
-    senderId: item.sender_id?.S || '',
+    senderId,
     senderRole: item.senderRole?.S || '',
     receiverId: item.receiverId?.S || '',
-    body: item.message?.S || '',
-    created_at: item.created_at?.S || '',
+    body,
+    createdAt,
+    // Aliased fields for stable polling contract
+    messageId,
+    content: body,
+    created_at: createdAt,
   };
 }
 
@@ -102,21 +112,31 @@ async function findAssignedOrganizer(clientId) {
 
 /**
  * Verify that a specific organizer is assigned to a specific client.
- * Checks both head organizer and worker organizer assignments.
+ * Checks both head organizer and worker organizer assignments, and falls back to inquiry meetings.
  */
 async function isOrganizerAssignedToClient(organizerId, clientId) {
+  // 1. Check formal events
   const events = await getEvents(clientId);
-  if (!events || events.length === 0) return false;
+  if (events && events.length > 0) {
+    for (const event of events) {
+      const headOrg = event.headOrganizerId || event.organizer_id || event.user_id || '';
 
-  for (const event of events) {
-    const headOrg = event.headOrganizerId || event.organizer_id || event.user_id || '';
+      // Check if they are the head organizer
+      if (headOrg === organizerId) return true;
 
-    // Check if they are the head organizer
-    if (headOrg === organizerId) return true;
+      // Check worker organizer assignments
+      const workerIds = Array.isArray(event.workerOrganizerIds) ? event.workerOrganizerIds : [];
+      if (workerIds.includes(organizerId)) return true;
+    }
+  }
 
-    // Check worker organizer assignments
-    const workerIds = Array.isArray(event.workerOrganizerIds) ? event.workerOrganizerIds : [];
-    if (workerIds.includes(organizerId)) return true;
+  // 2. Fallback: Check for scheduled meetings in inquiries
+  const user = await findUserByUserId(clientId);
+  if (user && user.email) {
+    const inquiry = await getInquiryByEmail(user.email);
+    if (inquiry && inquiry.meetingDetails && inquiry.meetingDetails.organizerId === organizerId) {
+      return true;
+    }
   }
 
   return false;
@@ -316,7 +336,7 @@ export async function getMessagesForConversation(conversationId, userId) {
     throw new Error('Access denied: you are not a participant of this conversation');
   }
 
-  // Query all MSG# items
+  // Query all MSG# items — ascending order, capped at 50 for stable polling
   const msgCmd = new QueryCommand({
     TableName: DYNAMO_TABLE,
     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :msgPrefix)',
@@ -324,6 +344,8 @@ export async function getMessagesForConversation(conversationId, userId) {
       ':pk': { S: `CHAT#${conversationId}` },
       ':msgPrefix': { S: 'MSG#' },
     },
+    ScanIndexForward: true,   // ascending by SK (timestamp-based)
+    Limit: 50,                // cap to prevent unbounded responses
   });
 
   const msgResp = await dynamoClient.send(msgCmd);
@@ -414,7 +436,7 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     }
   }
 
-  // Persist the message
+  // Persist the message — UUID in SK prevents duplicates even on retry
   const messageId = randomUUID();
   const now = new Date().toISOString();
 
@@ -429,7 +451,12 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     created_at: { S: now },
   };
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: msgItem }));
+  // ConditionExpression prevents duplicate writes on network retries
+  await dynamoClient.send(new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: msgItem,
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+  }));
 
   // Update conversation metadata with last message preview
   await updateConversationLastMessage(conversationId, normalizedBody, now);
@@ -521,6 +548,8 @@ export async function adminGetMessages(conversationId) {
       ':pk': { S: `CHAT#${conversationId}` },
       ':msgPrefix': { S: 'MSG#' },
     },
+    ScanIndexForward: true,
+    Limit: 50,
   });
 
   const msgResp = await dynamoClient.send(msgCmd);
