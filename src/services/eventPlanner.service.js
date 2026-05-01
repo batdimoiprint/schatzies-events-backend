@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -13,6 +13,8 @@ import {
   updateEvent as updateEventService,
   getEvents as getEventsService,
 } from './event.service.js';
+import { getVendorsByEventId } from './vendor.service.js';
+import { uploadNoteImage } from './s3.service.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function parseJsonAttribute(attr) {
@@ -27,15 +29,115 @@ function parseJsonAttribute(attr) {
   }
 }
 
+function sanitizeChecklistItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  return {
+    id: normalizeString(item.id),
+    label: normalizeString(item.label || item.task || ''),
+    done: Boolean(item.done),
+  };
+}
+
+function isBase64DataUrl(value) {
+  return typeof value === 'string' && /^data:image\/[a-zA-Z+]+;base64,/.test(value);
+}
+
+function stripDataUrlStrings(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/<img[^>]*src=["']data:[^"']*["'][^>]*>/gi, '')
+    .replace(/data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/=]+/g, '')
+    .trim();
+}
+
+async function processNotePayload(note, eventId) {
+  if (typeof note === 'string') {
+    return stripDataUrlStrings(note);
+  }
+
+  if (note === null || typeof note !== 'object') {
+    return note;
+  }
+
+  if (Array.isArray(note)) {
+    return Promise.all(note.map((item) => processNotePayload(item, eventId)));
+  }
+
+  const cleaned = {};
+  for (const [key, value] of Object.entries(note)) {
+    const normalizedKey = String(key).toLowerCase();
+    if (/image|img|photo|picture|base64/.test(normalizedKey)) {
+      if (typeof value === 'string' && isBase64DataUrl(value)) {
+        const match = value.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+        if (match) {
+          const [, mimeType, base64Data] = match;
+          const ext = mimeType.split('/')[1].split('+')[0] || 'webp';
+          const buffer = Buffer.from(base64Data, 'base64');
+          const uploadResult = await uploadNoteImage(buffer, `note.${ext}`, mimeType, eventId);
+          cleaned.noteImageUrl = uploadResult.Location || uploadResult.key;
+        }
+      }
+      continue;
+    }
+
+    cleaned[key] = await processNotePayload(value, eventId);
+  }
+
+  return cleaned;
+}
+
+function sanitizeNotesOutput(note) {
+  if (typeof note === 'string') {
+    return stripDataUrlStrings(note);
+  }
+
+  if (note === null || typeof note !== 'object') {
+    return note;
+  }
+
+  if (Array.isArray(note)) {
+    return note.map(sanitizeNotesOutput);
+  }
+
+  const cleaned = {};
+  for (const [key, value] of Object.entries(note)) {
+    const normalizedKey = String(key).toLowerCase();
+    if (/image|img|photo|picture|base64/.test(normalizedKey)) {
+      continue;
+    }
+    cleaned[key] = sanitizeNotesOutput(value);
+  }
+
+  return cleaned;
+}
+
+function normalizeAllocationVendors(vendors) {
+  if (!Array.isArray(vendors)) return [];
+  return vendors
+    .map((vendor) => {
+      if (!vendor || typeof vendor !== 'object') return null;
+      const id = normalizeString(vendor.id || vendor.vendorId || vendor.vendor_id || '');
+      const name = normalizeString(
+        vendor.name || vendor.vendorName || vendor.businessName || vendor.clientName || ''
+      );
+      return {
+        ...vendor,
+        id,
+        name,
+      };
+    })
+    .filter((vendor) => vendor && vendor.id);
+}
+
 function mapAllocationItem(item) {
   if (!item) return null;
 
   return {
     event_id: item.event_id?.S || '',
-    vendors: parseJsonAttribute(item.vendors),
+    vendors: normalizeAllocationVendors(parseJsonAttribute(item.vendors)),
     manpower: parseJsonAttribute(item.manpower),
     supplies: parseJsonAttribute(item.supplies),
-    theme: item.theme?.S || '',
+    decorations: parseJsonAttribute(item.decorations),
     flow_type: item.flow_type?.S || '',
     food_package: item.food_package?.S || '',
     created_at: item.created_at?.S || '',
@@ -121,11 +223,12 @@ function normalizeStatus(value) {
 
 function mapTaskItem(item) {
   if (!item) return null;
-  const pk = item.PK?.S || '';
-  const id = pk.startsWith('TASK#') ? pk.replace('TASK#', '') : '';
+  const sk = item.SK?.S || '';
+  const id = sk.startsWith('TASK#') ? sk.replace('TASK#', '') : '';
 
   return {
     id,
+    taskId: id,
     event_id: item.event_id?.S || '',
     title: item.title?.S || '',
     description: item.description?.S || '',
@@ -211,6 +314,7 @@ export async function createTask(eventId, payload) {
     Item: {
       ...buildTaskKey(eventId, taskId),
       event_id: { S: eventId },
+      task_id: { S: taskId },
       title: { S: title },
       description: { S: normalizeString(payload.description || '') },
       status: { S: status },
@@ -475,7 +579,7 @@ async function upsertAllocation(eventId, payload) {
       vendors: { S: JSON.stringify(payload.vendors || []) },
       manpower: { S: JSON.stringify(payload.manpower || []) },
       supplies: { S: JSON.stringify(payload.supplies || []) },
-      theme: { S: normalizeString(payload.theme || '') },
+      decorations: { S: JSON.stringify(payload.decorations || {}) },
       flow_type: { S: normalizeString(payload.flow_type || '') },
       food_package: { S: normalizeString(payload.food_package || '') },
       created_at: { S: now },
@@ -890,12 +994,196 @@ export async function createOrUpdateAllocation(eventId, payload) {
 
 export async function getAllocation(eventId) {
   const allocation = await findAllocationByEventId(eventId);
+  const assignedVendors = await getVendorsByEventId(eventId);
+  const assignedVendorEntries = assignedVendors.map((vendor) => ({
+    id: vendor.id,
+    name: vendor.vendorName || vendor.name || '',
+    contactNumber: vendor.contactNumber,
+    email: vendor.email,
+    eventId: vendor.eventId,
+    eventTitle: vendor.eventTitle,
+    availabilityStatus: vendor.availabilityStatus,
+  }));
+
+  if (!allocation) {
+    return {
+      event_id: eventId,
+      vendors: assignedVendorEntries,
+      manpower: [],
+      supplies: [],
+      decorations: [],
+      flow_type: '',
+      food_package: '',
+      created_at: '',
+      updated_at: '',
+    };
+  }
+
+  if (!Array.isArray(allocation.vendors) || allocation.vendors.length === 0) {
+    allocation.vendors = assignedVendorEntries;
+  } else {
+    const existingIds = new Set(allocation.vendors.map((vendor) => vendor.id));
+    allocation.vendors = [
+      ...allocation.vendors,
+      ...assignedVendorEntries.filter((vendor) => vendor.id && !existingIds.has(vendor.id)),
+    ];
+  }
+
+  return allocation;
+}
+
+export async function deleteAllocation(eventId) {
+  const allocation = await findAllocationByEventId(eventId);
   if (!allocation) {
     const error = new Error('Allocation not found');
     error.status = 404;
     throw error;
   }
-  return allocation;
+
+  const command = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `EVENT#${eventId}` },
+      SK: { S: 'ALLOCATION' },
+    },
+  });
+
+  await dynamoClient.send(command);
+  return { message: 'Allocation deleted successfully' };
+}
+
+export async function getEventNotes(eventId) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  return { notes: sanitizeNotesOutput(event.notes || '') };
+}
+
+export async function updateEventNotes(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const cleanedNotes = await processNotePayload(payload.notes, eventId);
+  return updateEventService(eventId, { notes: cleanedNotes });
+}
+
+export async function deleteEventNotes(eventId) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  return updateEventService(eventId, { notes: '' });
+}
+
+export async function getEventChecklist(eventId) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  const checklist = Array.isArray(event.checklist) ? event.checklist : [];
+  return {
+    checklist: checklist.map((item) => ({
+      ...item,
+      label: item.label || item.task || '',
+    })),
+  };
+}
+
+export async function updateEventChecklist(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+  const sanitizedChecklist = payload.checklist
+    .map(sanitizeChecklistItem)
+    .filter((item) => item && item.id && item.label !== '');
+  return updateEventService(eventId, { checklist: sanitizedChecklist });
+}
+
+export async function createEventChecklist(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const newItems = payload.checklist
+    .map((item) => ({
+      id: normalizeString(item.id),
+      label: normalizeString(item.label || item.task || ''),
+      done: Boolean(item.done),
+    }))
+    .filter((item) => item.id && item.label !== '');
+
+  const mergedChecklist = [
+    ...existingChecklist.filter(
+      (item) => !newItems.some((newItem) => newItem.id === item.id)
+    ),
+    ...newItems,
+  ];
+
+  return updateEventService(eventId, { checklist: mergedChecklist });
+}
+
+export async function deleteEventChecklistItem(eventId, itemId) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const filteredChecklist = existingChecklist.filter(
+    (item) => normalizeString(item.id) !== normalizeString(itemId)
+  );
+
+  return updateEventService(eventId, { checklist: filteredChecklist });
+}
+
+export async function patchEventChecklist(eventId, payload) {
+  const event = await getEventByIdService(eventId);
+  if (!event) {
+    const error = new Error('Event not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const updatedChecklist = existingChecklist.map((item) => {
+    const patchItem = payload.checklist.find((patch) => patch.id === item.id);
+    if (!patchItem) {
+      return item;
+    }
+    return {
+      ...item,
+      label: patchItem.label !== undefined ? normalizeString(patchItem.label) : item.label || item.task || '',
+      done: patchItem.done !== undefined ? patchItem.done : item.done,
+    };
+  });
+
+  const newItems = payload.checklist
+    .filter((patchItem) => !existingChecklist.some((item) => item.id === patchItem.id))
+    .map(sanitizeChecklistItem)
+    .filter((item) => item && item.id && item.label !== '');
+
+  const finalChecklist = [...updatedChecklist, ...newItems];
+  return updateEventService(eventId, { checklist: finalChecklist });
 }
 
 export async function createPrecheck(eventId, payload) {

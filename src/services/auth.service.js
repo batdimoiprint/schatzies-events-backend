@@ -40,6 +40,7 @@ function mapDynamoUser(item) {
     city: item.city?.S || '',
     country: item.country?.S || '',
     gender: item.gender?.S || '',
+    profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
     passwordResetCodeHash: item.passwordResetCodeHash?.S || '',
     passwordResetCodeExpiresAt: item.passwordResetCodeExpiresAt?.S || '',
@@ -87,6 +88,7 @@ function buildDynamoItem(payload) {
     city: { S: normalizeString(payload.city) },
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
+    profilePic: { S: normalizeString(payload.profilePic) },
     created_at: { S: payload.created_at || new Date().toISOString() },
   };
 }
