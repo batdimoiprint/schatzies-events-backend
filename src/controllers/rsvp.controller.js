@@ -1,11 +1,16 @@
 import QRCode from 'qrcode';
+import { randomUUID } from 'crypto';
 import {
   getAttendingGuests,
   getAllRsvps,
   getHeadcount,
   checkInRsvpGuest,
+  checkEmailExists,
+  verifyRsvpEmail,
   createRsvpGuest as createRsvpGuestService,
+  deleteRsvpGuest,
 } from '../services/rsvp.service.js';
+import { sendRsvpVerificationEmail } from '../services/mailer.service.js';
 
 function buildGuestName(guest) {
   return [guest.guestfirstName, guest.guestmiddleName, guest.guestlastName]
@@ -102,22 +107,57 @@ export async function manualCheckIn(req, res) {
 
 export async function createRsvp(req, res) {
   try {
-    const { event_id, first_name, last_name, contact_number, status, message } = req.body;
+    const { event_id, first_name, last_name, email, contact_number, status, message } = req.body;
     if (!event_id) {
       return res.status(400).json({ message: 'event_id is required' });
     }
 
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ message: 'email is required' });
+    }
+
+    // Generate verification token
+    const verificationToken = randomUUID();
+
     const payload = {
       firstName: first_name,
       lastName: last_name,
+      email,
       contactNumber: contact_number,
       status,
       message,
     };
 
-    const guest = await createRsvpGuestService(event_id, payload);
-    return res.status(201).json({ guest });
+    const guest = await createRsvpGuestService(event_id, payload, verificationToken);
+    
+    // Get event details for email
+    const { getEventById } = await import('../services/event.service.js');
+    const event = await getEventById(event_id);
+
+    // Send verification email
+    const origin = req.get('origin') || req.get('referer');
+    let baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    
+    if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      baseUrl = new URL(origin).origin;
+    }
+    
+    const verificationUrl = `${baseUrl}/rsvp/verify?eventId=${event_id}&guestId=${guest.guestId}&token=${verificationToken}`;
+    
+    try {
+      const emailResult = await sendRsvpVerificationEmail(guest, event || {}, verificationUrl);
+      console.log('RSVP verification email sent:', emailResult);
+    } catch (emailError) {
+      console.error('Error sending RSVP verification email:', emailError);
+      // Don't fail the whole request if email fails, but log it
+    }
+
+    return res.status(201).json({ 
+      guest,
+      message: 'RSVP submitted successfully. Please check your email to verify and receive your QR code.'
+    });
   } catch (error) {
+    console.error('Error in createRsvp:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unable to submit RSVP form';
     return res.status(400).json({ message: errorMessage });
   }
@@ -188,6 +228,73 @@ export async function getEventRsvps(req, res) {
     return res.status(200).json({ guests });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to fetch event RSVPs';
+    return res.status(400).json({ message });
+  }
+}
+
+export async function checkEmailExistsInRsvp(req, res) {
+  try {
+    const { email } = req.params;
+    const { eventId } = req.query;
+
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const exists = await checkEmailExists(email, eventId || null);
+    return res.status(200).json({ exists });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to check email';
+    return res.status(400).json({ message });
+  }
+}
+
+export async function verifyRsvpEmailController(req, res) {
+  try {
+    const { eventId, guestId, token } = req.query;
+
+    if (!eventId || !String(eventId).trim()) {
+      return res.status(400).json({ message: 'Event ID is required' });
+    }
+
+    if (!guestId || !String(guestId).trim()) {
+      return res.status(400).json({ message: 'Guest ID is required' });
+    }
+
+    if (!token || !String(token).trim()) {
+      return res.status(400).json({ message: 'Verification token is required' });
+    }
+
+    const guest = await verifyRsvpEmail(eventId, guestId, token);
+    return res.status(200).json({ 
+      message: 'Email verified successfully. Your QR code is ready!',
+      guest,
+      qrCode: guest.qrCode
+    });
+  } catch (error) {
+    console.error('Error verifying RSVP email:', error);
+    const message = error instanceof Error ? error.message : 'Unable to verify email';
+    return res.status(400).json({ message });
+  }
+}
+
+export async function deleteRsvpGuestController(req, res) {
+  try {
+    const { eventId, guestId } = req.params;
+
+    if (!eventId || !String(eventId).trim()) {
+      return res.status(400).json({ message: 'Event ID is required' });
+    }
+
+    if (!guestId || !String(guestId).trim()) {
+      return res.status(400).json({ message: 'Guest ID is required' });
+    }
+
+    await deleteRsvpGuest(eventId, guestId);
+    return res.status(200).json({ message: 'RSVP guest deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting RSVP guest:', error);
+    const message = error instanceof Error ? error.message : 'Unable to delete RSVP guest';
     return res.status(400).json({ message });
   }
 }

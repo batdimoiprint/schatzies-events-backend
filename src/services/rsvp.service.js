@@ -4,6 +4,8 @@ import {
   PutItemCommand,
   QueryCommand,
   UpdateItemCommand,
+  ScanCommand,
+  DeleteItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById as getEventByIdService } from './event.service.js';
@@ -32,12 +34,15 @@ function mapRsvpItem(item) {
     guestfirstName: item.guestfirstName?.S || '',
     guestmiddleName: item.guestmiddleName?.S || '',
     guestlastName: item.guestlastName?.S || '',
+    email: item.email?.S || '',
     contactNumber: item.contactNumber?.S || '',
     message: item.message?.S || '',
     status: item.status?.S || '',
     timestamp: item.timestamp?.S || '',
     qrCode: item.qrCode?.S || '',
     isScanned: item.isScanned?.BOOL || false,
+    isVerified: item.isVerified?.BOOL || false,
+    verificationToken: item.verificationToken?.S || null,
     checkedInAt: item.checkedInAt?.S || null,
     eventId: item.eventId?.S || '',
     ownerId: item.ownerId?.S || '',
@@ -135,7 +140,7 @@ export async function getRsvpByGuestId(eventId, guestId) {
   return mapRsvpItem(response.Item);
 }
 
-function buildRsvpItem(eventId, payload, ownerId = '', createdBy = '') {
+function buildRsvpItem(eventId, payload, ownerId = '', createdBy = '', verificationToken = null) {
   const guestId = normalizeString(payload.guestId) || randomUUID();
   const now = new Date().toISOString();
 
@@ -147,15 +152,21 @@ function buildRsvpItem(eventId, payload, ownerId = '', createdBy = '') {
     guestfirstName: { S: normalizeString(payload.guestfirstName || payload.firstName || '') },
     guestmiddleName: { S: normalizeString(payload.guestmiddleName || payload.middleName || '') },
     guestlastName: { S: normalizeString(payload.guestlastName || payload.lastName || '') },
+    email: { S: normalizeString(payload.email || '') },
     contactNumber: { S: normalizeString(payload.contactNumber || payload.contact_number || '') },
     message: { S: normalizeString(payload.message || '') },
     status: { S: normalizeString(payload.status || 'ATTENDING').toUpperCase() },
     timestamp: { S: now },
     isScanned: { BOOL: false },
+    isVerified: { BOOL: false },
     createdAt: { S: now },
     createdBy: { S: normalizeString(createdBy) },
     updatedAt: { S: now },
   };
+
+  if (verificationToken) {
+    baseItem.verificationToken = { S: verificationToken };
+  }
 
   if (normalizeString(payload.qrCode)) {
     baseItem.qrCode = { S: normalizeString(payload.qrCode) };
@@ -164,7 +175,7 @@ function buildRsvpItem(eventId, payload, ownerId = '', createdBy = '') {
   return baseItem;
 }
 
-export async function createRsvpGuest(eventId, payload) {
+export async function createRsvpGuest(eventId, payload, verificationToken = null) {
   if (!normalizeString(eventId)) {
     throw new Error('Event ID is required');
   }
@@ -195,15 +206,16 @@ export async function createRsvpGuest(eventId, payload) {
     throw new Error('Guest first name and last name are required');
   }
 
-  const item = buildRsvpItem(eventId, payload, event.clientId || event.client_id || '', payload.createdBy || '');
+  const item = buildRsvpItem(eventId, payload, event.clientId || event.client_id || '', payload.createdBy || '', verificationToken);
   const guestId = item.SK.S.replace(RSVP_SK_PREFIX, '');
 
-  if (isAttending(payload.status || 'ATTENDING')) {
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
-    const qrCodeImage = await QRCode.toDataURL(checkInUrl);
-    item.qrCode = { S: qrCodeImage };
-  }
+  // QR code will be generated after email verification
+  // if (isAttending(payload.status || 'ATTENDING')) {
+  //   const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  //   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
+  //   const qrCodeImage = await QRCode.toDataURL(checkInUrl);
+  //   item.qrCode = { S: qrCodeImage };
+  // }
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
@@ -325,4 +337,110 @@ export async function checkInRsvpGuest(eventId, guestId, checkedInBy = '') {
     }
     throw error;
   }
+}
+
+export async function checkEmailExists(email, eventId = null) {
+  if (!normalizeString(email)) {
+    throw new Error('Email is required');
+  }
+
+  const normalizedEmail = normalizeString(email).toLowerCase();
+
+  if (eventId) {
+    // Search within a specific event
+    const rsvps = await queryRsvpsForEvent(eventId);
+    return rsvps.some(rsvp => normalizeString(rsvp.email).toLowerCase() === normalizedEmail);
+  } else {
+    // Search globally across all events using Scan
+    const scanParams = {
+      TableName: DYNAMO_TABLE,
+      FilterExpression: '#email = :email',
+      ExpressionAttributeNames: {
+        '#email': 'email',
+      },
+      ExpressionAttributeValues: {
+        ':email': { S: normalizedEmail },
+      },
+    };
+
+    try {
+      const scanResponse = await dynamoClient.send(new ScanCommand(scanParams));
+      return (scanResponse.Items && scanResponse.Items.length > 0) || false;
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+export async function verifyRsvpEmail(eventId, guestId, token) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+  if (!normalizeString(guestId)) {
+    throw new Error('Guest ID is required');
+  }
+  if (!normalizeString(token)) {
+    throw new Error('Verification token is required');
+  }
+
+  const guest = await getRsvpByGuestId(eventId, guestId);
+  if (!guest) {
+    throw new Error('RSVP guest not found');
+  }
+
+  if (guest.isVerified) {
+    return guest;
+  }
+
+  if (guest.verificationToken !== token) {
+    throw new Error('Invalid verification token');
+  }
+
+  const now = new Date().toISOString();
+  
+  // Generate QR code for check-in
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
+  const qrCodeImage = await QRCode.toDataURL(checkInUrl);
+
+  const params = {
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: buildEventPK(eventId) },
+      SK: { S: buildGuestSK(guestId) },
+    },
+    UpdateExpression: 'SET isVerified = :true, qrCode = :qrCode, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
+    ExpressionAttributeNames: {
+      '#timestamp': 'timestamp',
+    },
+    ExpressionAttributeValues: {
+      ':true': { BOOL: true },
+      ':qrCode': { S: qrCodeImage },
+      ':now': { S: now },
+    },
+    ReturnValues: 'ALL_NEW',
+  };
+
+  const response = await dynamoClient.send(new UpdateItemCommand(params));
+  return mapRsvpItem(response.Attributes);
+}
+
+export async function deleteRsvpGuest(eventId, guestId) {
+  if (!normalizeString(eventId)) {
+    throw new Error('Event ID is required');
+  }
+  if (!normalizeString(guestId)) {
+    throw new Error('Guest ID is required');
+  }
+
+  const deleteCommand = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: buildEventPK(eventId) },
+      SK: { S: buildGuestSK(guestId) },
+    },
+  });
+
+  await dynamoClient.send(deleteCommand);
+  return { success: true };
 }

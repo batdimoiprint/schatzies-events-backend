@@ -9,6 +9,8 @@ const localSwaggerUrl = 'http://localhost:3000';
 const allowedOrigins = [frontendUrl];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push(localSwaggerUrl);
+  // Add localhost:5174 for development (common Vite port)
+  allowedOrigins.push('http://localhost:5174');
 }
 
 const corsOptions = {
