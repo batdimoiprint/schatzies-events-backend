@@ -5,6 +5,7 @@ import s3Client from '../configs/s3.js';
 import env from '../configs/env.js';
 
 const BUCKET_NAME = env.S3_BUCKET_NAME;
+const NOTE_IMAGE_FOLDER = 'note-images';
 
 /**
  * Upload a file to S3
@@ -96,4 +97,28 @@ export const generateUniqueFileName = (originalName, prefix = '') => {
   const randomString = Math.random().toString(36).substring(2, 8);
   const cleanName = originalName.replace(/[^a-zA-Z0-9.]/g, '_');
   return prefix ? `${prefix}/${timestamp}-${randomString}-${cleanName}` : `${timestamp}-${randomString}-${cleanName}`;
+};
+
+/**
+ * Generate a dedicated filename inside the note image folder.
+ * @param {String} originalName - Original name of the file
+ * @param {String} [eventId] - Optional event ID to namespace note images
+ * @returns {String} - Unique file path under the note-images folder
+ */
+export const generateNoteImageFileName = (originalName, eventId = '') => {
+  const prefix = eventId ? `${NOTE_IMAGE_FOLDER}/${eventId}` : NOTE_IMAGE_FOLDER;
+  return generateUniqueFileName(originalName, prefix);
+};
+
+/**
+ * Upload a note image to S3 under the note-images folder.
+ * @param {Buffer|ReadableStream|String} fileContent - File content
+ * @param {String} originalName - Original file name
+ * @param {String} contentType - MIME type
+ * @param {String} [eventId] - Optional event ID to namespace note images
+ * @returns {Promise<Object>} - Upload result
+ */
+export const uploadNoteImage = async (fileContent, originalName, contentType, eventId = '') => {
+  const fileName = generateNoteImageFileName(originalName, eventId);
+  return uploadFile(fileContent, fileName, contentType);
 };

@@ -13,6 +13,8 @@ import {
   updateEvent as updateEventService,
   getEvents as getEventsService,
 } from './event.service.js';
+import { getVendorsByEventId } from './vendor.service.js';
+import { uploadNoteImage } from './s3.service.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
 function parseJsonAttribute(attr) {
@@ -36,12 +38,103 @@ function sanitizeChecklistItem(item) {
   };
 }
 
+function isBase64DataUrl(value) {
+  return typeof value === 'string' && /^data:image\/[a-zA-Z+]+;base64,/.test(value);
+}
+
+function stripDataUrlStrings(value) {
+  if (typeof value !== 'string') return value;
+  return value
+    .replace(/<img[^>]*src=["']data:[^"']*["'][^>]*>/gi, '')
+    .replace(/data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/=]+/g, '')
+    .trim();
+}
+
+async function processNotePayload(note, eventId) {
+  if (typeof note === 'string') {
+    return stripDataUrlStrings(note);
+  }
+
+  if (note === null || typeof note !== 'object') {
+    return note;
+  }
+
+  if (Array.isArray(note)) {
+    return Promise.all(note.map((item) => processNotePayload(item, eventId)));
+  }
+
+  const cleaned = {};
+  for (const [key, value] of Object.entries(note)) {
+    const normalizedKey = String(key).toLowerCase();
+    if (/image|img|photo|picture|base64/.test(normalizedKey)) {
+      if (typeof value === 'string' && isBase64DataUrl(value)) {
+        const match = value.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+        if (match) {
+          const [, mimeType, base64Data] = match;
+          const ext = mimeType.split('/')[1].split('+')[0] || 'webp';
+          const buffer = Buffer.from(base64Data, 'base64');
+          const uploadResult = await uploadNoteImage(buffer, `note.${ext}`, mimeType, eventId);
+          cleaned.noteImageUrl = uploadResult.Location || uploadResult.key;
+        }
+      }
+      continue;
+    }
+
+    cleaned[key] = await processNotePayload(value, eventId);
+  }
+
+  return cleaned;
+}
+
+function sanitizeNotesOutput(note) {
+  if (typeof note === 'string') {
+    return stripDataUrlStrings(note);
+  }
+
+  if (note === null || typeof note !== 'object') {
+    return note;
+  }
+
+  if (Array.isArray(note)) {
+    return note.map(sanitizeNotesOutput);
+  }
+
+  const cleaned = {};
+  for (const [key, value] of Object.entries(note)) {
+    const normalizedKey = String(key).toLowerCase();
+    if (/image|img|photo|picture|base64/.test(normalizedKey)) {
+      continue;
+    }
+    cleaned[key] = sanitizeNotesOutput(value);
+  }
+
+  return cleaned;
+}
+
+function normalizeAllocationVendors(vendors) {
+  if (!Array.isArray(vendors)) return [];
+  return vendors
+    .map((vendor) => {
+      if (!vendor || typeof vendor !== 'object') return null;
+      const id = normalizeString(vendor.id || vendor.vendorId || vendor.vendor_id || '');
+      const name = normalizeString(
+        vendor.name || vendor.vendorName || vendor.businessName || vendor.clientName || ''
+      );
+      return {
+        ...vendor,
+        id,
+        name,
+      };
+    })
+    .filter((vendor) => vendor && vendor.id);
+}
+
 function mapAllocationItem(item) {
   if (!item) return null;
 
   return {
     event_id: item.event_id?.S || '',
-    vendors: parseJsonAttribute(item.vendors),
+    vendors: normalizeAllocationVendors(parseJsonAttribute(item.vendors)),
     manpower: parseJsonAttribute(item.manpower),
     supplies: parseJsonAttribute(item.supplies),
     decorations: parseJsonAttribute(item.decorations),
@@ -899,11 +992,41 @@ export async function createOrUpdateAllocation(eventId, payload) {
 
 export async function getAllocation(eventId) {
   const allocation = await findAllocationByEventId(eventId);
+  const assignedVendors = await getVendorsByEventId(eventId);
+  const assignedVendorEntries = assignedVendors.map((vendor) => ({
+    id: vendor.id,
+    name: vendor.vendorName || vendor.name || '',
+    contactNumber: vendor.contactNumber,
+    email: vendor.email,
+    eventId: vendor.eventId,
+    eventTitle: vendor.eventTitle,
+    availabilityStatus: vendor.availabilityStatus,
+  }));
+
   if (!allocation) {
-    const error = new Error('Allocation not found');
-    error.status = 404;
-    throw error;
+    return {
+      event_id: eventId,
+      vendors: assignedVendorEntries,
+      manpower: [],
+      supplies: [],
+      decorations: [],
+      flow_type: '',
+      food_package: '',
+      created_at: '',
+      updated_at: '',
+    };
   }
+
+  if (!Array.isArray(allocation.vendors) || allocation.vendors.length === 0) {
+    allocation.vendors = assignedVendorEntries;
+  } else {
+    const existingIds = new Set(allocation.vendors.map((vendor) => vendor.id));
+    allocation.vendors = [
+      ...allocation.vendors,
+      ...assignedVendorEntries.filter((vendor) => vendor.id && !existingIds.has(vendor.id)),
+    ];
+  }
+
   return allocation;
 }
 
@@ -934,7 +1057,7 @@ export async function getEventNotes(eventId) {
     error.status = 404;
     throw error;
   }
-  return { notes: event.notes || '' };
+  return { notes: sanitizeNotesOutput(event.notes || '') };
 }
 
 export async function updateEventNotes(eventId, payload) {
@@ -944,7 +1067,9 @@ export async function updateEventNotes(eventId, payload) {
     error.status = 404;
     throw error;
   }
-  return updateEventService(eventId, { notes: payload.notes });
+
+  const cleanedNotes = await processNotePayload(payload.notes, eventId);
+  return updateEventService(eventId, { notes: cleanedNotes });
 }
 
 export async function deleteEventNotes(eventId) {
