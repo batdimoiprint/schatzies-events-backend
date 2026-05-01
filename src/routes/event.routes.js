@@ -1365,6 +1365,43 @@ router.put('/:eventId', validateTokenMiddleware, updateEvent);
 /**
  * @swagger
  * /api/events/{eventId}:
+ *   patch:
+ *     tags:
+ *       - Events
+ *     summary: Partially update an existing event by ID (single field update)
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Partial event update - only include fields you want to update
+ *     responses:
+ *       200:
+ *         description: Event updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 event:
+ *                   $ref: '#/components/schemas/Event'
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+router.patch('/:eventId', validateTokenMiddleware, updateEvent);
+
+/**
+ * @swagger
+ * /api/events/{eventId}:
  *   delete:
  *     tags:
  *       - Events
