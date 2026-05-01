@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -223,11 +223,12 @@ function normalizeStatus(value) {
 
 function mapTaskItem(item) {
   if (!item) return null;
-  const pk = item.PK?.S || '';
-  const id = pk.startsWith('TASK#') ? pk.replace('TASK#', '') : '';
+  const sk = item.SK?.S || '';
+  const id = sk.startsWith('TASK#') ? sk.replace('TASK#', '') : '';
 
   return {
     id,
+    taskId: id,
     event_id: item.event_id?.S || '',
     title: item.title?.S || '',
     description: item.description?.S || '',
@@ -313,6 +314,7 @@ export async function createTask(eventId, payload) {
     Item: {
       ...buildTaskKey(eventId, taskId),
       event_id: { S: eventId },
+      task_id: { S: taskId },
       title: { S: title },
       description: { S: normalizeString(payload.description || '') },
       status: { S: status },
