@@ -5,6 +5,7 @@ import {
   createUserHandler,
   updateUserHandler,
   deleteUserHandler,
+  replacePasswordHandler,
 } from '../controllers/users.controller.js';
 import upload from '../middleware/upload.middleware.js';
 
@@ -195,5 +196,44 @@ router.patch('/:userId', upload.single('profilePic'), updateUserHandler);
  *         description: Unauthorized
  */
 router.delete('/:userId', deleteUserHandler);
+
+/**
+ * @swagger
+ * /api/users/{userId}/replace-password:
+ *   patch:
+ *     tags:
+ *       - Users
+ *     summary: Replace user password (requires current password)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       400:
+ *         description: Invalid input
+ *       401:
+ *         description: Current password is incorrect
+ *       404:
+ *         description: User not found
+ */
+router.patch('/:userId/replace-password', replacePasswordHandler);
 
 export default router;

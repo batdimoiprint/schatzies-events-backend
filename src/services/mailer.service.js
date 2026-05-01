@@ -19,6 +19,21 @@ function buildMailTransporter() {
   });
 }
 
+function formatDate(dateInput) {
+  if (!dateInput) return 'TBD';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const month = months[d.getMonth()];
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${month} ${dd}, ${yyyy}`;
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -105,11 +120,14 @@ export async function sendInquiryCreatedEmail(inquiry) {
     [inquiry.firstName, inquiry.middleName, inquiry.lastName]
       .filter(Boolean)
       .join(' ') || 'Client';
-  const inquiryDate = inquiry.date || 'TBD';
-  const createdAt =
-    inquiry.createdAt || inquiry.created_at || new Date().toISOString();
+  const inquiryDate = formatDate(inquiry.date);
+  const createdAt = formatDate(
+    inquiry.createdAt || inquiry.created_at || new Date().toISOString()
+  );
   const eventType = inquiry.eventType || 'N/A';
-  const eventPax = inquiry.eventPax ?? 'N/A';
+  const eventPax = inquiry.eventPax ?? inquiry.package?.pax ?? 'N/A';
+  const eventPackage = inquiry.eventPackage || inquiry.package?.name || 'N/A';
+  const clientMessage = inquiry.message || 'None provided';
 
   const subject = `We received your inquiry at Schatzies Events`;
   const text =
@@ -119,9 +137,11 @@ export async function sendInquiryCreatedEmail(inquiry) {
     `Name: ${fullName}\n` +
     `Email: ${inquiry.email}\n` +
     `Event Type: ${eventType}\n` +
-    `Date: ${inquiryDate}\n` +
+    `Event Package: ${eventPackage}\n` +
+    `Planned Date: ${inquiryDate}\n` +
     `Created At: ${createdAt}\n` +
-    `Event Pax: ${eventPax}\n\n` +
+    `Event Pax: ${eventPax}\n` +
+    `Client Message: ${clientMessage}\n\n` +
     `Our team will review your inquiry and contact you if we need anything else.\n\n` +
     `Best regards,\nSchatzies Events PH`;
   const bodyHtml =
@@ -132,9 +152,11 @@ export async function sendInquiryCreatedEmail(inquiry) {
     `<li style="margin-bottom:8px;"><strong>Name:</strong> ${escapeHtml(fullName)}</li>` +
     `<li style="margin-bottom:8px;"><strong>Email:</strong> ${escapeHtml(inquiry.email)}</li>` +
     `<li style="margin-bottom:8px;"><strong>Event Type:</strong> ${escapeHtml(eventType)}</li>` +
-    `<li style="margin-bottom:8px;"><strong>Date:</strong> ${escapeHtml(inquiryDate)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Package:</strong> ${escapeHtml(eventPackage)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Planned Date:</strong> ${escapeHtml(inquiryDate)}</li>` +
     `<li style="margin-bottom:8px;"><strong>Created At:</strong> ${escapeHtml(createdAt)}</li>` +
     `<li style="margin-bottom:8px;"><strong>Event Pax:</strong> ${escapeHtml(eventPax)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Client Message:</strong> ${escapeHtml(clientMessage)}</li>` +
     `</ul>` +
     `<p style="margin:0 0 16px;">Our team will review your inquiry and contact you if we need anything else.</p>` +
     `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
@@ -199,6 +221,8 @@ export async function sendInquiryStatusUpdatedEmail(inquiry) {
       .join(' ') || 'Client';
   const status = inquiry.status || 'Updated';
   const eventType = inquiry.eventType || 'N/A';
+  const inquiryDate = formatDate(inquiry.date);
+  const createdAt = formatDate(inquiry.createdAt || inquiry.created_at);
 
   const subject = `Your event inquiry status has been updated`;
   const text =
@@ -206,6 +230,8 @@ export async function sendInquiryStatusUpdatedEmail(inquiry) {
     `Your event inquiry status has been updated.\n\n` +
     `Inquiry ID: ${inquiryId}\n` +
     `Event Type: ${eventType}\n` +
+    `Date: ${inquiryDate}\n` +
+    `Created At: ${createdAt}\n` +
     `Current Status: ${status}\n\n` +
     `Best regards,\nSchatzies Events PH`;
   const bodyHtml =
@@ -214,6 +240,8 @@ export async function sendInquiryStatusUpdatedEmail(inquiry) {
     `<ul style="margin:0 0 16px;padding-left:20px;color:#1e1b2e;">` +
     `<li style="margin-bottom:8px;"><strong style="color:#7c3aed;">Inquiry ID:</strong> ${escapeHtml(inquiryId)}</li>` +
     `<li style="margin-bottom:8px;"><strong>Event Type:</strong> ${escapeHtml(eventType)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Date:</strong> ${escapeHtml(inquiryDate)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Created At:</strong> ${escapeHtml(createdAt)}</li>` +
     `<li style="margin-bottom:8px;"><strong>Current Status:</strong> ${escapeHtml(status)}</li>` +
     `</ul>` +
     `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
@@ -341,16 +369,20 @@ export async function sendMeetingInviteEmail(inquiry, meetingDetails) {
   const inquiryId = inquiry.id || 'N/A';
   const guestName = [firstName, lastName].filter(Boolean).join(' ') || 'there';
   const safeEventType = eventType || 'N/A';
-  const safeDate = date ?? 'TBD';
+  const inquiryDate = formatDate(inquiry.date);
+  const createdAt = formatDate(inquiry.createdAt || inquiry.created_at);
+  const safeDate = formatDate(date);
   const safeTime = time ?? 'TBD';
   const safeLocation = location ?? 'TBD';
 
   const subject = `Meeting Scheduled for your ${safeEventType} Inquiry with Schatzies Events`;
   const text =
-    `Hello ${fullName},\n\n` +
+    `Hello ${guestName},\n\n` +
     `We have successfully reviewed your inquiry for a ${safeEventType}!\n\n` +
     `We would like to invite you to a meeting to discuss your upcoming event in detail.\n\n` +
-    `Inquiry ID: ${inquiryId}\n\n` +
+    `Inquiry ID: ${inquiryId}\n` +
+    `Event Date: ${inquiryDate}\n` +
+    `Created At: ${createdAt}\n\n` +
     `Meeting Details:\n` +
     `Date: ${safeDate}\n` +
     `Time: ${safeTime}\n` +
@@ -362,7 +394,11 @@ export async function sendMeetingInviteEmail(inquiry, meetingDetails) {
     `<p style="margin:0 0 16px;">Hello ${escapeHtml(guestName)},</p>` +
     `<p style="margin:0 0 16px;">We have successfully reviewed your inquiry for a ${escapeHtml(safeEventType)}!</p>` +
     `<p style="margin:0 0 16px;">We would like to invite you to a meeting to discuss your upcoming event in detail.</p>` +
-    `<p style="margin:0 0 12px;"><strong style="color:#7c3aed;">Inquiry ID:</strong> ${escapeHtml(inquiryId)}</p>` +
+    `<ul style="margin:0 0 16px;padding-left:20px;color:#1e1b2e;">` +
+    `<li style="margin-bottom:8px;"><strong style="color:#7c3aed;">Inquiry ID:</strong> ${escapeHtml(inquiryId)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Date:</strong> ${escapeHtml(inquiryDate)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Created At:</strong> ${escapeHtml(createdAt)}</li>` +
+    `</ul>` +
     `<p style="margin:0 0 10px;font-size:15px;font-weight:600;color:#6b21a8;">Meeting details</p>` +
     `<ul style="margin:0 0 16px;padding-left:20px;color:#1e1b2e;">` +
     `<li style="margin-bottom:8px;"><strong>Date:</strong> ${escapeHtml(String(safeDate))}</li>` +
