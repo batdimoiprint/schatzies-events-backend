@@ -11,6 +11,7 @@ import rsvpRoutes from './rsvp.routes.js';
 import usersRoutes from './users.routes.js';
 import scannerRoutes from './scanner.routes.js';
 import messageRoutes from './message.routes.js';
+import emailVerificationRoutes from './emailVerification.routes.js';
 
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import { authLimiter } from '../configs/rate-limit.js';
@@ -37,5 +38,6 @@ router.use('/users', validateTokenMiddleware, usersRoutes);
 router.use('/messages', messageRoutes);
 
 router.use('/auth', authLimiter, authRoutes);
+router.use('/auth', emailVerificationRoutes);
 
 export default router;

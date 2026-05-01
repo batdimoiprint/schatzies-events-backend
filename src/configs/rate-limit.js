@@ -18,3 +18,13 @@ export const authLimiter = rateLimit({
   message:
     'Too many authentication attempts from this IP, please try again after an hour',
 });
+
+// Rate limiter for email verification (prevent spam)
+export const verificationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'development' ? 50 : 5, // 5 emails per 15 min per IP in production
+  standardHeaders: true,
+  legacyHeaders: false,
+  message:
+    'Too many verification email requests from this IP, please try again in 15 minutes',
+});
