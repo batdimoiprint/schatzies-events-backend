@@ -3,10 +3,14 @@ import {
   getConfirmedEvents as getConfirmedEventsService,
   createOrUpdateAllocation as createOrUpdateAllocationService,
   getAllocation as getAllocationService,
+  deleteAllocation as deleteEventAllocationService,
   getEventNotes as getEventNotesService,
   updateEventNotes as updateEventNotesService,
+  deleteEventNotes as deleteEventNotesService,
   getEventChecklist as getEventChecklistService,
   updateEventChecklist as updateEventChecklistService,
+  createEventChecklist as createEventChecklistService,
+  deleteEventChecklistItem as deleteEventChecklistItemService,
   patchEventChecklist as patchEventChecklistService,
   createPrecheck as createPrecheckService,
   updatePrecheck as updatePrecheckService,
@@ -99,6 +103,16 @@ export async function getEventAllocation(req, res, next) {
   }
 }
 
+export async function deleteEventAllocation(req, res, next) {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    await deleteEventAllocationService(eventId);
+    return res.status(200).json({ message: 'Event allocation deleted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function getEventNotes(req, res, next) {
   try {
     const eventId = req.params.eventId || req.params.id;
@@ -120,11 +134,32 @@ export async function updateEventNotes(req, res, next) {
   }
 }
 
+export async function deleteEventNotes(req, res, next) {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    await deleteEventNotesService(eventId);
+    return res.status(200).json({ message: 'Event notes deleted successfully' });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function getEventChecklist(req, res, next) {
   try {
     const eventId = req.params.eventId || req.params.id;
     const checklist = await getEventChecklistService(eventId);
     return res.status(200).json(checklist);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function createEventChecklist(req, res, next) {
+  try {
+    const payload = validateSchema(checklistSchema, req.body);
+    const eventId = req.params.eventId || req.params.id;
+    const createdChecklist = await createEventChecklistService(eventId, payload);
+    return res.status(201).json({ message: 'Event checklist created', checklist: createdChecklist.checklist || payload.checklist });
   } catch (error) {
     return next(error);
   }
@@ -147,6 +182,17 @@ export async function patchEventChecklist(req, res, next) {
     const eventId = req.params.eventId || req.params.id;
     const updatedChecklist = await patchEventChecklistService(eventId, payload);
     return res.status(200).json({ message: 'Event checklist partially updated', checklist: updatedChecklist.checklist || payload.checklist });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function deleteEventChecklist(req, res, next) {
+  try {
+    const eventId = req.params.eventId || req.params.id;
+    const itemId = req.params.itemId;
+    await deleteEventChecklistItemService(eventId, itemId);
+    return res.status(200).json({ message: 'Event checklist item deleted' });
   } catch (error) {
     return next(error);
   }

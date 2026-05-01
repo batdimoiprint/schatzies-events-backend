@@ -19,6 +19,18 @@ export function buildJsonAttribute(value) {
   }
 }
 
+export function buildJsonOrStringAttribute(value) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === 'object') {
+    return buildJsonAttribute(value);
+  }
+
+  return buildStringAttribute(String(value));
+}
+
 export function buildNumberAttribute(value) {
   return value !== undefined && value !== null && !Number.isNaN(Number(value))
     ? { N: String(value) }

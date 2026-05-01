@@ -14,11 +14,15 @@ import {
   createEventAllocation,
   getEventAllocation,
   updateEventAllocation,
+  deleteEventAllocation,
   getEventNotes,
   updateEventNotes,
+  deleteEventNotes,
   getEventChecklist,
+  createEventChecklist,
   updateEventChecklist,
   patchEventChecklist,
+  deleteEventChecklist,
   createPrecheck,
   getPrecheck,
   updatePrecheck,
@@ -493,6 +497,33 @@ router.put('/:eventId/allocation', updateEventAllocation);
 
 /**
  * @swagger
+ * /api/events/{eventId}/allocation:
+ *   delete:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Delete event allocation details
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Event ID
+ *     responses:
+ *       200:
+ *         description: Event allocation deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+router.delete('/:eventId/allocation', deleteEventAllocation);
+
+/**
+ * @swagger
  * /api/events/{eventId}/notes:
  *   get:
  *     tags:
@@ -547,6 +578,32 @@ router.put('/:eventId/notes', updateEventNotes);
 
 /**
  * @swagger
+ * /api/events/{eventId}/notes:
+ *   delete:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Delete notes for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Event notes deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+router.delete('/:eventId/notes', deleteEventNotes);
+
+/**
+ * @swagger
  * /api/events/{eventId}/checklist:
  *   get:
  *     tags:
@@ -573,12 +630,73 @@ router.put('/:eventId/notes', updateEventNotes);
  *                     properties:
  *                       id:
  *                         type: string
- *                       task:
+ *                       label:
  *                         type: string
  *                       done:
  *                         type: boolean
  */
 router.get('/:eventId/checklist', getEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist:
+ *   post:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Add new checklist items for an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checklist:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     label:
+ *                       type: string
+ *                     done:
+ *                       type: boolean
+ *     responses:
+ *       201:
+ *         description: Checklist items added successfully
+ */
+router.post('/:eventId/checklist', createEventChecklist);
+
+/**
+ * @swagger
+ * /api/events/{eventId}/checklist/{itemId}:
+ *   delete:
+ *     tags:
+ *       - Events - Planning
+ *     summary: Delete a checklist item from an event
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Checklist item deleted successfully
+ */
+router.delete('/:eventId/checklist/:itemId', deleteEventChecklist);
 
 /**
  * @swagger
@@ -607,7 +725,7 @@ router.get('/:eventId/checklist', getEventChecklist);
  *                   properties:
  *                     id:
  *                       type: string
- *                     task:
+ *                     label:
  *                       type: string
  *                     done:
  *                       type: boolean
@@ -644,7 +762,7 @@ router.put('/:eventId/checklist', updateEventChecklist);
  *                   properties:
  *                     id:
  *                       type: string
- *                     task:
+ *                     label:
  *                       type: string
  *                     done:
  *                       type: boolean

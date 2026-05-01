@@ -10,7 +10,10 @@ export const allocationSchema = Joi.object({
   vendors: Joi.array().items(Joi.object({ id: Joi.string().trim().required(), name: Joi.string().trim().required() })).optional(),
   manpower: Joi.array().items(Joi.object({ id: Joi.string().trim().required(), role: Joi.string().trim().required() })).optional(),
   supplies: Joi.array().items(Joi.object({ id: Joi.string().trim().required(), item: Joi.string().trim().required(), quantity: Joi.number().integer().min(0).optional() })).optional(),
-  theme: Joi.string().trim().optional().allow(''),
+  decorations: Joi.object({
+    theme: Joi.string().trim().optional().allow(''),
+    materials: Joi.array().items(Joi.string().trim()).optional(),
+  }).optional(),
   flow_type: Joi.string().trim().optional().allow(''),
   food_package: Joi.string().trim().optional().allow(''),
 });
@@ -65,7 +68,9 @@ export const moveTaskSchema = Joi.object({
 });
 
 export const notesSchema = Joi.object({
-  notes: Joi.string().trim().allow('').required(),
+  notes: Joi.alternatives()
+    .try(Joi.string().trim().allow(''), Joi.object())
+    .required(),
 });
 
 export const checklistSchema = Joi.object({
@@ -73,7 +78,7 @@ export const checklistSchema = Joi.object({
     .items(
       Joi.object({
         id: Joi.string().trim().required(),
-        task: Joi.string().trim().required(),
+        label: Joi.string().trim().required(),
         done: Joi.boolean().required(),
       })
     )
@@ -85,7 +90,7 @@ export const patchChecklistSchema = Joi.object({
     .items(
       Joi.object({
         id: Joi.string().trim().required(),
-        task: Joi.string().trim().optional(),
+        label: Joi.string().trim().optional(),
         done: Joi.boolean().required(),
       })
     )
