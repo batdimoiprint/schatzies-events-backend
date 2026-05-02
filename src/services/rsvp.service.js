@@ -12,6 +12,7 @@ import { getEventById as getEventByIdService } from './event.service.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
 import QRCode from 'qrcode';
+import { uploadFile, getPresignedUrl } from './s3.service.js';
 
 const RSVP_SK_PREFIX = 'RSVP#';
 const QR_GSI_NAME = process.env.AWS_RSVP_QR_GSI_NAME || 'GSI1';
@@ -40,6 +41,7 @@ function mapRsvpItem(item) {
     status: item.status?.S || '',
     timestamp: item.timestamp?.S || '',
     qrCode: item.qrCode?.S || '',
+    qrCodeS3Key: item.qrCodeS3Key?.S || '',
     isScanned: item.isScanned?.BOOL || false,
     isVerified: item.isVerified?.BOOL || false,
     verificationToken: item.verificationToken?.S || null,
@@ -399,9 +401,22 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
   const now = new Date().toISOString();
   
   // Generate QR code for check-in
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
-  const qrCodeImage = await QRCode.toDataURL(checkInUrl);
+
+  const qrCodeBuffer = await QRCode.toBuffer(checkInUrl, {
+    errorCorrectionLevel: 'M',
+    type: 'png',
+    width: 400,
+    margin: 4,
+  });
+
+  // Upload QR code to S3
+  const s3Key = `rsvp-qr/${eventId}/guest-${guestId}.png`;
+  await uploadFile(qrCodeBuffer, s3Key, 'image/png');
+
+  // Get presigned URL for the QR code
+  const qrCodeUrl = await getPresignedUrl(s3Key, 86400);
 
   const params = {
     TableName: DYNAMO_TABLE,
@@ -409,13 +424,14 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
       PK: { S: buildEventPK(eventId) },
       SK: { S: buildGuestSK(guestId) },
     },
-    UpdateExpression: 'SET isVerified = :true, qrCode = :qrCode, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
+    UpdateExpression: 'SET isVerified = :true, qrCode = :qrCode, qrCodeS3Key = :s3Key, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
     ExpressionAttributeNames: {
       '#timestamp': 'timestamp',
     },
     ExpressionAttributeValues: {
       ':true': { BOOL: true },
-      ':qrCode': { S: qrCodeImage },
+      ':qrCode': { S: qrCodeUrl },
+      ':s3Key': { S: s3Key },
       ':now': { S: now },
     },
     ReturnValues: 'ALL_NEW',

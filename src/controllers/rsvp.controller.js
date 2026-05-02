@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { randomUUID } from 'crypto';
+import { uploadFile, getPresignedUrl } from '../services/s3.service.js';
 import {
   getAttendingGuests,
   getAllRsvps,
@@ -31,11 +32,13 @@ export async function getRsvpList(req, res) {
     }
 
     const isOwner = event.clientId === req.user?.user_id;
+    const isHeadOrganizer = event.headOrganizerId === req.user?.user_id;
     const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
       event.workerOrganizerIds.includes(req.user?.user_id);
     const isAdmin = req.user?.role === 'ADMIN';
+    const isOrganizer = req.user?.role === 'ORGANIZER';
 
-    if (!isOwner && !isAssignedOrganizer && !isAdmin) {
+    if (!isOwner && !isHeadOrganizer && !isAssignedOrganizer && !isAdmin && !isOrganizer) {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s guest list' });
     }
 
@@ -59,11 +62,13 @@ export async function getEventHeadcount(req, res) {
     }
 
     const isOwner = event.clientId === req.user?.user_id;
+    const isHeadOrganizer = event.headOrganizerId === req.user?.user_id;
     const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
       event.workerOrganizerIds.includes(req.user?.user_id);
     const isAdmin = req.user?.role === 'ADMIN';
+    const isOrganizer = req.user?.role === 'ORGANIZER';
 
-    if (!isOwner && !isAssignedOrganizer && !isAdmin) {
+    if (!isOwner && !isHeadOrganizer && !isAssignedOrganizer && !isAdmin && !isOrganizer) {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s headcount' });
     }
 
@@ -176,25 +181,40 @@ export async function generateRsvpQr(req, res) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Reference your pseudo code: IF event already has QR, return it.
-    if (event.rsvpQrCode) {
+    // If event already has a QR stored in S3, return a fresh presigned URL
+    if (event.rsvpQrS3Key) {
+      const qrCodeUrl = await getPresignedUrl(event.rsvpQrS3Key, 86400); // 24h expiry
       return res.status(200).json({
-        qrCode: event.rsvpQrCode,
+        qrCode: qrCodeUrl,
+        s3Key: event.rsvpQrS3Key,
         message: 'Returned existing QR code',
       });
     }
 
-    // Assuming FRONTEND_URL is set in environment vars
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    // Generate QR code pointing to the RSVP page
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const rsvpUrl = `${baseUrl}/rsvp?eventId=${eventId}`;
 
-    const qrCodeImage = await QRCode.toDataURL(rsvpUrl);
-    
-    // Save to EVENT item
-    await updateEvent(eventId, { rsvpQrCode: qrCodeImage });
+    const qrCodeBuffer = await QRCode.toBuffer(rsvpUrl, {
+      errorCorrectionLevel: 'M',
+      type: 'png',
+      width: 400,
+      margin: 4,
+    });
+
+    // Upload to S3
+    const s3Key = `rsvp-qr/${eventId}/invitation-qr.png`;
+    await uploadFile(qrCodeBuffer, s3Key, 'image/png');
+
+    // Save S3 key to event record
+    await updateEvent(eventId, { rsvpQrS3Key: s3Key });
+
+    // Return presigned URL
+    const qrCodeUrl = await getPresignedUrl(s3Key, 86400);
 
     return res.status(200).json({
-      qrCode: qrCodeImage,
+      qrCode: qrCodeUrl,
+      s3Key,
       url: rsvpUrl,
       message: 'Generated and saved new QR code',
     });
@@ -216,11 +236,13 @@ export async function getEventRsvps(req, res) {
     }
 
     const isOwner = event.clientId === req.user?.user_id;
+    const isHeadOrganizer = event.headOrganizerId === req.user?.user_id;
     const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
       event.workerOrganizerIds.includes(req.user?.user_id);
     const isAdmin = req.user?.role === 'ADMIN';
+    const isOrganizer = req.user?.role === 'ORGANIZER';
 
-    if (!isOwner && !isAssignedOrganizer && !isAdmin) {
+    if (!isOwner && !isHeadOrganizer && !isAssignedOrganizer && !isAdmin && !isOrganizer) {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s RSVPs' });
     }
 
