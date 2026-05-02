@@ -610,14 +610,25 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
     `Login Link: ${resolvedLoginLink}\n\n` +
     `For your security, please log in and change your password as soon as possible.\n\n` +
     `Best regards,\nSchatzies Events`;
-  const html =
-    `<p>Hello ${escapeHtml(fullName)},</p>` +
-    `<p>Your account has been created successfully.</p>` +
-    `<p><strong>Username:</strong> ${escapeHtml(username)}<br />` +
-    `<strong>Password:</strong> ${escapeHtml(plainPassword)}<br />` +
-    `<strong>Login Link:</strong> <a href="${escapeHtml(resolvedLoginLink)}">${escapeHtml(resolvedLoginLink)}</a></p>` +
-    `<p>For your security, please log in and change your password as soon as possible.</p>` +
-    `<p>Best regards,<br /><strong>Schatzies Events</strong></p>`;
+  const bodyHtml =
+    `<h2 style="margin:0 0 16px;font-size:20px;color:#2d1a3d;">Your Account Credentials</h2>` +
+    `<p style="margin:0 0 16px;">Hello ${escapeHtml(fullName)},</p>` +
+    `<p style="margin:0 0 16px;">Your account has been created successfully. Here are your login credentials:</p>` +
+    `<div style="background-color:#f5f0ff;padding:16px;border-radius:8px;margin-bottom:16px;">` +
+    `<p style="margin:0 0 8px;"><strong>Username:</strong> ${escapeHtml(username)}</p>` +
+    `<p style="margin:0;"><strong>Password:</strong> ${escapeHtml(plainPassword)}</p>` +
+    `</div>` +
+    `<p style="margin:0 0 24px;">For your security, please log in and change your password as soon as possible.</p>` +
+    `<div style="text-align:center;margin-bottom:24px;">` +
+    `<a href="${escapeHtml(resolvedLoginLink)}" style="display:inline-block;background-color:#e61f83;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px;">Log In Now</a>` +
+    `</div>` +
+    `<p style="margin:0;font-size:14px;color:#6b5d7d;">Best regards,<br /><strong>Schatzies Events Team</strong></p>`;
+
+  const html = wrapEmailHtml({
+    preheader: 'Your Schatzies Events account credentials have been created.',
+    title: 'Account Credentials',
+    bodyHtml,
+  });
 
   const transporter = buildMailTransporter();
   if (!transporter) {
