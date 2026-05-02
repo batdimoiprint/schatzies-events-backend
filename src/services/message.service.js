@@ -4,6 +4,8 @@ import {
   QueryCommand,
   GetItemCommand,
   ScanCommand,
+  DeleteItemCommand,
+  BatchWriteItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById, getEvents } from './event.service.js';
@@ -289,6 +291,7 @@ export async function getConversationsForUser(userId, userRole) {
           email: safeOther?.email || '',
           contactNumber: safeOther?.contactNumber || '',
           initial: safeOther ? (safeOther.firstName?.[0] || '').toUpperCase() : '',
+          profilePic: safeOther?.profilePic || '',
         },
       ],
       organizer:
@@ -370,8 +373,8 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     throw new Error('Message body is required');
   }
 
-  if (!['CLIENT', 'ORGANIZER'].includes(normalizedRole)) {
-    throw new Error('Only clients and organizers can send messages');
+  if (!['CLIENT', 'ORGANIZER', 'ADMIN'].includes(normalizedRole)) {
+    throw new Error('Only clients, organizers, and admins can send messages');
   }
 
   // Retrieve conversation metadata
@@ -389,13 +392,17 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     throw new Error('Conversation not found');
   }
 
-  // Verify sender is a participant
-  if (convMeta.participant1Id !== senderId && convMeta.participant2Id !== senderId) {
+  // Verify sender is a participant (bypass for ADMIN)
+  if (
+    normalizedRole !== 'ADMIN' &&
+    convMeta.participant1Id !== senderId &&
+    convMeta.participant2Id !== senderId
+  ) {
     console.log('[DEBUG] Participant mismatch:', {
       conversationId,
       senderId,
       participant1Id: convMeta.participant1Id,
-      participant2Id: convMeta.participant2Id
+      participant2Id: convMeta.participant2Id,
     });
     throw new Error('Access denied: you are not a participant of this conversation');
   }
@@ -523,12 +530,18 @@ export async function getAllConversations() {
           role: conv.participant1Role,
           name: safe1 ? `${safe1.firstName} ${safe1.lastName}`.trim() : '',
           email: safe1?.email || '',
+          contactNumber: safe1?.contactNumber || '',
+          initial: safe1 ? (safe1.firstName?.[0] || '').toUpperCase() : '',
+          profilePic: safe1?.profilePic || '',
         },
         {
           id: conv.participant2Id,
           role: conv.participant2Role,
           name: safe2 ? `${safe2.firstName} ${safe2.lastName}`.trim() : '',
           email: safe2?.email || '',
+          contactNumber: safe2?.contactNumber || '',
+          initial: safe2 ? (safe2.firstName?.[0] || '').toUpperCase() : '',
+          profilePic: safe2?.profilePic || '',
         },
       ],
     });
@@ -554,4 +567,51 @@ export async function adminGetMessages(conversationId) {
 
   const msgResp = await dynamoClient.send(msgCmd);
   return (msgResp.Items || []).map(mapMessage);
+}
+
+/**
+ * Admin-only: Delete a conversation and all its messages.
+ */
+export async function deleteConversation(conversationId) {
+  // 1. Query ALL items with PK = CHAT#<conversationId> (META + all MSG# items)
+  const queryCmd = new QueryCommand({
+    TableName: DYNAMO_TABLE,
+    KeyConditionExpression: 'PK = :pk',
+    ExpressionAttributeValues: {
+      ':pk': { S: `CHAT#${conversationId}` },
+    },
+  });
+
+  const queryResp = await dynamoClient.send(queryCmd);
+  const items = queryResp.Items || [];
+
+  if (items.length === 0) {
+    throw new Error('Conversation not found');
+  }
+
+  // 2. Batch delete in groups of 25 (DynamoDB limit)
+  const batches = [];
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25).map((item) => ({
+      DeleteRequest: {
+        Key: {
+          PK: item.PK,
+          SK: item.SK,
+        },
+      },
+    }));
+    batches.push(batch);
+  }
+
+  for (const batch of batches) {
+    await dynamoClient.send(
+      new BatchWriteItemCommand({
+        RequestItems: {
+          [DYNAMO_TABLE]: batch,
+        },
+      })
+    );
+  }
+
+  return { deleted: items.length };
 }
