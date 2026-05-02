@@ -210,3 +210,12 @@ export async function checkUserRegisteredController(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+// GET /api/inquiries/booked-dates
+export async function getBookedDatesController(req, res) {
+  try {
+    const dates = await inquiryService.getBookedDates();
+    res.json(dates);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
