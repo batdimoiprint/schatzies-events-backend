@@ -10,7 +10,8 @@ import {
   updateInquiryStatusController,
   addInquiryCommunicationController,
   scheduleMeetingController,
-  checkUserRegisteredController
+  checkUserRegisteredController,
+  getBookedDatesController
 } from '../controllers/inquiry.controller.js';
 
 const router = express.Router();
@@ -171,5 +172,6 @@ router.post('/:id/communications', validateTokenMiddleware, requireRole('ADMIN',
 router.post('/:id/meeting', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), scheduleMeetingController);
 
 router.get('/:id/isUserRegistered', checkUserRegisteredController);
+router.get('/booked-dates', getBookedDatesController);
 
 export default router;

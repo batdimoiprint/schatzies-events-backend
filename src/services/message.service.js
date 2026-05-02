@@ -4,6 +4,8 @@ import {
   QueryCommand,
   GetItemCommand,
   ScanCommand,
+  DeleteItemCommand,
+  BatchWriteItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById, getEvents } from './event.service.js';
@@ -56,14 +58,24 @@ function mapConversationMeta(item) {
 function mapMessage(item) {
   if (!item) return null;
 
+  const messageId = item.messageId?.S || '';
+  const senderId = item.sender_id?.S || '';
+  const body = item.message?.S || '';
+  const createdAt = item.created_at?.S || '';
+
   return {
-    id: item.messageId?.S || '',
+    // Canonical fields (matches frontend ChatMessage interface)
+    id: messageId,
     conversationId: item.PK?.S?.replace('CHAT#', '') || '',
-    senderId: item.sender_id?.S || '',
+    senderId,
     senderRole: item.senderRole?.S || '',
     receiverId: item.receiverId?.S || '',
-    body: item.message?.S || '',
-    created_at: item.created_at?.S || '',
+    body,
+    createdAt,
+    // Aliased fields for stable polling contract
+    messageId,
+    content: body,
+    created_at: createdAt,
   };
 }
 
@@ -102,21 +114,31 @@ async function findAssignedOrganizer(clientId) {
 
 /**
  * Verify that a specific organizer is assigned to a specific client.
- * Checks both head organizer and worker organizer assignments.
+ * Checks both head organizer and worker organizer assignments, and falls back to inquiry meetings.
  */
 async function isOrganizerAssignedToClient(organizerId, clientId) {
+  // 1. Check formal events
   const events = await getEvents(clientId);
-  if (!events || events.length === 0) return false;
+  if (events && events.length > 0) {
+    for (const event of events) {
+      const headOrg = event.headOrganizerId || event.organizer_id || event.user_id || '';
 
-  for (const event of events) {
-    const headOrg = event.headOrganizerId || event.organizer_id || event.user_id || '';
+      // Check if they are the head organizer
+      if (headOrg === organizerId) return true;
 
-    // Check if they are the head organizer
-    if (headOrg === organizerId) return true;
+      // Check worker organizer assignments
+      const workerIds = Array.isArray(event.workerOrganizerIds) ? event.workerOrganizerIds : [];
+      if (workerIds.includes(organizerId)) return true;
+    }
+  }
 
-    // Check worker organizer assignments
-    const workerIds = Array.isArray(event.workerOrganizerIds) ? event.workerOrganizerIds : [];
-    if (workerIds.includes(organizerId)) return true;
+  // 2. Fallback: Check for scheduled meetings in inquiries
+  const user = await findUserByUserId(clientId);
+  if (user && user.email) {
+    const inquiry = await getInquiryByEmail(user.email);
+    if (inquiry && inquiry.meetingDetails && inquiry.meetingDetails.organizerId === organizerId) {
+      return true;
+    }
   }
 
   return false;
@@ -269,6 +291,7 @@ export async function getConversationsForUser(userId, userRole) {
           email: safeOther?.email || '',
           contactNumber: safeOther?.contactNumber || '',
           initial: safeOther ? (safeOther.firstName?.[0] || '').toUpperCase() : '',
+          profilePic: safeOther?.profilePic || '',
         },
       ],
       organizer:
@@ -316,7 +339,7 @@ export async function getMessagesForConversation(conversationId, userId) {
     throw new Error('Access denied: you are not a participant of this conversation');
   }
 
-  // Query all MSG# items
+  // Query all MSG# items — ascending order, capped at 50 for stable polling
   const msgCmd = new QueryCommand({
     TableName: DYNAMO_TABLE,
     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :msgPrefix)',
@@ -324,6 +347,8 @@ export async function getMessagesForConversation(conversationId, userId) {
       ':pk': { S: `CHAT#${conversationId}` },
       ':msgPrefix': { S: 'MSG#' },
     },
+    ScanIndexForward: true,   // ascending by SK (timestamp-based)
+    Limit: 50,                // cap to prevent unbounded responses
   });
 
   const msgResp = await dynamoClient.send(msgCmd);
@@ -348,8 +373,8 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     throw new Error('Message body is required');
   }
 
-  if (!['CLIENT', 'ORGANIZER'].includes(normalizedRole)) {
-    throw new Error('Only clients and organizers can send messages');
+  if (!['CLIENT', 'ORGANIZER', 'ADMIN'].includes(normalizedRole)) {
+    throw new Error('Only clients, organizers, and admins can send messages');
   }
 
   // Retrieve conversation metadata
@@ -367,13 +392,17 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     throw new Error('Conversation not found');
   }
 
-  // Verify sender is a participant
-  if (convMeta.participant1Id !== senderId && convMeta.participant2Id !== senderId) {
+  // Verify sender is a participant (bypass for ADMIN)
+  if (
+    normalizedRole !== 'ADMIN' &&
+    convMeta.participant1Id !== senderId &&
+    convMeta.participant2Id !== senderId
+  ) {
     console.log('[DEBUG] Participant mismatch:', {
       conversationId,
       senderId,
       participant1Id: convMeta.participant1Id,
-      participant2Id: convMeta.participant2Id
+      participant2Id: convMeta.participant2Id,
     });
     throw new Error('Access denied: you are not a participant of this conversation');
   }
@@ -414,7 +443,7 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     }
   }
 
-  // Persist the message
+  // Persist the message — UUID in SK prevents duplicates even on retry
   const messageId = randomUUID();
   const now = new Date().toISOString();
 
@@ -429,7 +458,12 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
     created_at: { S: now },
   };
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: msgItem }));
+  // ConditionExpression prevents duplicate writes on network retries
+  await dynamoClient.send(new PutItemCommand({
+    TableName: DYNAMO_TABLE,
+    Item: msgItem,
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+  }));
 
   // Update conversation metadata with last message preview
   await updateConversationLastMessage(conversationId, normalizedBody, now);
@@ -496,12 +530,18 @@ export async function getAllConversations() {
           role: conv.participant1Role,
           name: safe1 ? `${safe1.firstName} ${safe1.lastName}`.trim() : '',
           email: safe1?.email || '',
+          contactNumber: safe1?.contactNumber || '',
+          initial: safe1 ? (safe1.firstName?.[0] || '').toUpperCase() : '',
+          profilePic: safe1?.profilePic || '',
         },
         {
           id: conv.participant2Id,
           role: conv.participant2Role,
           name: safe2 ? `${safe2.firstName} ${safe2.lastName}`.trim() : '',
           email: safe2?.email || '',
+          contactNumber: safe2?.contactNumber || '',
+          initial: safe2 ? (safe2.firstName?.[0] || '').toUpperCase() : '',
+          profilePic: safe2?.profilePic || '',
         },
       ],
     });
@@ -521,8 +561,57 @@ export async function adminGetMessages(conversationId) {
       ':pk': { S: `CHAT#${conversationId}` },
       ':msgPrefix': { S: 'MSG#' },
     },
+    ScanIndexForward: true,
+    Limit: 50,
   });
 
   const msgResp = await dynamoClient.send(msgCmd);
   return (msgResp.Items || []).map(mapMessage);
+}
+
+/**
+ * Admin-only: Delete a conversation and all its messages.
+ */
+export async function deleteConversation(conversationId) {
+  // 1. Query ALL items with PK = CHAT#<conversationId> (META + all MSG# items)
+  const queryCmd = new QueryCommand({
+    TableName: DYNAMO_TABLE,
+    KeyConditionExpression: 'PK = :pk',
+    ExpressionAttributeValues: {
+      ':pk': { S: `CHAT#${conversationId}` },
+    },
+  });
+
+  const queryResp = await dynamoClient.send(queryCmd);
+  const items = queryResp.Items || [];
+
+  if (items.length === 0) {
+    throw new Error('Conversation not found');
+  }
+
+  // 2. Batch delete in groups of 25 (DynamoDB limit)
+  const batches = [];
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25).map((item) => ({
+      DeleteRequest: {
+        Key: {
+          PK: item.PK,
+          SK: item.SK,
+        },
+      },
+    }));
+    batches.push(batch);
+  }
+
+  for (const batch of batches) {
+    await dynamoClient.send(
+      new BatchWriteItemCommand({
+        RequestItems: {
+          [DYNAMO_TABLE]: batch,
+        },
+      })
+    );
+  }
+
+  return { deleted: items.length };
 }

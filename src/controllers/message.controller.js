@@ -83,7 +83,7 @@ export async function sendMessageController(req, res) {
     }
 
     if (
-      error.message.includes('Only clients and organizers') ||
+      error.message.includes('Only clients, organizers, and admins') ||
       error.message.includes('can only message') ||
       error.message.includes('not assigned')
     ) {
@@ -123,5 +123,23 @@ export async function initiateConversationController(req, res) {
     }
 
     return res.status(400).json({ error: error.message });
+  }
+}
+
+// ─── DELETE /api/messages/conversations/:conversationId ──────────────────────────
+// Admin-only: Deletes a conversation and all its messages.
+export async function deleteConversationController(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const result = await messageService.deleteConversation(conversationId);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('deleteConversationController error:', error.message);
+
+    if (error.message.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    return res.status(500).json({ error: error.message });
   }
 }
