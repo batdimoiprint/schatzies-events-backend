@@ -288,6 +288,20 @@ export async function verifyRsvpEmailController(req, res) {
     }
 
     const guest = await verifyRsvpEmail(eventId, guestId, token);
+    
+    // Send email with the generated QR code
+    try {
+      const { getEventById } = await import('../services/event.service.js');
+      const event = await getEventById(eventId);
+      if (event) {
+        const { sendRsvpVerifiedQrEmail } = await import('../services/mailer.service.js');
+        await sendRsvpVerifiedQrEmail(guest, event);
+      }
+    } catch (emailErr) {
+      console.error('Error sending verified QR email:', emailErr);
+      // Non-fatal error, continue to respond successfully
+    }
+
     return res.status(200).json({ 
       message: 'Email verified successfully. Your QR code is ready!',
       guest,

@@ -747,3 +747,71 @@ export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
     return { skipped: true, reason: 'Email send failed', link: verificationUrl, error: error.message };
   }
 }
+
+export async function sendRsvpVerifiedQrEmail(guest, event) {
+  if (!guest || !event) {
+    throw new Error('Guest and event are required to send RSVP verified QR email');
+  }
+
+  if (!guest.email) {
+    return { skipped: true, reason: 'No email provided' };
+  }
+
+  const isAttending = String(guest.status || '').toUpperCase() === 'ATTENDING';
+  // Only send the QR code if they are actually attending
+  if (!isAttending || !guest.qrCode) {
+    return { skipped: true, reason: 'Not attending or no QR code generated' };
+  }
+
+  const guestName = [guest.guestfirstName, guest.guestlastName].filter(Boolean).join(' ') || 'Guest';
+  const eventTitle = event.title || event.eventType || 'the event';
+  
+  const subject = `Your RSVP is Verified: Your Digital Pass for ${eventTitle}`;
+  
+  const text =
+    `Hello ${guestName},\n\n` +
+    `Your RSVP for ${eventTitle} has been successfully verified!\n\n` +
+    `Your Digital Pass (QR Code) is ready. Please save the attached QR code image or have this email ready on your phone when you arrive at the venue for quick check-in.\n\n` +
+    `We can't wait to see you there!\n\n` +
+    `Best regards,\nSchatzies Events PH`;
+
+  const bodyHtml =
+    `<p style="margin:0 0 16px;">Hello ${escapeHtml(guestName)},</p>` +
+    `<p style="margin:0 0 16px; font-weight: bold; color: #10b981;">Your RSVP has been successfully verified!</p>` +
+    `<p style="margin:0 0 16px;">We're excited to have you join us for ${escapeHtml(eventTitle)}.</p>` +
+    `<div style="text-align:center; margin: 24px 0; padding: 20px; background-color: #fcf8ff; border: 1px solid #f3e8ff; border-radius: 12px;">` +
+    `<p style="margin:0 0 12px; font-weight: bold; color: #a855f7; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Your Digital Pass</p>` +
+    // Since the QR code is a URL (S3 Presigned URL), we can just embed it directly via img src
+    `<img src="${escapeHtml(guest.qrCode)}" alt="Your Check-in QR Code" style="width: 200px; height: 200px; max-width: 100%; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);" />` +
+    `<p style="margin:12px 0 0; font-size: 13px; color: #666;">Please have this QR code ready on your phone when you arrive for a seamless check-in experience.</p>` +
+    `</div>` +
+    `<p style="margin:0 0 16px;">We can't wait to see you there!</p>` +
+    `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
+
+  const html = wrapEmailHtml({
+    preheader: `Your digital pass (QR code) for ${eventTitle} is ready.`,
+    title: 'Your RSVP is Verified',
+    bodyHtml,
+  });
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    return { skipped: true, reason: 'SMTP config missing' };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: guest.email,
+    subject,
+    text,
+    html,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return { skipped: false, info };
+  } catch (error) {
+    console.error('Error sending RSVP verified QR email:', error);
+    return { skipped: true, reason: 'Email send failed', error: error.message };
+  }
+}
