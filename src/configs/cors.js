@@ -1,14 +1,14 @@
 import cors from 'cors';
 
-const frontendUrl = process.env.FRONTEND_URL;
-const localUrl = 'http://localhost:5173';
-const localSwaggerUrl = 'http://localhost:3000';
+const frontendUrl =
+  process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : 'http://localhost:5173';
 
-const allowedOrigins = [frontendUrl, localUrl, localSwaggerUrl].filter(Boolean);
+const localSwaggerUrl = 'http://localhost:3000';
+const allowedOrigins = [frontendUrl];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push(localSwaggerUrl);
-  // Add localhost:5174 for development (common Vite port)
-  allowedOrigins.push('http://localhost:5174');
 }
 
 const corsOptions = {
