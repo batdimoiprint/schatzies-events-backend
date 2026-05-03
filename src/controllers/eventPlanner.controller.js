@@ -139,12 +139,10 @@ export async function updateEventNotes(req, res, next) {
     const payload = validateSchema(notesSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const updatedNotes = await updateEventNotesService(eventId, payload);
-    return res
-      .status(200)
-      .json({
-        message: 'Event notes updated',
-        notes: updatedNotes.notes || payload.notes,
-      });
+    return res.status(200).json({
+      message: 'Event notes updated',
+      notes: updatedNotes.notes || payload.notes,
+    });
   } catch (error) {
     return next(error);
   }
@@ -180,12 +178,10 @@ export async function createEventChecklist(req, res, next) {
       eventId,
       payload
     );
-    return res
-      .status(201)
-      .json({
-        message: 'Event checklist created',
-        checklist: createdChecklist.checklist || payload.checklist,
-      });
+    return res.status(201).json({
+      message: 'Event checklist created',
+      checklist: createdChecklist.checklist || payload.checklist,
+    });
   } catch (error) {
     return next(error);
   }
@@ -199,12 +195,10 @@ export async function updateEventChecklist(req, res, next) {
       eventId,
       payload
     );
-    return res
-      .status(200)
-      .json({
-        message: 'Event checklist updated',
-        checklist: updatedChecklist.checklist || payload.checklist,
-      });
+    return res.status(200).json({
+      message: 'Event checklist updated',
+      checklist: updatedChecklist.checklist || payload.checklist,
+    });
   } catch (error) {
     return next(error);
   }
@@ -215,12 +209,10 @@ export async function patchEventChecklist(req, res, next) {
     const payload = validateSchema(patchChecklistSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const updatedChecklist = await patchEventChecklistService(eventId, payload);
-    return res
-      .status(200)
-      .json({
-        message: 'Event checklist partially updated',
-        checklist: updatedChecklist.checklist || payload.checklist,
-      });
+    return res.status(200).json({
+      message: 'Event checklist partially updated',
+      checklist: updatedChecklist.checklist || payload.checklist,
+    });
   } catch (error) {
     return next(error);
   }

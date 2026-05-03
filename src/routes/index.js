@@ -12,6 +12,7 @@ import usersRoutes from './users.routes.js';
 import scannerRoutes from './scanner.routes.js';
 import messageRoutes from './message.routes.js';
 import emailVerificationRoutes from './emailVerification.routes.js';
+import pushRoutes from './push.routes.js';
 
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import { authLimiter } from '../configs/rate-limit.js';
@@ -36,6 +37,7 @@ router.use('/organizers', validateTokenMiddleware, organizerRoutes);
 router.use('/scanner', validateTokenMiddleware, scannerRoutes);
 router.use('/users', validateTokenMiddleware, usersRoutes);
 router.use('/messages', messageRoutes);
+router.use('/push', pushRoutes);
 
 router.use('/auth', authLimiter, authRoutes);
 router.use('/auth', emailVerificationRoutes);

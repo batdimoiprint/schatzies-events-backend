@@ -6,7 +6,7 @@ const frontendUrl =
     : 'http://localhost:5173';
 
 const localSwaggerUrl = 'http://localhost:3000';
-const allowedOrigins = [frontendUrl];
+const allowedOrigins = [frontendUrl, 'http://localhost:5174'];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push(localSwaggerUrl);
 }

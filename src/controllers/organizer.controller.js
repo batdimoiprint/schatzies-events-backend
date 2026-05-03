@@ -59,12 +59,10 @@ export async function updateOrganizer(req, res) {
     const { id } = req.params;
     const updatePayload = req.body ?? {};
     const updatedOrganizer = await updateOrganizerService(id, updatePayload);
-    return res
-      .status(200)
-      .json({
-        message: 'Organizer updated successfully',
-        organizer: updatedOrganizer,
-      });
+    return res.status(200).json({
+      message: 'Organizer updated successfully',
+      organizer: updatedOrganizer,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'Organizer not found') {
       return res.status(404).json({ error: error.message });
@@ -130,12 +128,10 @@ export async function assignHeadOrganizer(req, res) {
     const updatedEvent = await updateEventService(eventId, {
       headOrganizerId: organizerId,
     });
-    return res
-      .status(200)
-      .json({
-        message: 'Head organizer assigned to event',
-        event: updatedEvent,
-      });
+    return res.status(200).json({
+      message: 'Head organizer assigned to event',
+      event: updatedEvent,
+    });
   } catch (error) {
     const message =
       error instanceof Error
@@ -155,11 +151,9 @@ export async function assignWorkerOrganizer(req, res) {
     }
 
     if (!event.headOrganizerId) {
-      return res
-        .status(400)
-        .json({
-          error: 'Head organizer must be assigned before adding workers',
-        });
+      return res.status(400).json({
+        error: 'Head organizer must be assigned before adding workers',
+      });
     }
 
     const organizer = await getOrganizerByIdService(organizerId);
@@ -206,22 +200,18 @@ export async function unassignHeadOrganizer(req, res) {
     }
 
     if (event.headOrganizerId !== organizerId) {
-      return res
-        .status(400)
-        .json({
-          error: 'This organizer is not the head organizer for this event',
-        });
+      return res.status(400).json({
+        error: 'This organizer is not the head organizer for this event',
+      });
     }
 
     const updatedEvent = await updateEventService(eventId, {
       headOrganizerId: null,
     });
-    return res
-      .status(200)
-      .json({
-        message: 'Head organizer unassigned from event',
-        event: updatedEvent,
-      });
+    return res.status(200).json({
+      message: 'Head organizer unassigned from event',
+      event: updatedEvent,
+    });
   } catch (error) {
     const message =
       error instanceof Error
