@@ -53,7 +53,6 @@ const AUTH_COOKIE_OPTIONS = {
   path: '/',
 };
 
-console.log('Auth cookie options:', AUTH_COOKIE_OPTIONS);
 
 function setAuthCookie(res, token) {
   res.cookie('auth_token', token, {

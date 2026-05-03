@@ -29,6 +29,5 @@ const corsOptions = {
   ],
 };
 
-console.log('CORS allowed origins:', allowedOrigins);
 
 export default cors(corsOptions);
