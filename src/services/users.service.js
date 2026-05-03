@@ -16,6 +16,21 @@ function mapDynamoUser(item) {
     return null;
   }
 
+  // Map pushSubscriptions from DynamoDB List format to JavaScript array
+  let pushSubscriptions = [];
+  if (item.pushSubscriptions?.L) {
+    pushSubscriptions = item.pushSubscriptions.L.map((sub) => ({
+      endpoint: sub.M?.endpoint?.S || '',
+      expirationTime: sub.M?.expirationTime?.N
+        ? Number(sub.M.expirationTime.N)
+        : null,
+      keys: {
+        p256dh: sub.M?.keys?.M?.p256dh?.S || '',
+        auth: sub.M?.keys?.M?.auth?.S || '',
+      },
+    }));
+  }
+
   return {
     user_id: item.PK?.S?.replace('USER#', '') || '',
     firstName: item.firstName?.S || '',
@@ -35,6 +50,7 @@ function mapDynamoUser(item) {
     isPasswordChanged: item.isPasswordChanged?.BOOL ?? false,
     profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
+    pushSubscriptions,
   };
 }
 

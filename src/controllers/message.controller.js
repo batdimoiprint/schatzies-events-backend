@@ -1,4 +1,5 @@
 import * as messageService from '../services/message.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 // ─── GET /api/messages/conversations ────────────────────────────────────────────
 // Returns all conversations for the authenticated user.
@@ -43,6 +44,10 @@ export async function getMessagesController(req, res) {
       );
     }
 
+    console.log(
+      `📨 Returning ${messages.length} message(s) for conversation ${conversationId}`
+    );
+
     return res.json({ messages });
   } catch (error) {
     console.error('getMessagesController error:', error.message);
@@ -84,6 +89,52 @@ export async function sendMessageController(req, res) {
       role,
       body
     );
+
+    console.log('✅ Message saved:', {
+      messageId: message.id,
+      conversationId: message.conversationId,
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      body: message.body.substring(0, 50),
+    });
+
+    // Send push notification to recipient
+    // Use req.user context directly — no extra DB lookup needed
+    try {
+      const recipientId = message.receiverId;
+      const senderName =
+        `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() ||
+        'Someone';
+
+      if (recipientId) {
+        await sendPushToUser(recipientId, {
+          title: `New message from ${senderName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId,
+            url: `/messages/${conversationId}`,
+          },
+        });
+      }
+
+      // Also notify admin so they stay in the loop
+      const adminUserId = await getAdminUserId();
+      if (adminUserId && adminUserId !== user_id && adminUserId !== recipientId) {
+        await sendPushToUser(adminUserId, {
+          title: `New message from ${senderName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId,
+            url: `/admin/message`,
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
+
     return res.status(201).json({ message });
   } catch (error) {
     console.error('sendMessageController error:', error.message);
@@ -135,6 +186,43 @@ export async function initiateConversationController(req, res) {
       user_id,
       body
     );
+
+    // Send push notification to organizer + admin
+    try {
+      const organizerId = result.conversation?.participant2Id;
+      const clientName =
+        `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() ||
+        'A client';
+
+      if (organizerId) {
+        await sendPushToUser(organizerId, {
+          title: `New message from ${clientName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId: result.conversation.id,
+            url: `/messages/${result.conversation.id}`,
+          },
+        });
+      }
+
+      // Also notify admin
+      const adminUserId = await getAdminUserId();
+      if (adminUserId && adminUserId !== user_id && adminUserId !== organizerId) {
+        await sendPushToUser(adminUserId, {
+          title: `New message from ${clientName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId: result.conversation.id,
+            url: `/admin/message`,
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
+
     return res.status(201).json(result);
   } catch (error) {
     console.error('initiateConversationController error:', error.message);

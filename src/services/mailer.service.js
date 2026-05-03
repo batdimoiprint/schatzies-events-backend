@@ -879,3 +879,72 @@ export async function sendRsvpVerifiedQrEmail(guest, event) {
     return { skipped: true, reason: 'Email send failed', error: error.message };
   }
 }
+
+const ADMIN_EMAIL = 'schatzieseventsadmin@gmail.com';
+
+/**
+ * Send a notification email to the admin when a new inquiry is submitted.
+ */
+export async function sendInquiryAdminNotificationEmail(inquiry) {
+  if (!inquiry) {
+    throw new Error('Inquiry is required to send admin notification email');
+  }
+
+  const inquiryId = inquiry.id || 'N/A';
+  const fullName =
+    [inquiry.firstName, inquiry.middleName, inquiry.lastName]
+      .filter(Boolean)
+      .join(' ') || 'Unknown';
+  const eventType = inquiry.eventType || 'N/A';
+  const inquiryDate = formatDate(inquiry.date);
+  const createdAt = formatDate(
+    inquiry.createdAt || inquiry.created_at || new Date().toISOString()
+  );
+  const eventPax = inquiry.eventPax ?? inquiry.package?.pax ?? 'N/A';
+  const eventPackage = inquiry.eventPackage || inquiry.package?.name || 'N/A';
+  const clientEmail = inquiry.email || 'N/A';
+  const contactNumber = inquiry.contactNumber || 'N/A';
+  const clientMessage = inquiry.message || 'None provided';
+
+  const subject = `📩 New Inquiry from ${fullName} — ${eventType}`;
+  const text =
+    `New inquiry received on Schatzies Events.\n\n` +
+    `Inquiry ID: ${inquiryId}\n` +
+    `Name: ${fullName}\n` +
+    `Email: ${clientEmail}\n` +
+    `Contact: ${contactNumber}\n` +
+    `Event Type: ${eventType}\n` +
+    `Event Package: ${eventPackage}\n` +
+    `Planned Date: ${inquiryDate}\n` +
+    `Event Pax: ${eventPax}\n` +
+    `Created At: ${createdAt}\n` +
+    `Client Message: ${clientMessage}\n\n` +
+    `Please review this inquiry in the admin dashboard.`;
+  const bodyHtml =
+    `<p style="margin:0 0 16px;">A new inquiry has been submitted on <strong style="color:#a855f7;">Schatzies Events</strong>.</p>` +
+    `<ul style="margin:0 0 16px;padding-left:20px;color:#1e1b2e;">` +
+    `<li style="margin-bottom:8px;"><strong style="color:#7c3aed;">Inquiry ID:</strong> ${escapeHtml(inquiryId)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Name:</strong> ${escapeHtml(fullName)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Email:</strong> ${escapeHtml(clientEmail)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Contact:</strong> ${escapeHtml(contactNumber)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Type:</strong> ${escapeHtml(eventType)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Package:</strong> ${escapeHtml(eventPackage)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Planned Date:</strong> ${escapeHtml(inquiryDate)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Pax:</strong> ${escapeHtml(eventPax)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Created At:</strong> ${escapeHtml(createdAt)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Client Message:</strong> ${escapeHtml(clientMessage)}</li>` +
+    `</ul>` +
+    `<p style="margin:0;">Please review this inquiry in the admin dashboard.</p>`;
+  const html = wrapEmailHtml({
+    preheader: `New inquiry from ${fullName} for ${eventType}.`,
+    title: 'New Inquiry Received',
+    bodyHtml,
+  });
+
+  return sendSmtpMail({
+    to: ADMIN_EMAIL,
+    subject,
+    text,
+    html,
+  });
+}

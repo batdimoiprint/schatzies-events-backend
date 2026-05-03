@@ -12,6 +12,7 @@ import {
   deleteRsvpGuest,
 } from '../services/rsvp.service.js';
 import { sendRsvpVerificationEmail } from '../services/mailer.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 function buildGuestName(guest) {
   return [guest.guestfirstName, guest.guestmiddleName, guest.guestlastName]
@@ -46,12 +47,9 @@ export async function getRsvpList(req, res) {
       !isAdmin &&
       !isOrganizer
     ) {
-      return res
-        .status(403)
-        .json({
-          message:
-            "Forbidden: You do not have access to this event's guest list",
-        });
+      return res.status(403).json({
+        message: "Forbidden: You do not have access to this event's guest list",
+      });
     }
 
     const guests = await getAttendingGuests(eventId);
@@ -89,12 +87,9 @@ export async function getEventHeadcount(req, res) {
       !isAdmin &&
       !isOrganizer
     ) {
-      return res
-        .status(403)
-        .json({
-          message:
-            "Forbidden: You do not have access to this event's headcount",
-        });
+      return res.status(403).json({
+        message: "Forbidden: You do not have access to this event's headcount",
+      });
     }
 
     const headcount = await getHeadcount(eventId);
@@ -204,6 +199,24 @@ export async function createRsvp(req, res) {
       // Don't fail the whole request if email fails, but log it
     }
 
+    // Send push notification to event owner (client)
+    try {
+      if (event && event.clientId) {
+        await sendPushToUser(event.clientId, {
+          title: 'New RSVP Received',
+          body: `${first_name} ${last_name} has RSVP'd to your event`,
+          data: {
+            type: 'rsvp',
+            eventId: event_id,
+            guestId: guest.guestId,
+            url: `/client/events/${event_id}/rsvp`,
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
+
     return res.status(201).json({
       guest,
       message:
@@ -301,11 +314,9 @@ export async function getEventRsvps(req, res) {
       !isAdmin &&
       !isOrganizer
     ) {
-      return res
-        .status(403)
-        .json({
-          message: "Forbidden: You do not have access to this event's RSVPs",
-        });
+      return res.status(403).json({
+        message: "Forbidden: You do not have access to this event's RSVPs",
+      });
     }
 
     const guests = await getAllRsvps(eventId);

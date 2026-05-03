@@ -3,7 +3,9 @@ import { isEmailVerified } from '../services/emailVerification.service.js';
 import {
   sendInquiryCreatedEmail,
   sendInquiryStatusUpdatedEmail,
+  sendInquiryAdminNotificationEmail,
 } from '../services/mailer.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
@@ -28,10 +30,36 @@ export async function createInquiryController(req, res) {
 
     const newInquiry = await inquiryService.createInquiry(req.body);
 
+    // Email to the client who submitted the inquiry
     try {
       await sendInquiryCreatedEmail(newInquiry);
     } catch (mailError) {
       console.error('Failed to send inquiry created email:', mailError);
+    }
+
+    // Email to admin about the new inquiry
+    try {
+      await sendInquiryAdminNotificationEmail(newInquiry);
+    } catch (mailError) {
+      console.error('Failed to send admin notification email:', mailError);
+    }
+
+    // Send push notification to admin
+    try {
+      const adminUserId = await getAdminUserId();
+      if (adminUserId) {
+        await sendPushToUser(adminUserId, {
+          title: 'New Inquiry Received',
+          body: `${newInquiry.firstName} ${newInquiry.lastName} submitted a new inquiry for ${newInquiry.eventType}`,
+          data: {
+            type: 'inquiry',
+            inquiryId: newInquiry.inquiry_id,
+            url: '/admin/inquiries',
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
     }
 
     res.status(201).json(newInquiry);
