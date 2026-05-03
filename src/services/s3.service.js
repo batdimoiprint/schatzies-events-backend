@@ -4,7 +4,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import s3Client from '../configs/s3.js';
 import env from '../configs/env.js';
 
-const BUCKET_NAME = env.S3_BUCKET_NAME;
+const BUCKET_NAME = env.AWS_GENERAL_BUCKET;
 const NOTE_IMAGE_FOLDER = 'note-images';
 
 /**
