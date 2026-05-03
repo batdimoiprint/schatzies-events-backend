@@ -47,13 +47,11 @@ const AUTH_COOKIE_OPTIONS = {
     process.env.COOKIE_SECURE === 'true'
       ? true
       : process.env.COOKIE_SECURE === 'false'
-      ? false
-      : isProduction,
+        ? false
+        : isProduction,
   sameSite: process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax'),
   path: '/',
 };
-
-console.log('Auth cookie options:', AUTH_COOKIE_OPTIONS);
 
 function setAuthCookie(res, token) {
   res.cookie('auth_token', token, {

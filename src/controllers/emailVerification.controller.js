@@ -4,8 +4,12 @@ import {
   isEmailVerified,
 } from '../services/emailVerification.service.js';
 
-const FRONTEND_URL =
-  process.env.FRONTEND_URL || 'http://localhost:5173';
+/**
+ * Get the frontend URL from environment variables, defaulting to localhost for development.
+ */
+function getFrontendUrl() {
+  return process.env.FRONTEND_URL || 'http://localhost:5173';
+}
 
 /**
  * POST /api/auth/check-or-send-verification
@@ -22,7 +26,7 @@ const FRONTEND_URL =
  */
 export async function checkOrSendVerificationController(req, res) {
   try {
-    const { email } = req.body ?? {};
+    const { email, pendingInquiry } = req.body ?? {};
 
     if (!email) {
       return res.status(400).json({ error: 'email is required' });
@@ -34,7 +38,7 @@ export async function checkOrSendVerificationController(req, res) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const result = await checkOrSendVerification(email);
+    const result = await checkOrSendVerification(email, pendingInquiry);
 
     return res.json(result);
   } catch (error) {
@@ -61,7 +65,7 @@ export async function verifyEmailController(req, res) {
 
     if (!token) {
       return res.redirect(
-        `${FRONTEND_URL}/verify?verified=false&reason=missing_token`
+        `${getFrontendUrl()}/verify?verified=false&reason=missing_token`
       );
     }
 
@@ -71,7 +75,7 @@ export async function verifyEmailController(req, res) {
       // Redirect to frontend success page
       // Note: frontend page is VerifyEmailPage.tsx which handles ?verified=true
       return res.redirect(
-        `${FRONTEND_URL}/verify?verified=true&email=${encodeURIComponent(result.email)}`
+        `${getFrontendUrl()}/verify?verified=true&email=${encodeURIComponent(result.email)}`
       );
     }
 
@@ -82,12 +86,12 @@ export async function verifyEmailController(req, res) {
       .replace(/^_|_$/g, '');
 
     return res.redirect(
-      `${FRONTEND_URL}/verify?verified=false&reason=${reasonSlug}`
+      `${getFrontendUrl()}/verify?verified=false&reason=${reasonSlug}`
     );
   } catch (error) {
     console.error('verify-email error:', error);
     return res.redirect(
-      `${FRONTEND_URL}/verify?verified=false&reason=server_error`
+      `${getFrontendUrl()}/verify?verified=false&reason=server_error`
     );
   }
 }
@@ -103,7 +107,9 @@ export async function verifyEmailApiController(req, res) {
     const { token } = req.body ?? {};
 
     if (!token) {
-      return res.status(400).json({ success: false, reason: 'Token is required' });
+      return res
+        .status(400)
+        .json({ success: false, reason: 'Token is required' });
     }
 
     const result = await verifyEmailToken(token);

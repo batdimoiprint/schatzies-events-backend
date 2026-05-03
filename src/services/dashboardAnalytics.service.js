@@ -1,5 +1,11 @@
-import { BatchGetItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
-import dynamoClient, { DASHBOARD_ANALYTICS_TABLE, DYNAMO_TABLE } from '../configs/dynamo.js';
+import {
+  BatchGetItemCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
+import dynamoClient, {
+  DASHBOARD_ANALYTICS_TABLE,
+  DYNAMO_TABLE,
+} from '../configs/dynamo.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 import { findUserByUserId } from './users.service.js';
 
@@ -38,13 +44,20 @@ function getWeekKey(dateString) {
     return '';
   }
 
-  const shiftedDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const shiftedDate = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
   const dayOfWeek = (shiftedDate.getUTCDay() + 6) % 7;
   shiftedDate.setUTCDate(shiftedDate.getUTCDate() - dayOfWeek + 3);
 
   const firstThursday = new Date(Date.UTC(shiftedDate.getUTCFullYear(), 0, 4));
   const firstThursdayDayOfWeek = (firstThursday.getUTCDay() + 6) % 7;
-  const weekNumber = 1 + Math.round(((shiftedDate - firstThursday) / 86400000 - 3 + firstThursdayDayOfWeek) / 7);
+  const weekNumber =
+    1 +
+    Math.round(
+      ((shiftedDate - firstThursday) / 86400000 - 3 + firstThursdayDayOfWeek) /
+        7
+    );
 
   return `${shiftedDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
 }
@@ -75,7 +88,13 @@ function parseMapAttribute(mapAttr) {
   }, {});
 }
 
-async function updateAnalyticsRecord(pkType, sk, updateExpression, expressionAttributeNames, expressionAttributeValues) {
+async function updateAnalyticsRecord(
+  pkType,
+  sk,
+  updateExpression,
+  expressionAttributeNames,
+  expressionAttributeValues
+) {
   const command = new UpdateItemCommand({
     TableName: DASHBOARD_ANALYTICS_TABLE,
     Key: buildKey(pkType, sk),
@@ -121,10 +140,22 @@ function buildStatusDeltas(oldStatus, newStatus, revenue = 0, profit = 0) {
 
 export async function updateKPIAnalytics(event) {
   const status = normalizeStatus(event.status);
-  const monthKey = getMonthKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  const yearKey = getYearKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  const weekKey = getWeekKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  if (!monthKey || monthKey.length !== 7 || !yearKey || yearKey.length !== 4 || !weekKey) {
+  const monthKey = getMonthKey(
+    event.startDate || event.eventDate || event.createdAt || event.created_at
+  );
+  const yearKey = getYearKey(
+    event.startDate || event.eventDate || event.createdAt || event.created_at
+  );
+  const weekKey = getWeekKey(
+    event.startDate || event.eventDate || event.createdAt || event.created_at
+  );
+  if (
+    !monthKey ||
+    monthKey.length !== 7 ||
+    !yearKey ||
+    yearKey.length !== 4 ||
+    !weekKey
+  ) {
     return;
   }
 
@@ -161,17 +192,47 @@ export async function updateKPIAnalytics(event) {
   };
 
   await Promise.all([
-    updateAnalyticsRecord(ANALYTICS_TYPES.GLOBAL, `MONTH#${monthKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
-    updateAnalyticsRecord(ANALYTICS_TYPES.GLOBAL, `YEAR#${yearKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
-    updateAnalyticsRecord(ANALYTICS_TYPES.GLOBAL, `WEEK#${weekKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
+    updateAnalyticsRecord(
+      ANALYTICS_TYPES.GLOBAL,
+      `MONTH#${monthKey}`,
+      updateExpression,
+      expressionAttributeNames,
+      expressionAttributeValues
+    ),
+    updateAnalyticsRecord(
+      ANALYTICS_TYPES.GLOBAL,
+      `YEAR#${yearKey}`,
+      updateExpression,
+      expressionAttributeNames,
+      expressionAttributeValues
+    ),
+    updateAnalyticsRecord(
+      ANALYTICS_TYPES.GLOBAL,
+      `WEEK#${weekKey}`,
+      updateExpression,
+      expressionAttributeNames,
+      expressionAttributeValues
+    ),
   ]);
 }
 
 export async function updateStatusAnalytics(oldStatus, newStatus, event) {
-  const monthKey = getMonthKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  const yearKey = getYearKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  const weekKey = getWeekKey(event.startDate || event.eventDate || event.createdAt || event.created_at);
-  if (!monthKey || monthKey.length !== 7 || !yearKey || yearKey.length !== 4 || !weekKey) {
+  const monthKey = getMonthKey(
+    event.startDate || event.eventDate || event.createdAt || event.created_at
+  );
+  const yearKey = getYearKey(
+    event.startDate || event.eventDate || event.createdAt || event.created_at
+  );
+  const weekKey = getWeekKey(
+    event.startDate || event.eventDate || event.createdAt || event.created_at
+  );
+  if (
+    !monthKey ||
+    monthKey.length !== 7 ||
+    !yearKey ||
+    yearKey.length !== 4 ||
+    !weekKey
+  ) {
     return;
   }
 
@@ -202,9 +263,27 @@ export async function updateStatusAnalytics(oldStatus, newStatus, event) {
   };
 
   await Promise.all([
-    updateAnalyticsRecord(ANALYTICS_TYPES.STATUS, `MONTH#${monthKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
-    updateAnalyticsRecord(ANALYTICS_TYPES.STATUS, `YEAR#${yearKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
-    updateAnalyticsRecord(ANALYTICS_TYPES.STATUS, `WEEK#${weekKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues),
+    updateAnalyticsRecord(
+      ANALYTICS_TYPES.STATUS,
+      `MONTH#${monthKey}`,
+      updateExpression,
+      expressionAttributeNames,
+      expressionAttributeValues
+    ),
+    updateAnalyticsRecord(
+      ANALYTICS_TYPES.STATUS,
+      `YEAR#${yearKey}`,
+      updateExpression,
+      expressionAttributeNames,
+      expressionAttributeValues
+    ),
+    updateAnalyticsRecord(
+      ANALYTICS_TYPES.STATUS,
+      `WEEK#${weekKey}`,
+      updateExpression,
+      expressionAttributeNames,
+      expressionAttributeValues
+    ),
   ]);
 }
 
@@ -232,7 +311,13 @@ export async function updateSemiAnnualAnalytics(year, month, value) {
   const updateExpression =
     'SET #monthlyGraph = if_not_exists(#monthlyGraph, :emptyMap), #monthlyGraph.#monthKey = if_not_exists(#monthlyGraph.#monthKey, :zero) + :value, #updatedAt = :now';
 
-  await updateAnalyticsRecord(ANALYTICS_TYPES.SEMI_ANNUAL, `YEAR#${yearKey}`, updateExpression, expressionAttributeNames, expressionAttributeValues);
+  await updateAnalyticsRecord(
+    ANALYTICS_TYPES.SEMI_ANNUAL,
+    `YEAR#${yearKey}`,
+    updateExpression,
+    expressionAttributeNames,
+    expressionAttributeValues
+  );
 }
 
 export async function updateUpcomingEventsSnapshot(events = []) {
@@ -245,7 +330,11 @@ export async function updateUpcomingEventsSnapshot(events = []) {
 
   for (const event of events
     .filter((entry) => entry && (entry.id || entry.eventId))
-    .sort((a, b) => String(a.date || a.eventDate || a.startDate || '').localeCompare(String(b.date || b.eventDate || b.startDate || '')))) {
+    .sort((a, b) =>
+      String(a.date || a.eventDate || a.startDate || '').localeCompare(
+        String(b.date || b.eventDate || b.startDate || '')
+      )
+    )) {
     const eventKey = event.id || event.eventId;
     if (!seen.has(eventKey)) {
       seen.add(eventKey);
@@ -267,14 +356,17 @@ export async function updateUpcomingEventsSnapshot(events = []) {
   const snapshot = uniqueEvents.slice(0, 10);
   const now = new Date().toISOString();
 
-  await Promise.all(snapshot.map(async (entry) => {
-    if (!entry.clientName && entry.clientId) {
-      const client = await findUserByUserId(entry.clientId);
-      if (client) {
-        entry.clientName = `${client.firstName || ''}${client.lastName ? ` ${client.lastName}` : ''}`.trim();
+  await Promise.all(
+    snapshot.map(async (entry) => {
+      if (!entry.clientName && entry.clientId) {
+        const client = await findUserByUserId(entry.clientId);
+        if (client) {
+          entry.clientName =
+            `${client.firstName || ''}${client.lastName ? ` ${client.lastName}` : ''}`.trim();
+        }
       }
-    }
-  }));
+    })
+  );
 
   const command = new UpdateItemCommand({
     TableName: DASHBOARD_ANALYTICS_TABLE,
@@ -321,8 +413,10 @@ export async function updateVendorSnapshot(vendorId, isActive) {
     const command = new UpdateItemCommand({
       TableName: DASHBOARD_ANALYTICS_TABLE,
       Key: key,
-      UpdateExpression: 'ADD #activeVendorCount :one, #activeVendorIds :vendorSet SET #updatedAt = :now',
-      ConditionExpression: 'attribute_not_exists(#activeVendorIds) OR NOT contains(#activeVendorIds, :vendorId)',
+      UpdateExpression:
+        'ADD #activeVendorCount :one, #activeVendorIds :vendorSet SET #updatedAt = :now',
+      ConditionExpression:
+        'attribute_not_exists(#activeVendorIds) OR NOT contains(#activeVendorIds, :vendorId)',
       ExpressionAttributeNames: {
         '#activeVendorCount': 'activeVendorCount',
         '#activeVendorIds': 'activeVendorIds',
@@ -343,7 +437,8 @@ export async function updateVendorSnapshot(vendorId, isActive) {
   const command = new UpdateItemCommand({
     TableName: DASHBOARD_ANALYTICS_TABLE,
     Key: key,
-    UpdateExpression: 'ADD #activeVendorCount :minusOne DELETE #activeVendorIds :vendorSet SET #updatedAt = :now',
+    UpdateExpression:
+      'ADD #activeVendorCount :minusOne DELETE #activeVendorIds :vendorSet SET #updatedAt = :now',
     ConditionExpression: 'contains(#activeVendorIds, :vendorId)',
     ExpressionAttributeNames: {
       '#activeVendorCount': 'activeVendorCount',
@@ -391,13 +486,18 @@ function parseDashboardItem(item) {
         }))
       : [],
     activeVendorCount: parseNumberAttribute(item.activeVendorCount),
-    activeVendorIds: Array.isArray(item.activeVendorIds?.SS) ? item.activeVendorIds.SS : [],
+    activeVendorIds: Array.isArray(item.activeVendorIds?.SS)
+      ? item.activeVendorIds.SS
+      : [],
     updatedAt: item.updatedAt?.S || '',
   };
 }
 
 async function refreshUpcomingSnapshotIfMissing(upcoming) {
-  if (Array.isArray(upcoming.upcomingEvents) && upcoming.upcomingEvents.length > 0) {
+  if (
+    Array.isArray(upcoming.upcomingEvents) &&
+    upcoming.upcomingEvents.length > 0
+  ) {
     return upcoming;
   }
 
@@ -414,7 +514,8 @@ async function refreshUpcomingSnapshotIfMissing(upcoming) {
   });
 
   const refreshResponse = await dynamoClient.send(refreshCommand);
-  const refreshedItem = refreshResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE]?.[0] || null;
+  const refreshedItem =
+    refreshResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE]?.[0] || null;
   return parseDashboardItem(refreshedItem) || {};
 }
 
@@ -442,44 +543,61 @@ export async function getDashboardSummary() {
   });
 
   const response = await dynamoClient.send(command);
-  const analyticsReturned = response.Responses?.[DASHBOARD_ANALYTICS_TABLE] || [];
-  const analyticsItems = analyticsReturned.filter((item) => item.PK?.S?.startsWith('ANALYTICS#')).map(parseDashboardItem);
+  const analyticsReturned =
+    response.Responses?.[DASHBOARD_ANALYTICS_TABLE] || [];
+  const analyticsItems = analyticsReturned
+    .filter((item) => item.PK?.S?.startsWith('ANALYTICS#'))
+    .map(parseDashboardItem);
 
-  const find = (pk, sk) => analyticsItems.find((item) => item.pk === `ANALYTICS#${pk}` && item.sk === sk) || null;
+  const find = (pk, sk) =>
+    analyticsItems.find(
+      (item) => item.pk === `ANALYTICS#${pk}` && item.sk === sk
+    ) || null;
 
   const monthlyKpi = find('GLOBAL', `MONTH#${monthKey}`) || {};
   const yearlyKpi = find('GLOBAL', `YEAR#${yearKey}`) || {};
-  const weeklyKpi = find('GLOBAL', `WEEK#${getWeekKey(now.toISOString())}`) || {};
+  const weeklyKpi =
+    find('GLOBAL', `WEEK#${getWeekKey(now.toISOString())}`) || {};
   const monthlyStatus = find('STATUS', `MONTH#${monthKey}`) || {};
   const yearlyStatus = find('STATUS', `YEAR#${yearKey}`) || {};
-  const weeklyStatus = find('STATUS', `WEEK#${getWeekKey(now.toISOString())}`) || {};
+  const weeklyStatus =
+    find('STATUS', `WEEK#${getWeekKey(now.toISOString())}`) || {};
   const semiAnnual = find('SEMI_ANNUAL', `YEAR#${yearKey}`) || {};
   let upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
   const vendors = find('VENDORS', 'SNAPSHOT#CURRENT') || {};
 
   upcoming = await refreshUpcomingSnapshotIfMissing(upcoming);
 
-  const activeVendorIds = Array.isArray(vendors.activeVendorIds) ? vendors.activeVendorIds : [];
+  const activeVendorIds = Array.isArray(vendors.activeVendorIds)
+    ? vendors.activeVendorIds
+    : [];
   const topVendorIds = activeVendorIds.slice(0, MAX_ACTIVE_VENDOR_DISPLAY);
 
   let topActiveVendors = [];
   if (topVendorIds.length > 0) {
-    const vendorRequestItems = { Keys: topVendorIds.map((vendorId) => ({
-      PK: { S: `VENDOR#${normalizeString(vendorId)}` },
-      SK: { S: 'PROFILE' },
-    })) };
+    const vendorRequestItems = {
+      Keys: topVendorIds.map((vendorId) => ({
+        PK: { S: `VENDOR#${normalizeString(vendorId)}` },
+        SK: { S: 'PROFILE' },
+      })),
+    };
 
     if (DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE) {
-      requestItems[DASHBOARD_ANALYTICS_TABLE].Keys.push(...vendorRequestItems.Keys);
+      requestItems[DASHBOARD_ANALYTICS_TABLE].Keys.push(
+        ...vendorRequestItems.Keys
+      );
     } else {
       requestItems[DYNAMO_TABLE] = vendorRequestItems;
     }
 
-    const vendorCommand = new BatchGetItemCommand({ RequestItems: requestItems });
+    const vendorCommand = new BatchGetItemCommand({
+      RequestItems: requestItems,
+    });
     const vendorResponse = await dynamoClient.send(vendorCommand);
-    const vendorResponseItems = DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE
-      ? vendorResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE] || []
-      : vendorResponse.Responses?.[DYNAMO_TABLE] || [];
+    const vendorResponseItems =
+      DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE
+        ? vendorResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE] || []
+        : vendorResponse.Responses?.[DYNAMO_TABLE] || [];
 
     topActiveVendors = vendorResponseItems
       .filter((item) => item.PK?.S?.startsWith('VENDOR#'))

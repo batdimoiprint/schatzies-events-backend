@@ -205,7 +205,11 @@ router.delete('/:id', validateTokenMiddleware, deleteOrganizer);
  *       404:
  *         description: Organizer or event not found
  */
-router.post('/:id/assign-event/:eventId', validateTokenMiddleware, assignHeadOrganizer);
+router.post(
+  '/:id/assign-event/:eventId',
+  validateTokenMiddleware,
+  assignHeadOrganizer
+);
 
 /**
  * @swagger
@@ -235,7 +239,11 @@ router.post('/:id/assign-event/:eventId', validateTokenMiddleware, assignHeadOrg
  *       404:
  *         description: Organizer or event not found
  */
-router.post('/:id/assign-worker/:eventId', validateTokenMiddleware, assignWorkerOrganizer);
+router.post(
+  '/:id/assign-worker/:eventId',
+  validateTokenMiddleware,
+  assignWorkerOrganizer
+);
 
 /**
  * @swagger
@@ -263,7 +271,11 @@ router.post('/:id/assign-worker/:eventId', validateTokenMiddleware, assignWorker
  *       404:
  *         description: Organizer or event not found
  */
-router.delete('/:id/unassign-worker/:eventId', validateTokenMiddleware, unassignWorkerOrganizer);
+router.delete(
+  '/:id/unassign-worker/:eventId',
+  validateTokenMiddleware,
+  unassignWorkerOrganizer
+);
 
 /**
  * @swagger
@@ -293,6 +305,10 @@ router.delete('/:id/unassign-worker/:eventId', validateTokenMiddleware, unassign
  *       404:
  *         description: Organizer or event not found
  */
-router.delete('/:id/unassign-event/:eventId', validateTokenMiddleware, unassignHeadOrganizer);
+router.delete(
+  '/:id/unassign-event/:eventId',
+  validateTokenMiddleware,
+  unassignHeadOrganizer
+);
 
 export default router;

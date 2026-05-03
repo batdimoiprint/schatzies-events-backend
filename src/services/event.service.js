@@ -12,7 +12,13 @@ import {
   updateStatusAnalytics,
   updateUpcomingEventsSnapshot,
 } from './dashboardAnalytics.service.js';
-import { normalizeString, buildStringAttribute, buildJsonAttribute, buildJsonOrStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
+import {
+  normalizeString,
+  buildStringAttribute,
+  buildJsonAttribute,
+  buildJsonOrStringAttribute,
+  buildNumberAttribute,
+} from '../utils/dynamoHelpers.js';
 
 function parseJsonAttribute(attr) {
   if (!attr || typeof attr.S !== 'string') {
@@ -91,7 +97,9 @@ function mapDynamoEvent(item) {
     workerOrganizerIds: Array.isArray(item.workerOrganizerIds?.L)
       ? item.workerOrganizerIds.L.map((entry) => entry.S || '')
       : [],
-    workerOrganizerAssignments: Array.isArray(item.workerOrganizerAssignments?.L)
+    workerOrganizerAssignments: Array.isArray(
+      item.workerOrganizerAssignments?.L
+    )
       ? item.workerOrganizerAssignments.L.map((entry) => ({
           organizerId: entry.M?.organizerId?.S || '',
           status: entry.M?.status?.S || 'pending',
@@ -136,14 +144,28 @@ function buildDynamoEventItem(payload) {
   }
 
   const eventDate = normalizeString(payload.eventDate || '');
-  const eventTime = normalizeString(payload.eventTime || payload.startTime || payload.time || '');
-  const startTime = buildStringAttribute(payload.startTime || payload.eventTime || payload.time);
-  const eventLocation = normalizeString(payload.eventLocation || payload.location || '');
+  const eventTime = normalizeString(
+    payload.eventTime || payload.startTime || payload.time || ''
+  );
+  const startTime = buildStringAttribute(
+    payload.startTime || payload.eventTime || payload.time
+  );
+  const eventLocation = normalizeString(
+    payload.eventLocation || payload.location || ''
+  );
   const eventType = normalizeString(payload.eventType || '');
-  const eventPackageKey = normalizeString(payload.eventPackageKey || payload.eventPackage || '');
+  const eventPackageKey = normalizeString(
+    payload.eventPackageKey || payload.eventPackage || ''
+  );
   const title = normalizeString(payload.title || payload.eventTitle || '');
   const status = normalizeString(payload.status || 'Planning');
-  const userId = normalizeString(payload.organizer_id || payload.organizerId || payload.user_id || payload.headOrganizerId || '');
+  const userId = normalizeString(
+    payload.organizer_id ||
+      payload.organizerId ||
+      payload.user_id ||
+      payload.headOrganizerId ||
+      ''
+  );
   const eventPax =
     payload.eventPax !== undefined && payload.eventPax !== null
       ? Number(payload.eventPax)
@@ -158,8 +180,7 @@ function buildDynamoEventItem(payload) {
         organizerId: { S: normalizeString(assignment.organizerId) },
         status: { S: normalizeString(assignment.status || 'pending') },
         updatedAt: {
-          S:
-            normalizeString(assignment.updatedAt) || new Date().toISOString(),
+          S: normalizeString(assignment.updatedAt) || new Date().toISOString(),
         },
       },
     })),
@@ -176,8 +197,12 @@ function buildDynamoEventItem(payload) {
     client_id: { S: clientId },
     organizer_id: { S: userId },
     status: { S: status },
-    created_at: { S: payload.created_at || payload.createdAt || new Date().toISOString() },
-    updated_at: { S: payload.updated_at || payload.updatedAt || new Date().toISOString() },
+    created_at: {
+      S: payload.created_at || payload.createdAt || new Date().toISOString(),
+    },
+    updated_at: {
+      S: payload.updated_at || payload.updatedAt || new Date().toISOString(),
+    },
     workerOrganizerIds: {
       L: organizerIds.map((id) => ({ S: normalizeString(id) })),
     },
@@ -246,7 +271,9 @@ function buildDynamoEventItem(payload) {
     item.checklist = buildJsonAttribute(payload.checklist);
   }
 
-  const confirmedBy = buildStringAttribute(payload.confirmedBy || payload.confirmed_by);
+  const confirmedBy = buildStringAttribute(
+    payload.confirmedBy || payload.confirmed_by
+  );
   if (confirmedBy) {
     item.confirmedBy = confirmedBy;
   }
@@ -319,12 +346,17 @@ export async function createEvent(eventData, clientId) {
     throw new Error('Invalid event data');
   }
 
-  const effectiveClientId = normalizeString(clientId || eventData.clientId || eventData.client_id);
+  const effectiveClientId = normalizeString(
+    clientId || eventData.clientId || eventData.client_id
+  );
   if (!effectiveClientId) {
     throw new Error('clientId is required');
   }
 
-  if (!normalizeString(eventData.eventType) || !normalizeString(eventData.eventDate)) {
+  if (
+    !normalizeString(eventData.eventType) ||
+    !normalizeString(eventData.eventDate)
+  ) {
     throw new Error('eventType and eventDate are required');
   }
 
@@ -339,7 +371,8 @@ export async function createEvent(eventData, clientId) {
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: buildDynamoEventItem(eventPayload),
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression:
+      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
 
   await dynamoClient.send(command);
@@ -383,15 +416,28 @@ export async function updateEvent(eventId, updateData) {
 
   await dynamoClient.send(command);
 
-  if (normalizeString(existingEvent.status).toUpperCase() !== normalizeString(mergedEvent.status).toUpperCase()) {
-    await updateStatusAnalytics(existingEvent.status, mergedEvent.status, mergedEvent);
+  if (
+    normalizeString(existingEvent.status).toUpperCase() !==
+    normalizeString(mergedEvent.status).toUpperCase()
+  ) {
+    await updateStatusAnalytics(
+      existingEvent.status,
+      mergedEvent.status,
+      mergedEvent
+    );
   }
   await updateUpcomingEventsSnapshot(await getEvents());
 
   return mapDynamoEvent(buildDynamoEventItem(mergedEvent));
 }
 
-export async function addEventMessage(eventId, senderId, senderRole, body, receiverId) {
+export async function addEventMessage(
+  eventId,
+  senderId,
+  senderRole,
+  body,
+  receiverId
+) {
   if (!eventId) {
     throw new Error('Event ID is required');
   }
@@ -494,9 +540,10 @@ export async function unassignWorkerOrganizer(eventId, organizerId) {
   }
 
   const updatedEvent = ensureWorkerAssignments({ ...event });
-  updatedEvent.workerOrganizerAssignments = updatedEvent.workerOrganizerAssignments.filter(
-    (assignment) => assignment.organizerId !== organizerId
-  );
+  updatedEvent.workerOrganizerAssignments =
+    updatedEvent.workerOrganizerAssignments.filter(
+      (assignment) => assignment.organizerId !== organizerId
+    );
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );

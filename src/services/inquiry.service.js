@@ -140,6 +140,11 @@ export async function createInquiry(inquiryData) {
 
   validateRequired(inquiryData);
 
+  const available = await isDateAvailable(inquiryData.date);
+  if (!available) {
+    throw new Error('This date is already booked. Please choose another date.');
+  }
+
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -161,6 +166,13 @@ export async function createInquiry(inquiryData) {
     createdAt: now,
     updatedAt: now,
   };
+
+  console.log('Creating new inquiry:', {
+    id,
+    email: newInquiry.email,
+    eventType: newInquiry.eventType,
+    eventPackage: newInquiry.eventPackage,
+  });
 
   const item = {
     PK: `INQUIRY#${newInquiry.id}`,
@@ -226,10 +238,33 @@ export async function getInquiries() {
   return attachMeetingsToInquiries([...inquiries]);
 }
 
-export async function getInquiryByEmail(email) {
+export async function getBookedDates() {
+  const all = await getInquiries();
+  // Filter out cancelled inquiries if you have a cancelled status
+  // For now, any existing inquiry blocks the date
+  return all
+    .filter((inq) => inq.status !== 'Cancelled' && inq.status !== 'Rejected')
+    .map((inq) => inq.date)
+    .filter(Boolean);
+}
+
+export async function isDateAvailable(date) {
+  if (!date) return true;
+  const booked = await getBookedDates();
+  // Simple string comparison for ISO dates (YYYY-MM-DD)
+  const normalizedDate = date.split('T')[0];
+  return !booked.some((d) => d.split('T')[0] === normalizedDate);
+}
+
+export async function getInquiriesByEmail(email) {
   if (!email) throw new Error('Email is required');
   const all = await getInquiries();
-  return all.find((inq) => inq.email?.toLowerCase() === email.toLowerCase()) || null;
+  return all.filter((inq) => inq.email?.toLowerCase() === email.toLowerCase());
+}
+
+export async function getInquiryByEmail(email) {
+  const all = await getInquiriesByEmail(email);
+  return all[0] || null;
 }
 
 export async function getInquiryById(inquiryId) {

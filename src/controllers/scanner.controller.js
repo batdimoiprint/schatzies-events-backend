@@ -16,7 +16,8 @@ export async function scanQrCode(req, res) {
       guestName: buildGuestName(guest),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to scan QR';
+    const message =
+      error instanceof Error ? error.message : 'Unable to scan QR';
     return res.status(400).json({ message });
   }
 }

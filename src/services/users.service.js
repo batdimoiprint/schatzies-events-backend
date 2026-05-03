@@ -1,5 +1,12 @@
 import bcrypt from 'bcryptjs';
-import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand, DeleteItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  GetItemCommand,
+  PutItemCommand,
+  QueryCommand,
+  ScanCommand,
+  DeleteItemCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
 import { normalizeString } from '../utils/dynamoHelpers.js';
@@ -65,7 +72,8 @@ function buildDynamoItem(payload) {
 async function scanUserByEmail(email) {
   const command = new ScanCommand({
     TableName: DYNAMO_TABLE,
-    FilterExpression: 'begins_with(PK, :pkPrefix) AND SK = :sk AND #email = :emailValue',
+    FilterExpression:
+      'begins_with(PK, :pkPrefix) AND SK = :sk AND #email = :emailValue',
     ExpressionAttributeNames: {
       '#email': 'email',
     },
@@ -97,10 +105,15 @@ export async function findUserByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const userItem = (response.Items || []).find(item => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE');
+    const userItem = (response.Items || []).find(
+      (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
+    );
     return userItem ? mapDynamoUser(userItem) : null;
   } catch (error) {
-    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+    if (
+      error.name === 'ValidationException' ||
+      error.name === 'ResourceNotFoundException'
+    ) {
       return scanUserByEmail(normalizedEmail);
     }
     throw error;
@@ -193,11 +206,12 @@ export async function createUser(payload) {
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: buildDynamoItem(userPayload),
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression:
+      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
 
   await dynamoClient.send(command);
-  
+
   // Return user without password
   const { password, ...safeUser } = userPayload;
   return safeUser;
@@ -219,8 +233,19 @@ export async function updateUser(userId, payload) {
   const expressionAttributeValues = {};
 
   const updatableFields = [
-    'firstName', 'middleName', 'lastName', 'birthDate', 'houseNumber',
-    'street', 'barangay', 'city', 'country', 'gender', 'contactNumber', 'role', 'profilePic'
+    'firstName',
+    'middleName',
+    'lastName',
+    'birthDate',
+    'houseNumber',
+    'street',
+    'barangay',
+    'city',
+    'country',
+    'gender',
+    'contactNumber',
+    'role',
+    'profilePic',
   ];
 
   if (payload.isOnline !== undefined) {
@@ -249,13 +274,18 @@ export async function updateUser(userId, payload) {
     if (payload[field] !== undefined) {
       updateExpressions.push(`#${field} = :${field}`);
       expressionAttributeNames[`#${field}`] = field;
-      expressionAttributeValues[`:${field}`] = { S: normalizeString(payload[field]) };
+      expressionAttributeValues[`:${field}`] = {
+        S: normalizeString(payload[field]),
+      };
     }
   }
 
   // Handle password separately (needs hashing)
   if (payload.password) {
-    const hashedPassword = await bcrypt.hash(normalizeString(payload.password), 10);
+    const hashedPassword = await bcrypt.hash(
+      normalizeString(payload.password),
+      10
+    );
     updateExpressions.push('#password = :password');
     expressionAttributeNames['#password'] = 'password';
     expressionAttributeValues[':password'] = { S: hashedPassword };
@@ -329,7 +359,10 @@ export async function replacePassword(userId, currentPassword, newPassword) {
     throw new Error('User has no password set');
   }
 
-  const isValid = await bcrypt.compare(normalizeString(currentPassword), storedHash);
+  const isValid = await bcrypt.compare(
+    normalizeString(currentPassword),
+    storedHash
+  );
   if (!isValid) {
     throw new Error('Current password is incorrect');
   }
@@ -342,7 +375,8 @@ export async function replacePassword(userId, currentPassword, newPassword) {
       PK: { S: `USER#${normalizedUserId}` },
       SK: { S: 'PROFILE' },
     },
-    UpdateExpression: 'SET #password = :password, #isPasswordChanged = :isPasswordChanged',
+    UpdateExpression:
+      'SET #password = :password, #isPasswordChanged = :isPasswordChanged',
     ExpressionAttributeNames: {
       '#password': 'password',
       '#isPasswordChanged': 'isPasswordChanged',

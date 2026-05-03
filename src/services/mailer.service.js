@@ -23,10 +23,20 @@ function formatDate(dateInput) {
   if (!dateInput) return 'TBD';
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return String(dateInput);
-  
+
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   const month = months[d.getMonth()];
   const dd = String(d.getDate()).padStart(2, '0');
@@ -328,7 +338,12 @@ export async function sendWorkerRsvpEmail(organizer, event) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: null, inquiryId: null };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: null,
+      inquiryId: null,
+    };
   }
 
   const mailOptions = {
@@ -453,7 +468,12 @@ export async function sendPasswordResetCodeEmail(user, code) {
     console.warn(
       `No email provided for user ${user.user_id}, skipping password reset email.`
     );
-    return { skipped: true, reason: 'No email provided', link: null, inquiryId: null };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: null,
+      inquiryId: null,
+    };
   }
 
   const fullName =
@@ -487,7 +507,12 @@ export async function sendPasswordResetCodeEmail(user, code) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: null, inquiryId: null };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: null,
+      inquiryId: null,
+    };
   }
 
   const mailOptions = {
@@ -513,7 +538,12 @@ export async function sendAccountCreatedEmail(user, temporaryPassword) {
     console.warn(
       `No email provided for user ${user.user_id}, skipping account created email.`
     );
-    return { skipped: true, reason: 'No email provided', link: null, userId: user.user_id };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: null,
+      userId: user.user_id,
+    };
   }
 
   const fullName =
@@ -561,7 +591,12 @@ export async function sendAccountCreatedEmail(user, temporaryPassword) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: null, userId: user.user_id };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: null,
+      userId: user.user_id,
+    };
   }
 
   const mailOptions = {
@@ -585,14 +620,22 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
     console.warn(
       `No email provided for user ${user.user_id || 'unknown'}, skipping credentials email.`
     );
-    return { skipped: true, reason: 'No email provided', link: loginLink || null };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: loginLink || null,
+    };
   }
 
   if (!plainPassword) {
     console.warn(
       `No plain password provided for user ${user.user_id || 'unknown'}, skipping credentials email.`
     );
-    return { skipped: true, reason: 'No password provided', link: loginLink || null };
+    return {
+      skipped: true,
+      reason: 'No password provided',
+      link: loginLink || null,
+    };
   }
 
   const fullName =
@@ -600,7 +643,8 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
       .filter(Boolean)
       .join(' ') || 'Customer';
   const username = user.email;
-  const resolvedLoginLink = loginLink || process.env.FRONTEND_URL || 'http://localhost:3000/login';
+  const resolvedLoginLink =
+    loginLink || process.env.FRONTEND_URL || 'http://localhost:3000/login';
   const subject = 'Your Schatzies Events account credentials';
   const text =
     `Hello ${fullName},\n\n` +
@@ -610,14 +654,25 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
     `Login Link: ${resolvedLoginLink}\n\n` +
     `For your security, please log in and change your password as soon as possible.\n\n` +
     `Best regards,\nSchatzies Events`;
-  const html =
-    `<p>Hello ${escapeHtml(fullName)},</p>` +
-    `<p>Your account has been created successfully.</p>` +
-    `<p><strong>Username:</strong> ${escapeHtml(username)}<br />` +
-    `<strong>Password:</strong> ${escapeHtml(plainPassword)}<br />` +
-    `<strong>Login Link:</strong> <a href="${escapeHtml(resolvedLoginLink)}">${escapeHtml(resolvedLoginLink)}</a></p>` +
-    `<p>For your security, please log in and change your password as soon as possible.</p>` +
-    `<p>Best regards,<br /><strong>Schatzies Events</strong></p>`;
+  const bodyHtml =
+    `<h2 style="margin:0 0 16px;font-size:20px;color:#2d1a3d;">Your Account Credentials</h2>` +
+    `<p style="margin:0 0 16px;">Hello ${escapeHtml(fullName)},</p>` +
+    `<p style="margin:0 0 16px;">Your account has been created successfully. Here are your login credentials:</p>` +
+    `<div style="background-color:#f5f0ff;padding:16px;border-radius:8px;margin-bottom:16px;">` +
+    `<p style="margin:0 0 8px;"><strong>Username:</strong> ${escapeHtml(username)}</p>` +
+    `<p style="margin:0;"><strong>Password:</strong> ${escapeHtml(plainPassword)}</p>` +
+    `</div>` +
+    `<p style="margin:0 0 24px;">For your security, please log in and change your password as soon as possible.</p>` +
+    `<div style="text-align:center;margin-bottom:24px;">` +
+    `<a href="${escapeHtml(resolvedLoginLink)}" style="display:inline-block;background-color:#e61f83;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px;">Log In Now</a>` +
+    `</div>` +
+    `<p style="margin:0;font-size:14px;color:#6b5d7d;">Best regards,<br /><strong>Schatzies Events Team</strong></p>`;
+
+  const html = wrapEmailHtml({
+    preheader: 'Your Schatzies Events account credentials have been created.',
+    title: 'Account Credentials',
+    bodyHtml,
+  });
 
   const transporter = buildMailTransporter();
   if (!transporter) {
@@ -628,7 +683,11 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: resolvedLoginLink };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: resolvedLoginLink,
+    };
   }
 
   const mailOptions = {
@@ -641,4 +700,182 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
 
   const info = await transporter.sendMail(mailOptions);
   return { skipped: false, info, link: resolvedLoginLink };
+}
+
+export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
+  if (!guest || !event || !verificationUrl) {
+    throw new Error(
+      'Guest, event, and verification URL are required to send RSVP verification email'
+    );
+  }
+
+  if (!guest.email) {
+    console.warn(
+      `No email provided for guest, skipping RSVP verification email.`
+    );
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: verificationUrl,
+    };
+  }
+
+  const guestName =
+    [guest.guestfirstName, guest.guestlastName].filter(Boolean).join(' ') ||
+    'Guest';
+  const eventTitle = event.title || event.eventType || 'the event';
+  const isAttending = String(guest.status || '').toUpperCase() === 'ATTENDING';
+
+  const subject = isAttending
+    ? `Verify your RSVP for ${eventTitle}`
+    : `Please verify your response for ${eventTitle}`;
+
+  const introText = isAttending
+    ? `Thank you for confirming your attendance at ${eventTitle}!`
+    : `Thank you for letting us know that you won't be attending ${eventTitle}.`;
+
+  const instructionText = isAttending
+    ? `To complete your RSVP and receive your event QR code for check-in, please verify your email by clicking the link below:`
+    : `To complete your response, please verify your email by clicking the link below:`;
+
+  const text =
+    `Hello ${guestName},\n\n` +
+    `${introText}\n\n` +
+    `${instructionText}\n\n` +
+    `${verificationUrl}\n\n` +
+    `This link expires in 24 hours. If you did not submit an RSVP, please ignore this email.\n\n` +
+    `Best regards,\nSchatzies Events PH`;
+
+  const buttonText = isAttending ? 'Verify Email & Get QR Code' : null;
+
+  const bodyHtml =
+    `<p style="margin:0 0 16px;">Hello ${escapeHtml(guestName)},</p>` +
+    `<p style="margin:0 0 16px;">${escapeHtml(introText)}</p>` +
+    (buttonText
+      ? `<p style="margin:0 0 16px;">${escapeHtml(instructionText)}</p>` +
+        `<div style="text-align:center;margin:24px 0;">` +
+        `<a href="${escapeHtml(verificationUrl)}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#ec4899 0%,#a855f7 100%);color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;">${escapeHtml(buttonText)}</a>` +
+        `</div>` +
+        `<p style="margin:0 0 16px;font-size:14px;color:#666;">Or copy and paste this link in your browser:<br/><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all;color:#555;">${escapeHtml(verificationUrl)}</span></p>` +
+        `<p style="margin:0 0 16px;font-size:13px;color:#999;">This link expires in 24 hours. If you did not submit an RSVP, please ignore this email.</p>`
+      : `<p style="margin:0 0 16px;">Your response has been recorded. Thank you for letting us know!</p>`) +
+    `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
+
+  const emailTitle = isAttending ? 'Verify your RSVP' : 'Response Received';
+  const html = wrapEmailHtml({
+    preheader: isAttending
+      ? `Verify your email to complete your RSVP for ${eventTitle}.`
+      : `We've received your response for ${eventTitle}.`,
+    title: emailTitle,
+    bodyHtml,
+  });
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    console.warn(
+      'SMTP configuration is missing. RSVP verification email will not be sent.',
+      {
+        to: guest.email,
+        subject,
+      }
+    );
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: verificationUrl,
+    };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: guest.email,
+    subject,
+    text,
+    html,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return { skipped: false, info, link: verificationUrl };
+  } catch (error) {
+    console.error('Error sending RSVP verification email:', error);
+    return {
+      skipped: true,
+      reason: 'Email send failed',
+      link: verificationUrl,
+      error: error.message,
+    };
+  }
+}
+
+export async function sendRsvpVerifiedQrEmail(guest, event) {
+  if (!guest || !event) {
+    throw new Error(
+      'Guest and event are required to send RSVP verified QR email'
+    );
+  }
+
+  if (!guest.email) {
+    return { skipped: true, reason: 'No email provided' };
+  }
+
+  const isAttending = String(guest.status || '').toUpperCase() === 'ATTENDING';
+  // Only send the QR code if they are actually attending
+  if (!isAttending || !guest.qrCode) {
+    return { skipped: true, reason: 'Not attending or no QR code generated' };
+  }
+
+  const guestName =
+    [guest.guestfirstName, guest.guestlastName].filter(Boolean).join(' ') ||
+    'Guest';
+  const eventTitle = event.title || event.eventType || 'the event';
+
+  const subject = `Your RSVP is Verified: Your Digital Pass for ${eventTitle}`;
+
+  const text =
+    `Hello ${guestName},\n\n` +
+    `Your RSVP for ${eventTitle} has been successfully verified!\n\n` +
+    `Your Digital Pass (QR Code) is ready. Please save the attached QR code image or have this email ready on your phone when you arrive at the venue for quick check-in.\n\n` +
+    `We can't wait to see you there!\n\n` +
+    `Best regards,\nSchatzies Events PH`;
+
+  const bodyHtml =
+    `<p style="margin:0 0 16px;">Hello ${escapeHtml(guestName)},</p>` +
+    `<p style="margin:0 0 16px; font-weight: bold; color: #10b981;">Your RSVP has been successfully verified!</p>` +
+    `<p style="margin:0 0 16px;">We're excited to have you join us for ${escapeHtml(eventTitle)}.</p>` +
+    `<div style="text-align:center; margin: 24px 0; padding: 20px; background-color: #fcf8ff; border: 1px solid #f3e8ff; border-radius: 12px;">` +
+    `<p style="margin:0 0 12px; font-weight: bold; color: #a855f7; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">Your Digital Pass</p>` +
+    // Since the QR code is a URL (S3 Presigned URL), we can just embed it directly via img src
+    `<img src="${escapeHtml(guest.qrCode)}" alt="Your Check-in QR Code" style="width: 200px; height: 200px; max-width: 100%; border: 1px solid #eee; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);" />` +
+    `<p style="margin:12px 0 0; font-size: 13px; color: #666;">Please have this QR code ready on your phone when you arrive for a seamless check-in experience.</p>` +
+    `</div>` +
+    `<p style="margin:0 0 16px;">We can't wait to see you there!</p>` +
+    `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
+
+  const html = wrapEmailHtml({
+    preheader: `Your digital pass (QR code) for ${eventTitle} is ready.`,
+    title: 'Your RSVP is Verified',
+    bodyHtml,
+  });
+
+  const transporter = buildMailTransporter();
+  if (!transporter) {
+    return { skipped: true, reason: 'SMTP config missing' };
+  }
+
+  const mailOptions = {
+    from: fromAddress,
+    to: guest.email,
+    subject,
+    text,
+    html,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return { skipped: false, info };
+  } catch (error) {
+    console.error('Error sending RSVP verified QR email:', error);
+    return { skipped: true, reason: 'Email send failed', error: error.message };
+  }
 }

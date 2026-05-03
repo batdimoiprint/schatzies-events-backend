@@ -11,15 +11,18 @@ export async function createInquiryController(req, res) {
     const { email } = req.body ?? {};
 
     if (!email) {
-      return res.status(400).json({ error: 'Email is required to submit an inquiry' });
+      return res
+        .status(400)
+        .json({ error: 'Email is required to submit an inquiry' });
     }
 
     // Requirement: Check if email is verified
     const verified = await isEmailVerified(email);
     if (!verified) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Email not verified',
-        message: 'Please verify your email address before submitting the inquiry form.'
+        message:
+          'Please verify your email address before submitting the inquiry form.',
       });
     }
 
@@ -206,6 +209,15 @@ export async function checkUserRegisteredController(req, res) {
       return res.status(404).json({ error: 'Inquiry not found' });
     }
     res.json({ isUserRegistered: inquiry.is_Account_Created === true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+// GET /api/inquiries/booked-dates
+export async function getBookedDatesController(req, res) {
+  try {
+    const dates = await inquiryService.getBookedDates();
+    res.json(dates);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
