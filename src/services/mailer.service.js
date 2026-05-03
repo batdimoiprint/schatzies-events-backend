@@ -23,10 +23,20 @@ function formatDate(dateInput) {
   if (!dateInput) return 'TBD';
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return String(dateInput);
-  
+
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   const month = months[d.getMonth()];
   const dd = String(d.getDate()).padStart(2, '0');
@@ -328,7 +338,12 @@ export async function sendWorkerRsvpEmail(organizer, event) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: null, inquiryId: null };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: null,
+      inquiryId: null,
+    };
   }
 
   const mailOptions = {
@@ -453,7 +468,12 @@ export async function sendPasswordResetCodeEmail(user, code) {
     console.warn(
       `No email provided for user ${user.user_id}, skipping password reset email.`
     );
-    return { skipped: true, reason: 'No email provided', link: null, inquiryId: null };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: null,
+      inquiryId: null,
+    };
   }
 
   const fullName =
@@ -487,7 +507,12 @@ export async function sendPasswordResetCodeEmail(user, code) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: null, inquiryId: null };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: null,
+      inquiryId: null,
+    };
   }
 
   const mailOptions = {
@@ -513,7 +538,12 @@ export async function sendAccountCreatedEmail(user, temporaryPassword) {
     console.warn(
       `No email provided for user ${user.user_id}, skipping account created email.`
     );
-    return { skipped: true, reason: 'No email provided', link: null, userId: user.user_id };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: null,
+      userId: user.user_id,
+    };
   }
 
   const fullName =
@@ -561,7 +591,12 @@ export async function sendAccountCreatedEmail(user, temporaryPassword) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: null, userId: user.user_id };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: null,
+      userId: user.user_id,
+    };
   }
 
   const mailOptions = {
@@ -585,14 +620,22 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
     console.warn(
       `No email provided for user ${user.user_id || 'unknown'}, skipping credentials email.`
     );
-    return { skipped: true, reason: 'No email provided', link: loginLink || null };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: loginLink || null,
+    };
   }
 
   if (!plainPassword) {
     console.warn(
       `No plain password provided for user ${user.user_id || 'unknown'}, skipping credentials email.`
     );
-    return { skipped: true, reason: 'No password provided', link: loginLink || null };
+    return {
+      skipped: true,
+      reason: 'No password provided',
+      link: loginLink || null,
+    };
   }
 
   const fullName =
@@ -600,7 +643,8 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
       .filter(Boolean)
       .join(' ') || 'Customer';
   const username = user.email;
-  const resolvedLoginLink = loginLink || process.env.FRONTEND_URL || 'http://localhost:3000/login';
+  const resolvedLoginLink =
+    loginLink || process.env.FRONTEND_URL || 'http://localhost:3000/login';
   const subject = 'Your Schatzies Events account credentials';
   const text =
     `Hello ${fullName},\n\n` +
@@ -639,7 +683,11 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: resolvedLoginLink };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: resolvedLoginLink,
+    };
   }
 
   const mailOptions = {
@@ -665,7 +713,11 @@ export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
     console.warn(
       `No email provided for guest, skipping RSVP verification email.`
     );
-    return { skipped: true, reason: 'No email provided', link: verificationUrl };
+    return {
+      skipped: true,
+      reason: 'No email provided',
+      link: verificationUrl,
+    };
   }
 
   const guestName =
@@ -674,8 +726,8 @@ export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
   const eventTitle = event.title || event.eventType || 'the event';
   const isAttending = String(guest.status || '').toUpperCase() === 'ATTENDING';
 
-  const subject = isAttending 
-    ? `Verify your RSVP for ${eventTitle}` 
+  const subject = isAttending
+    ? `Verify your RSVP for ${eventTitle}`
     : `Please verify your response for ${eventTitle}`;
 
   const introText = isAttending
@@ -699,20 +751,19 @@ export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
   const bodyHtml =
     `<p style="margin:0 0 16px;">Hello ${escapeHtml(guestName)},</p>` +
     `<p style="margin:0 0 16px;">${escapeHtml(introText)}</p>` +
-    (buttonText ? 
-      `<p style="margin:0 0 16px;">${escapeHtml(instructionText)}</p>` +
-      `<div style="text-align:center;margin:24px 0;">` +
-      `<a href="${escapeHtml(verificationUrl)}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#ec4899 0%,#a855f7 100%);color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;">${escapeHtml(buttonText)}</a>` +
-      `</div>` +
-      `<p style="margin:0 0 16px;font-size:14px;color:#666;">Or copy and paste this link in your browser:<br/><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all;color:#555;">${escapeHtml(verificationUrl)}</span></p>` +
-      `<p style="margin:0 0 16px;font-size:13px;color:#999;">This link expires in 24 hours. If you did not submit an RSVP, please ignore this email.</p>`
-      : `<p style="margin:0 0 16px;">Your response has been recorded. Thank you for letting us know!</p>`
-    ) +
+    (buttonText
+      ? `<p style="margin:0 0 16px;">${escapeHtml(instructionText)}</p>` +
+        `<div style="text-align:center;margin:24px 0;">` +
+        `<a href="${escapeHtml(verificationUrl)}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#ec4899 0%,#a855f7 100%);color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:16px;">${escapeHtml(buttonText)}</a>` +
+        `</div>` +
+        `<p style="margin:0 0 16px;font-size:14px;color:#666;">Or copy and paste this link in your browser:<br/><span style="font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;word-break:break-all;color:#555;">${escapeHtml(verificationUrl)}</span></p>` +
+        `<p style="margin:0 0 16px;font-size:13px;color:#999;">This link expires in 24 hours. If you did not submit an RSVP, please ignore this email.</p>`
+      : `<p style="margin:0 0 16px;">Your response has been recorded. Thank you for letting us know!</p>`) +
     `<p style="margin:0;">Best regards,<br /><strong style="color:#a855f7;">Schatzies Events PH</strong></p>`;
 
   const emailTitle = isAttending ? 'Verify your RSVP' : 'Response Received';
   const html = wrapEmailHtml({
-    preheader: isAttending 
+    preheader: isAttending
       ? `Verify your email to complete your RSVP for ${eventTitle}.`
       : `We've received your response for ${eventTitle}.`,
     title: emailTitle,
@@ -728,7 +779,11 @@ export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
         subject,
       }
     );
-    return { skipped: true, reason: 'SMTP config missing', link: verificationUrl };
+    return {
+      skipped: true,
+      reason: 'SMTP config missing',
+      link: verificationUrl,
+    };
   }
 
   const mailOptions = {
@@ -744,13 +799,20 @@ export async function sendRsvpVerificationEmail(guest, event, verificationUrl) {
     return { skipped: false, info, link: verificationUrl };
   } catch (error) {
     console.error('Error sending RSVP verification email:', error);
-    return { skipped: true, reason: 'Email send failed', link: verificationUrl, error: error.message };
+    return {
+      skipped: true,
+      reason: 'Email send failed',
+      link: verificationUrl,
+      error: error.message,
+    };
   }
 }
 
 export async function sendRsvpVerifiedQrEmail(guest, event) {
   if (!guest || !event) {
-    throw new Error('Guest and event are required to send RSVP verified QR email');
+    throw new Error(
+      'Guest and event are required to send RSVP verified QR email'
+    );
   }
 
   if (!guest.email) {
@@ -763,11 +825,13 @@ export async function sendRsvpVerifiedQrEmail(guest, event) {
     return { skipped: true, reason: 'Not attending or no QR code generated' };
   }
 
-  const guestName = [guest.guestfirstName, guest.guestlastName].filter(Boolean).join(' ') || 'Guest';
+  const guestName =
+    [guest.guestfirstName, guest.guestlastName].filter(Boolean).join(' ') ||
+    'Guest';
   const eventTitle = event.title || event.eventType || 'the event';
-  
+
   const subject = `Your RSVP is Verified: Your Digital Pass for ${eventTitle}`;
-  
+
   const text =
     `Hello ${guestName},\n\n` +
     `Your RSVP for ${eventTitle} has been successfully verified!\n\n` +
@@ -814,4 +878,73 @@ export async function sendRsvpVerifiedQrEmail(guest, event) {
     console.error('Error sending RSVP verified QR email:', error);
     return { skipped: true, reason: 'Email send failed', error: error.message };
   }
+}
+
+const ADMIN_EMAIL = 'schatzieseventsadmin@gmail.com';
+
+/**
+ * Send a notification email to the admin when a new inquiry is submitted.
+ */
+export async function sendInquiryAdminNotificationEmail(inquiry) {
+  if (!inquiry) {
+    throw new Error('Inquiry is required to send admin notification email');
+  }
+
+  const inquiryId = inquiry.id || 'N/A';
+  const fullName =
+    [inquiry.firstName, inquiry.middleName, inquiry.lastName]
+      .filter(Boolean)
+      .join(' ') || 'Unknown';
+  const eventType = inquiry.eventType || 'N/A';
+  const inquiryDate = formatDate(inquiry.date);
+  const createdAt = formatDate(
+    inquiry.createdAt || inquiry.created_at || new Date().toISOString()
+  );
+  const eventPax = inquiry.eventPax ?? inquiry.package?.pax ?? 'N/A';
+  const eventPackage = inquiry.eventPackage || inquiry.package?.name || 'N/A';
+  const clientEmail = inquiry.email || 'N/A';
+  const contactNumber = inquiry.contactNumber || 'N/A';
+  const clientMessage = inquiry.message || 'None provided';
+
+  const subject = `📩 New Inquiry from ${fullName} — ${eventType}`;
+  const text =
+    `New inquiry received on Schatzies Events.\n\n` +
+    `Inquiry ID: ${inquiryId}\n` +
+    `Name: ${fullName}\n` +
+    `Email: ${clientEmail}\n` +
+    `Contact: ${contactNumber}\n` +
+    `Event Type: ${eventType}\n` +
+    `Event Package: ${eventPackage}\n` +
+    `Planned Date: ${inquiryDate}\n` +
+    `Event Pax: ${eventPax}\n` +
+    `Created At: ${createdAt}\n` +
+    `Client Message: ${clientMessage}\n\n` +
+    `Please review this inquiry in the admin dashboard.`;
+  const bodyHtml =
+    `<p style="margin:0 0 16px;">A new inquiry has been submitted on <strong style="color:#a855f7;">Schatzies Events</strong>.</p>` +
+    `<ul style="margin:0 0 16px;padding-left:20px;color:#1e1b2e;">` +
+    `<li style="margin-bottom:8px;"><strong style="color:#7c3aed;">Inquiry ID:</strong> ${escapeHtml(inquiryId)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Name:</strong> ${escapeHtml(fullName)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Email:</strong> ${escapeHtml(clientEmail)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Contact:</strong> ${escapeHtml(contactNumber)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Type:</strong> ${escapeHtml(eventType)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Package:</strong> ${escapeHtml(eventPackage)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Planned Date:</strong> ${escapeHtml(inquiryDate)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Event Pax:</strong> ${escapeHtml(eventPax)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Created At:</strong> ${escapeHtml(createdAt)}</li>` +
+    `<li style="margin-bottom:8px;"><strong>Client Message:</strong> ${escapeHtml(clientMessage)}</li>` +
+    `</ul>` +
+    `<p style="margin:0;">Please review this inquiry in the admin dashboard.</p>`;
+  const html = wrapEmailHtml({
+    preheader: `New inquiry from ${fullName} for ${eventType}.`,
+    title: 'New Inquiry Received',
+    bodyHtml,
+  });
+
+  return sendSmtpMail({
+    to: ADMIN_EMAIL,
+    subject,
+    text,
+    html,
+  });
 }

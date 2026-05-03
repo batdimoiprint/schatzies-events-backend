@@ -1,4 +1,5 @@
 import * as messageService from '../services/message.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 // ─── GET /api/messages/conversations ────────────────────────────────────────────
 // Returns all conversations for the authenticated user.
@@ -13,7 +14,10 @@ export async function getConversationsController(req, res) {
       return res.json({ conversations });
     }
 
-    const conversations = await messageService.getConversationsForUser(user_id, role);
+    const conversations = await messageService.getConversationsForUser(
+      user_id,
+      role
+    );
     return res.json({ conversations });
   } catch (error) {
     console.error('getConversationsController error:', error.message);
@@ -34,14 +38,24 @@ export async function getMessagesController(req, res) {
     if (normalizedRole === 'ADMIN') {
       messages = await messageService.adminGetMessages(conversationId);
     } else {
-      messages = await messageService.getMessagesForConversation(conversationId, user_id);
+      messages = await messageService.getMessagesForConversation(
+        conversationId,
+        user_id
+      );
     }
+
+    console.log(
+      `📨 Returning ${messages.length} message(s) for conversation ${conversationId}`
+    );
 
     return res.json({ messages });
   } catch (error) {
     console.error('getMessagesController error:', error.message);
 
-    if (error.message.includes('Access denied') || error.message.includes('not a participant')) {
+    if (
+      error.message.includes('Access denied') ||
+      error.message.includes('not a participant')
+    ) {
       return res.status(403).json({ error: error.message });
     }
 
@@ -69,12 +83,66 @@ export async function sendMessageController(req, res) {
       return res.status(400).json({ error: 'Message body is required' });
     }
 
-    const message = await messageService.sendMessage(conversationId, user_id, role, body);
+    const message = await messageService.sendMessage(
+      conversationId,
+      user_id,
+      role,
+      body
+    );
+
+    console.log('✅ Message saved:', {
+      messageId: message.id,
+      conversationId: message.conversationId,
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      body: message.body.substring(0, 50),
+    });
+
+    // Send push notification to recipient
+    // Use req.user context directly — no extra DB lookup needed
+    try {
+      const recipientId = message.receiverId;
+      const senderName =
+        `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() ||
+        'Someone';
+
+      if (recipientId) {
+        await sendPushToUser(recipientId, {
+          title: `New message from ${senderName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId,
+            url: `/messages/${conversationId}`,
+          },
+        });
+      }
+
+      // Also notify admin so they stay in the loop
+      const adminUserId = await getAdminUserId();
+      if (adminUserId && adminUserId !== user_id && adminUserId !== recipientId) {
+        await sendPushToUser(adminUserId, {
+          title: `New message from ${senderName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId,
+            url: `/admin/message`,
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
+
     return res.status(201).json({ message });
   } catch (error) {
     console.error('sendMessageController error:', error.message);
 
-    if (error.message.includes('Access denied') || error.message.includes('not a participant')) {
+    if (
+      error.message.includes('Access denied') ||
+      error.message.includes('not a participant')
+    ) {
       return res.status(403).json({ error: error.message });
     }
 
@@ -105,7 +173,8 @@ export async function initiateConversationController(req, res) {
 
     if (normalizedRole !== 'CLIENT') {
       return res.status(403).json({
-        error: 'Only clients can initiate conversations. Organizers should reply through existing conversations.',
+        error:
+          'Only clients can initiate conversations. Organizers should reply through existing conversations.',
       });
     }
 
@@ -113,7 +182,47 @@ export async function initiateConversationController(req, res) {
       return res.status(400).json({ error: 'Message body is required' });
     }
 
-    const result = await messageService.initiateClientConversation(user_id, body);
+    const result = await messageService.initiateClientConversation(
+      user_id,
+      body
+    );
+
+    // Send push notification to organizer + admin
+    try {
+      const organizerId = result.conversation?.participant2Id;
+      const clientName =
+        `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() ||
+        'A client';
+
+      if (organizerId) {
+        await sendPushToUser(organizerId, {
+          title: `New message from ${clientName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId: result.conversation.id,
+            url: `/messages/${result.conversation.id}`,
+          },
+        });
+      }
+
+      // Also notify admin
+      const adminUserId = await getAdminUserId();
+      if (adminUserId && adminUserId !== user_id && adminUserId !== organizerId) {
+        await sendPushToUser(adminUserId, {
+          title: `New message from ${clientName}`,
+          body: body.substring(0, 100) + (body.length > 100 ? '...' : ''),
+          data: {
+            type: 'message',
+            conversationId: result.conversation.id,
+            url: `/admin/message`,
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
+
     return res.status(201).json(result);
   } catch (error) {
     console.error('initiateConversationController error:', error.message);

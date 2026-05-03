@@ -1,4 +1,8 @@
-import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
 import s3Client from '../configs/s3.js';
@@ -96,7 +100,9 @@ export const generateUniqueFileName = (originalName, prefix = '') => {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 8);
   const cleanName = originalName.replace(/[^a-zA-Z0-9.]/g, '_');
-  return prefix ? `${prefix}/${timestamp}-${randomString}-${cleanName}` : `${timestamp}-${randomString}-${cleanName}`;
+  return prefix
+    ? `${prefix}/${timestamp}-${randomString}-${cleanName}`
+    : `${timestamp}-${randomString}-${cleanName}`;
 };
 
 /**
@@ -106,7 +112,9 @@ export const generateUniqueFileName = (originalName, prefix = '') => {
  * @returns {String} - Unique file path under the note-images folder
  */
 export const generateNoteImageFileName = (originalName, eventId = '') => {
-  const prefix = eventId ? `${NOTE_IMAGE_FOLDER}/${eventId}` : NOTE_IMAGE_FOLDER;
+  const prefix = eventId
+    ? `${NOTE_IMAGE_FOLDER}/${eventId}`
+    : NOTE_IMAGE_FOLDER;
   return generateUniqueFileName(originalName, prefix);
 };
 
@@ -118,7 +126,12 @@ export const generateNoteImageFileName = (originalName, eventId = '') => {
  * @param {String} [eventId] - Optional event ID to namespace note images
  * @returns {Promise<Object>} - Upload result
  */
-export const uploadNoteImage = async (fileContent, originalName, contentType, eventId = '') => {
+export const uploadNoteImage = async (
+  fileContent,
+  originalName,
+  contentType,
+  eventId = ''
+) => {
   const fileName = generateNoteImageFileName(originalName, eventId);
   return uploadFile(fileContent, fileName, contentType);
 };

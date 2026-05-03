@@ -107,7 +107,9 @@ export async function verifyEmailApiController(req, res) {
     const { token } = req.body ?? {};
 
     if (!token) {
-      return res.status(400).json({ success: false, reason: 'Token is required' });
+      return res
+        .status(400)
+        .json({ success: false, reason: 'Token is required' });
     }
 
     const result = await verifyEmailToken(token);

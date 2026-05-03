@@ -5,7 +5,10 @@ export async function fetchDashboardSummary(req, res) {
     const summary = await getDashboardSummary();
     return res.status(200).json({ summary });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch dashboard summary';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to fetch dashboard summary';
     return res.status(500).json({ error: message });
   }
 }

@@ -12,6 +12,7 @@ import {
   deleteRsvpGuest,
 } from '../services/rsvp.service.js';
 import { sendRsvpVerificationEmail } from '../services/mailer.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 function buildGuestName(guest) {
   return [guest.guestfirstName, guest.guestmiddleName, guest.guestlastName]
@@ -23,7 +24,7 @@ function buildGuestName(guest) {
 export async function getRsvpList(req, res) {
   try {
     const { eventId } = req.params;
-    
+
     // Verify ownership: only event owner, assigned organizers, or admins can fetch attending guest list
     const { getEventById } = await import('../services/event.service.js');
     const event = await getEventById(eventId);
@@ -33,19 +34,29 @@ export async function getRsvpList(req, res) {
 
     const isOwner = event.clientId === req.user?.user_id;
     const isHeadOrganizer = event.headOrganizerId === req.user?.user_id;
-    const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
+    const isAssignedOrganizer =
+      Array.isArray(event.workerOrganizerIds) &&
       event.workerOrganizerIds.includes(req.user?.user_id);
     const isAdmin = req.user?.role === 'ADMIN';
     const isOrganizer = req.user?.role === 'ORGANIZER';
 
-    if (!isOwner && !isHeadOrganizer && !isAssignedOrganizer && !isAdmin && !isOrganizer) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s guest list' });
+    if (
+      !isOwner &&
+      !isHeadOrganizer &&
+      !isAssignedOrganizer &&
+      !isAdmin &&
+      !isOrganizer
+    ) {
+      return res.status(403).json({
+        message: "Forbidden: You do not have access to this event's guest list",
+      });
     }
 
     const guests = await getAttendingGuests(eventId);
     return res.status(200).json({ guests });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch RSVP guests';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch RSVP guests';
     return res.status(400).json({ message });
   }
 }
@@ -53,7 +64,7 @@ export async function getRsvpList(req, res) {
 export async function getEventHeadcount(req, res) {
   try {
     const { eventId } = req.params;
-    
+
     // Verify ownership: only event owner, assigned organizers, or admins can fetch headcount
     const { getEventById } = await import('../services/event.service.js');
     const event = await getEventById(eventId);
@@ -63,19 +74,29 @@ export async function getEventHeadcount(req, res) {
 
     const isOwner = event.clientId === req.user?.user_id;
     const isHeadOrganizer = event.headOrganizerId === req.user?.user_id;
-    const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
+    const isAssignedOrganizer =
+      Array.isArray(event.workerOrganizerIds) &&
       event.workerOrganizerIds.includes(req.user?.user_id);
     const isAdmin = req.user?.role === 'ADMIN';
     const isOrganizer = req.user?.role === 'ORGANIZER';
 
-    if (!isOwner && !isHeadOrganizer && !isAssignedOrganizer && !isAdmin && !isOrganizer) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s headcount' });
+    if (
+      !isOwner &&
+      !isHeadOrganizer &&
+      !isAssignedOrganizer &&
+      !isAdmin &&
+      !isOrganizer
+    ) {
+      return res.status(403).json({
+        message: "Forbidden: You do not have access to this event's headcount",
+      });
     }
 
     const headcount = await getHeadcount(eventId);
     return res.status(200).json(headcount);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch headcount';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch headcount';
     return res.status(400).json({ message });
   }
 }
@@ -91,7 +112,8 @@ export async function createRsvpGuest(req, res) {
     const guest = await createRsvpGuestService(eventId, payload);
     return res.status(201).json({ guest });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to create RSVP guest';
+    const message =
+      error instanceof Error ? error.message : 'Unable to create RSVP guest';
     return res.status(400).json({ message });
   }
 }
@@ -105,14 +127,23 @@ export async function manualCheckIn(req, res) {
       guestName: buildGuestName(guest),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to check in guest';
+    const message =
+      error instanceof Error ? error.message : 'Unable to check in guest';
     return res.status(400).json({ message });
   }
 }
 
 export async function createRsvp(req, res) {
   try {
-    const { event_id, first_name, last_name, email, contact_number, status, message } = req.body;
+    const {
+      event_id,
+      first_name,
+      last_name,
+      email,
+      contact_number,
+      status,
+      message,
+    } = req.body;
     if (!event_id) {
       return res.status(400).json({ message: 'event_id is required' });
     }
@@ -133,8 +164,12 @@ export async function createRsvp(req, res) {
       message,
     };
 
-    const guest = await createRsvpGuestService(event_id, payload, verificationToken);
-    
+    const guest = await createRsvpGuestService(
+      event_id,
+      payload,
+      verificationToken
+    );
+
     // Get event details for email
     const { getEventById } = await import('../services/event.service.js');
     const event = await getEventById(event_id);
@@ -142,28 +177,55 @@ export async function createRsvp(req, res) {
     // Send verification email
     const origin = req.get('origin') || req.get('referer');
     let baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    
-    if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+
+    if (
+      origin &&
+      (origin.includes('localhost') || origin.includes('127.0.0.1'))
+    ) {
       baseUrl = new URL(origin).origin;
     }
-    
+
     const verificationUrl = `${baseUrl}/rsvp/verify?eventId=${event_id}&guestId=${guest.guestId}&token=${verificationToken}`;
-    
+
     try {
-      const emailResult = await sendRsvpVerificationEmail(guest, event || {}, verificationUrl);
+      const emailResult = await sendRsvpVerificationEmail(
+        guest,
+        event || {},
+        verificationUrl
+      );
       console.log('RSVP verification email sent:', emailResult);
     } catch (emailError) {
       console.error('Error sending RSVP verification email:', emailError);
       // Don't fail the whole request if email fails, but log it
     }
 
-    return res.status(201).json({ 
+    // Send push notification to event owner (client)
+    try {
+      if (event && event.clientId) {
+        await sendPushToUser(event.clientId, {
+          title: 'New RSVP Received',
+          body: `${first_name} ${last_name} has RSVP'd to your event`,
+          data: {
+            type: 'rsvp',
+            eventId: event_id,
+            guestId: guest.guestId,
+            url: `/client/events/${event_id}/rsvp`,
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
+
+    return res.status(201).json({
       guest,
-      message: 'RSVP submitted successfully. Please check your email to verify and receive your QR code.'
+      message:
+        'RSVP submitted successfully. Please check your email to verify and receive your QR code.',
     });
   } catch (error) {
     console.error('Error in createRsvp:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unable to submit RSVP form';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unable to submit RSVP form';
     return res.status(400).json({ message: errorMessage });
   }
 }
@@ -175,7 +237,8 @@ export async function generateRsvpQr(req, res) {
       return res.status(400).json({ message: 'Event ID is required' });
     }
 
-    const { getEventById, updateEvent } = await import('../services/event.service.js');
+    const { getEventById, updateEvent } =
+      await import('../services/event.service.js');
     const event = await getEventById(eventId);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -219,7 +282,8 @@ export async function generateRsvpQr(req, res) {
       message: 'Generated and saved new QR code',
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to generate QR code';
+    const message =
+      error instanceof Error ? error.message : 'Unable to generate QR code';
     return res.status(500).json({ message });
   }
 }
@@ -227,7 +291,7 @@ export async function generateRsvpQr(req, res) {
 export async function getEventRsvps(req, res) {
   try {
     const { eventId } = req.params;
-    
+
     // Verify ownership: only event owner, assigned organizers, or admins can fetch RSVPs
     const { getEventById } = await import('../services/event.service.js');
     const event = await getEventById(eventId);
@@ -237,19 +301,29 @@ export async function getEventRsvps(req, res) {
 
     const isOwner = event.clientId === req.user?.user_id;
     const isHeadOrganizer = event.headOrganizerId === req.user?.user_id;
-    const isAssignedOrganizer = Array.isArray(event.workerOrganizerIds) && 
+    const isAssignedOrganizer =
+      Array.isArray(event.workerOrganizerIds) &&
       event.workerOrganizerIds.includes(req.user?.user_id);
     const isAdmin = req.user?.role === 'ADMIN';
     const isOrganizer = req.user?.role === 'ORGANIZER';
 
-    if (!isOwner && !isHeadOrganizer && !isAssignedOrganizer && !isAdmin && !isOrganizer) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this event\'s RSVPs' });
+    if (
+      !isOwner &&
+      !isHeadOrganizer &&
+      !isAssignedOrganizer &&
+      !isAdmin &&
+      !isOrganizer
+    ) {
+      return res.status(403).json({
+        message: "Forbidden: You do not have access to this event's RSVPs",
+      });
     }
 
     const guests = await getAllRsvps(eventId);
     return res.status(200).json({ guests });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch event RSVPs';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch event RSVPs';
     return res.status(400).json({ message });
   }
 }
@@ -266,7 +340,8 @@ export async function checkEmailExistsInRsvp(req, res) {
     const exists = await checkEmailExists(email, eventId || null);
     return res.status(200).json({ exists });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to check email';
+    const message =
+      error instanceof Error ? error.message : 'Unable to check email';
     return res.status(400).json({ message });
   }
 }
@@ -284,17 +359,20 @@ export async function verifyRsvpEmailController(req, res) {
     }
 
     if (!token || !String(token).trim()) {
-      return res.status(400).json({ message: 'Verification token is required' });
+      return res
+        .status(400)
+        .json({ message: 'Verification token is required' });
     }
 
     const guest = await verifyRsvpEmail(eventId, guestId, token);
-    
+
     // Send email with the generated QR code
     try {
       const { getEventById } = await import('../services/event.service.js');
       const event = await getEventById(eventId);
       if (event) {
-        const { sendRsvpVerifiedQrEmail } = await import('../services/mailer.service.js');
+        const { sendRsvpVerifiedQrEmail } =
+          await import('../services/mailer.service.js');
         await sendRsvpVerifiedQrEmail(guest, event);
       }
     } catch (emailErr) {
@@ -302,14 +380,15 @@ export async function verifyRsvpEmailController(req, res) {
       // Non-fatal error, continue to respond successfully
     }
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       message: 'Email verified successfully. Your QR code is ready!',
       guest,
-      qrCode: guest.qrCode
+      qrCode: guest.qrCode,
     });
   } catch (error) {
     console.error('Error verifying RSVP email:', error);
-    const message = error instanceof Error ? error.message : 'Unable to verify email';
+    const message =
+      error instanceof Error ? error.message : 'Unable to verify email';
     return res.status(400).json({ message });
   }
 }
@@ -330,7 +409,8 @@ export async function deleteRsvpGuestController(req, res) {
     return res.status(200).json({ message: 'RSVP guest deleted successfully' });
   } catch (error) {
     console.error('Error deleting RSVP guest:', error);
-    const message = error instanceof Error ? error.message : 'Unable to delete RSVP guest';
+    const message =
+      error instanceof Error ? error.message : 'Unable to delete RSVP guest';
     return res.status(400).json({ message });
   }
 }

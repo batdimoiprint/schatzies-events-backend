@@ -18,13 +18,17 @@ if (!DYNAMO_TABLE) {
   throw new Error('AWS_DYNAMO_TABLE env var is required');
 }
 
-
-export const DASHBOARD_ANALYTICS_TABLE = process.env.AWS_DASHBOARD_ANALYTICS_TABLE;
+export const DASHBOARD_ANALYTICS_TABLE =
+  process.env.AWS_DASHBOARD_ANALYTICS_TABLE;
 if (!DASHBOARD_ANALYTICS_TABLE) {
-  throw new Error('AWS_DASHBOARD_ANALYTICS_TABLE env var is required to keep analytics in a separate table');
+  throw new Error(
+    'AWS_DASHBOARD_ANALYTICS_TABLE env var is required to keep analytics in a separate table'
+  );
 }
 if (DASHBOARD_ANALYTICS_TABLE === DYNAMO_TABLE) {
-  console.warn('AWS_DASHBOARD_ANALYTICS_TABLE is identical to AWS_DYNAMO_TABLE. Analytics will still be written to the same table.');
+  console.warn(
+    'AWS_DASHBOARD_ANALYTICS_TABLE is identical to AWS_DYNAMO_TABLE. Analytics will still be written to the same table.'
+  );
 }
 
 const dynamoClient = new DynamoDBClient(dynamoConfig);

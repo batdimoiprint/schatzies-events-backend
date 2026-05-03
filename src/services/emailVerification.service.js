@@ -53,7 +53,7 @@ function parseGmailAccounts() {
       const suffix = key.replace('GMAIL_USER_', '');
       const user = process.env[key];
       const pass = process.env[`GMAIL_PASS_${suffix}`];
-      
+
       if (user && pass) {
         accounts.push({ user, pass });
       }
@@ -78,8 +78,6 @@ function parseGmailAccounts() {
       uniqueAccounts.push(acc);
     }
   }
-
-
 
   return uniqueAccounts;
 }
@@ -140,15 +138,20 @@ async function sendMailWithPool(mailOptionsWithoutFrom) {
       });
       return { skipped: false, info, account: account.user };
     } catch (err) {
-      console.warn(
-        `Gmail account ${account.user} failed:`,
-        { code: err.code, message: err.message, responseCode: err.responseCode, command: err.command }
-      );
+      console.warn(`Gmail account ${account.user} failed:`, {
+        code: err.code,
+        message: err.message,
+        responseCode: err.responseCode,
+        command: err.command,
+      });
     }
   }
 
   // All accounts failed
-  return { skipped: true, reason: 'All Gmail accounts failed – see server logs' };
+  return {
+    skipped: true,
+    reason: 'All Gmail accounts failed – see server logs',
+  };
 }
 
 // ─── Token helpers ───────────────────────────────────────────────────────────
@@ -371,9 +374,9 @@ export async function checkOrSendVerification(email, pendingInquiry = null) {
   // 0. Check inquiry limit for this email
   const userInquiries = await getInquiriesByEmail(normalizedEmail);
   if (userInquiries.length >= MAX_INQUIRIES_PER_EMAIL) {
-    return { 
-      alreadyUsed: true, 
-      reason: `You have reached the maximum limit of ${MAX_INQUIRIES_PER_EMAIL} inquiries for this email address.` 
+    return {
+      alreadyUsed: true,
+      reason: `You have reached the maximum limit of ${MAX_INQUIRIES_PER_EMAIL} inquiries for this email address.`,
     };
   }
 
@@ -385,7 +388,11 @@ export async function checkOrSendVerification(email, pendingInquiry = null) {
 
   // 2. Generate and store token
   const token = generateVerificationToken();
-  const record = await storeVerificationToken(token, normalizedEmail, pendingInquiry);
+  const record = await storeVerificationToken(
+    token,
+    normalizedEmail,
+    pendingInquiry
+  );
 
   // 3. Build verification URL
   const verifyUrl = `${getFrontendUrl()}/verify?token=${token}`;
