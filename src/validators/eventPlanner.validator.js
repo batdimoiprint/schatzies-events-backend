@@ -7,9 +7,31 @@ export const confirmEventSchema = Joi.object({
 });
 
 export const allocationSchema = Joi.object({
-  vendors: Joi.array().items(Joi.object({ id: Joi.string().trim().required(), name: Joi.string().trim().required() })).optional(),
-  manpower: Joi.array().items(Joi.object({ id: Joi.string().trim().required(), role: Joi.string().trim().required() })).optional(),
-  supplies: Joi.array().items(Joi.object({ id: Joi.string().trim().required(), item: Joi.string().trim().required(), quantity: Joi.number().integer().min(0).optional() })).optional(),
+  vendors: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().required(),
+        name: Joi.string().trim().required(),
+      })
+    )
+    .optional(),
+  manpower: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().required(),
+        role: Joi.string().trim().required(),
+      })
+    )
+    .optional(),
+  supplies: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().trim().required(),
+        item: Joi.string().trim().required(),
+        quantity: Joi.number().integer().min(0).optional(),
+      })
+    )
+    .optional(),
   decorations: Joi.object({
     theme: Joi.string().trim().optional().allow(''),
     materials: Joi.array().items(Joi.string().trim()).optional(),

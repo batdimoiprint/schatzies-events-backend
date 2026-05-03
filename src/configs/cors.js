@@ -29,5 +29,4 @@ const corsOptions = {
   ],
 };
 
-
 export default cors(corsOptions);

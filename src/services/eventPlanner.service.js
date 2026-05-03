@@ -39,7 +39,9 @@ function sanitizeChecklistItem(item) {
 }
 
 function isBase64DataUrl(value) {
-  return typeof value === 'string' && /^data:image\/[a-zA-Z+]+;base64,/.test(value);
+  return (
+    typeof value === 'string' && /^data:image\/[a-zA-Z+]+;base64,/.test(value)
+  );
 }
 
 function stripDataUrlStrings(value) {
@@ -73,7 +75,12 @@ async function processNotePayload(note, eventId) {
           const [, mimeType, base64Data] = match;
           const ext = mimeType.split('/')[1].split('+')[0] || 'webp';
           const buffer = Buffer.from(base64Data, 'base64');
-          const uploadResult = await uploadNoteImage(buffer, `note.${ext}`, mimeType, eventId);
+          const uploadResult = await uploadNoteImage(
+            buffer,
+            `note.${ext}`,
+            mimeType,
+            eventId
+          );
           cleaned.noteImageUrl = uploadResult.Location || uploadResult.key;
         }
       }
@@ -116,9 +123,15 @@ function normalizeAllocationVendors(vendors) {
   return vendors
     .map((vendor) => {
       if (!vendor || typeof vendor !== 'object') return null;
-      const id = normalizeString(vendor.id || vendor.vendorId || vendor.vendor_id || '');
+      const id = normalizeString(
+        vendor.id || vendor.vendorId || vendor.vendor_id || ''
+      );
       const name = normalizeString(
-        vendor.name || vendor.vendorName || vendor.businessName || vendor.clientName || ''
+        vendor.name ||
+          vendor.vendorName ||
+          vendor.businessName ||
+          vendor.clientName ||
+          ''
       );
       return {
         ...vendor,
@@ -163,7 +176,9 @@ function mapPrecheckItem(item) {
 function mapFlowItem(item) {
   if (!item) return null;
   const pk = item.PK?.S || '';
-  const id = pk.startsWith('PROGRAM_FLOW#') ? pk.replace('PROGRAM_FLOW#', '') : '';
+  const id = pk.startsWith('PROGRAM_FLOW#')
+    ? pk.replace('PROGRAM_FLOW#', '')
+    : '';
 
   return {
     id,
@@ -180,7 +195,9 @@ function mapFlowItem(item) {
 function mapTimelineTaskItem(item) {
   if (!item) return null;
   const pk = item.PK?.S || '';
-  const id = pk.startsWith('TIMELINE_TASK#') ? pk.replace('TIMELINE_TASK#', '') : '';
+  const id = pk.startsWith('TIMELINE_TASK#')
+    ? pk.replace('TIMELINE_TASK#', '')
+    : '';
 
   return {
     id,
@@ -196,7 +213,9 @@ function mapTimelineTaskItem(item) {
 function mapResourceStatusItem(item) {
   if (!item) return null;
   const pk = item.PK?.S || '';
-  const id = pk.startsWith('RESOURCE_STATUS#') ? pk.replace('RESOURCE_STATUS#', '') : '';
+  const id = pk.startsWith('RESOURCE_STATUS#')
+    ? pk.replace('RESOURCE_STATUS#', '')
+    : '';
 
   return {
     id,
@@ -305,7 +324,8 @@ export async function createTask(eventId, payload) {
 
   const tasks = await queryTasksByEventId(eventId);
   const sameStatusTasks = tasks.filter((task) => task.status === status);
-  const nextOrder = Math.max(0, ...sameStatusTasks.map((task) => task.order)) + 1;
+  const nextOrder =
+    Math.max(0, ...sameStatusTasks.map((task) => task.order)) + 1;
   const taskId = randomUUID();
   const now = new Date().toISOString();
 
@@ -436,7 +456,10 @@ export async function moveTask(eventId, taskId, payload) {
     status: newStatus,
   };
 
-  const insertionIndex = Math.min(Math.max(newOrder - 1, 0), destinationTasks.length);
+  const insertionIndex = Math.min(
+    Math.max(newOrder - 1, 0),
+    destinationTasks.length
+  );
   destinationTasks.splice(insertionIndex, 0, movedTask);
 
   const updates = [];
@@ -475,7 +498,8 @@ export async function moveTask(eventId, taskId, payload) {
       ':updated_at': { S: new Date().toISOString() },
     };
 
-    const updateExpression = 'SET #status = :status, #order = :order, #updated_at = :updated_at';
+    const updateExpression =
+      'SET #status = :status, #order = :order, #updated_at = :updated_at';
     return dynamoClient.send(
       new UpdateItemCommand({
         TableName: DYNAMO_TABLE,
@@ -492,7 +516,8 @@ export async function moveTask(eventId, taskId, payload) {
 }
 
 export async function getEventsByFilter(filter) {
-  const normalizedFilter = typeof filter === 'string' ? filter.trim().toLowerCase() : '';
+  const normalizedFilter =
+    typeof filter === 'string' ? filter.trim().toLowerCase() : '';
   const allEvents = await getEventsService();
 
   if (!normalizedFilter) {
@@ -548,7 +573,9 @@ export async function changeEventStatus(eventId, status) {
   const currentStatus = normalizeStatus(existingEvent.status || '');
   const allowed = VALID_EVENT_STATUS_TRANSITIONS[currentStatus] || [];
   if (!allowed.includes(nextStatus)) {
-    const error = new Error(`Invalid status transition from ${currentStatus} to ${nextStatus}`);
+    const error = new Error(
+      `Invalid status transition from ${currentStatus} to ${nextStatus}`
+    );
     error.status = 400;
     throw error;
   }
@@ -618,7 +645,8 @@ async function createPrecheckRecord(eventId, payload) {
       created_at: { S: now },
       updated_at: { S: now },
     },
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression:
+      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
   await dynamoClient.send(command);
   return findPrecheckByEventId(eventId);
@@ -927,7 +955,9 @@ async function updateResourceStatusRecord(statusId, payload) {
   }
   if (payload.assignee_name !== undefined) {
     updates.push('#assignee_name = :assignee_name');
-    values[':assignee_name'] = { S: normalizeString(payload.assignee_name || '') };
+    values[':assignee_name'] = {
+      S: normalizeString(payload.assignee_name || ''),
+    };
     names['#assignee_name'] = 'assignee_name';
   }
   if (payload.status !== undefined) {
@@ -1025,7 +1055,9 @@ export async function getAllocation(eventId) {
     const existingIds = new Set(allocation.vendors.map((vendor) => vendor.id));
     allocation.vendors = [
       ...allocation.vendors,
-      ...assignedVendorEntries.filter((vendor) => vendor.id && !existingIds.has(vendor.id)),
+      ...assignedVendorEntries.filter(
+        (vendor) => vendor.id && !existingIds.has(vendor.id)
+      ),
     ];
   }
 
@@ -1121,7 +1153,9 @@ export async function createEventChecklist(eventId, payload) {
     throw error;
   }
 
-  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const existingChecklist = Array.isArray(event.checklist)
+    ? event.checklist
+    : [];
   const newItems = payload.checklist
     .map((item) => ({
       id: normalizeString(item.id),
@@ -1148,7 +1182,9 @@ export async function deleteEventChecklistItem(eventId, itemId) {
     throw error;
   }
 
-  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const existingChecklist = Array.isArray(event.checklist)
+    ? event.checklist
+    : [];
   const filteredChecklist = existingChecklist.filter(
     (item) => normalizeString(item.id) !== normalizeString(itemId)
   );
@@ -1164,7 +1200,9 @@ export async function patchEventChecklist(eventId, payload) {
     throw error;
   }
 
-  const existingChecklist = Array.isArray(event.checklist) ? event.checklist : [];
+  const existingChecklist = Array.isArray(event.checklist)
+    ? event.checklist
+    : [];
   const updatedChecklist = existingChecklist.map((item) => {
     const patchItem = payload.checklist.find((patch) => patch.id === item.id);
     if (!patchItem) {
@@ -1172,13 +1210,18 @@ export async function patchEventChecklist(eventId, payload) {
     }
     return {
       ...item,
-      label: patchItem.label !== undefined ? normalizeString(patchItem.label) : item.label || item.task || '',
+      label:
+        patchItem.label !== undefined
+          ? normalizeString(patchItem.label)
+          : item.label || item.task || '',
       done: patchItem.done !== undefined ? patchItem.done : item.done,
     };
   });
 
   const newItems = payload.checklist
-    .filter((patchItem) => !existingChecklist.some((item) => item.id === patchItem.id))
+    .filter(
+      (patchItem) => !existingChecklist.some((item) => item.id === patchItem.id)
+    )
     .map(sanitizeChecklistItem)
     .filter((item) => item && item.id && item.label !== '');
 

@@ -13,7 +13,10 @@ export async function getConversationsController(req, res) {
       return res.json({ conversations });
     }
 
-    const conversations = await messageService.getConversationsForUser(user_id, role);
+    const conversations = await messageService.getConversationsForUser(
+      user_id,
+      role
+    );
     return res.json({ conversations });
   } catch (error) {
     console.error('getConversationsController error:', error.message);
@@ -34,14 +37,20 @@ export async function getMessagesController(req, res) {
     if (normalizedRole === 'ADMIN') {
       messages = await messageService.adminGetMessages(conversationId);
     } else {
-      messages = await messageService.getMessagesForConversation(conversationId, user_id);
+      messages = await messageService.getMessagesForConversation(
+        conversationId,
+        user_id
+      );
     }
 
     return res.json({ messages });
   } catch (error) {
     console.error('getMessagesController error:', error.message);
 
-    if (error.message.includes('Access denied') || error.message.includes('not a participant')) {
+    if (
+      error.message.includes('Access denied') ||
+      error.message.includes('not a participant')
+    ) {
       return res.status(403).json({ error: error.message });
     }
 
@@ -69,12 +78,20 @@ export async function sendMessageController(req, res) {
       return res.status(400).json({ error: 'Message body is required' });
     }
 
-    const message = await messageService.sendMessage(conversationId, user_id, role, body);
+    const message = await messageService.sendMessage(
+      conversationId,
+      user_id,
+      role,
+      body
+    );
     return res.status(201).json({ message });
   } catch (error) {
     console.error('sendMessageController error:', error.message);
 
-    if (error.message.includes('Access denied') || error.message.includes('not a participant')) {
+    if (
+      error.message.includes('Access denied') ||
+      error.message.includes('not a participant')
+    ) {
       return res.status(403).json({ error: error.message });
     }
 
@@ -105,7 +122,8 @@ export async function initiateConversationController(req, res) {
 
     if (normalizedRole !== 'CLIENT') {
       return res.status(403).json({
-        error: 'Only clients can initiate conversations. Organizers should reply through existing conversations.',
+        error:
+          'Only clients can initiate conversations. Organizers should reply through existing conversations.',
       });
     }
 
@@ -113,7 +131,10 @@ export async function initiateConversationController(req, res) {
       return res.status(400).json({ error: 'Message body is required' });
     }
 
-    const result = await messageService.initiateClientConversation(user_id, body);
+    const result = await messageService.initiateClientConversation(
+      user_id,
+      body
+    );
     return res.status(201).json(result);
   } catch (error) {
     console.error('initiateConversationController error:', error.message);

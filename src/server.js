@@ -8,7 +8,11 @@ import corsMiddleware from './configs/cors.js';
 import { configureHelmet } from './configs/helmet.js';
 import { apiLimiter } from './configs/rate-limit.js';
 import errorHandler from './middleware/error.middleware.js';
-import { getLogger, getErrorLogger, skipHealthCheck } from './configs/logger.js';
+import {
+  getLogger,
+  getErrorLogger,
+  skipHealthCheck,
+} from './configs/logger.js';
 
 const app = express();
 
@@ -49,7 +53,9 @@ app.get('/health', (req, res) => {
 
 // API Routes
 const apiPrefix = process.env.API_PREFIX || '/api';
-const normalizedPrefix = apiPrefix.startsWith('/') ? apiPrefix : `/${apiPrefix}`;
+const normalizedPrefix = apiPrefix.startsWith('/')
+  ? apiPrefix
+  : `/${apiPrefix}`;
 // Mount all API feature routes under the shared prefix.
 app.use(normalizedPrefix, routes);
 

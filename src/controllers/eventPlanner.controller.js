@@ -52,9 +52,14 @@ import {
 } from '../validators/eventPlanner.validator.js';
 
 function validateSchema(schema, payload) {
-  const { error, value } = schema.validate(payload, { abortEarly: false, stripUnknown: true });
+  const { error, value } = schema.validate(payload, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
   if (error) {
-    const validationError = new Error(error.details.map((detail) => detail.message).join(', '));
+    const validationError = new Error(
+      error.details.map((detail) => detail.message).join(', ')
+    );
     validationError.status = 400;
     throw validationError;
   }
@@ -67,7 +72,9 @@ export async function confirmEvent(req, res, next) {
     const eventId = req.params.eventId || req.params.id;
     const adminId = req.user?.user_id || req.user?.id;
     const event = await confirmEventService(eventId, payload, adminId);
-    return res.status(200).json({ message: 'Event confirmed successfully', event });
+    return res
+      .status(200)
+      .json({ message: 'Event confirmed successfully', event });
   } catch (error) {
     return next(error);
   }
@@ -87,7 +94,9 @@ export async function createEventAllocation(req, res, next) {
     const payload = validateSchema(allocationSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const allocation = await createOrUpdateAllocationService(eventId, payload);
-    return res.status(201).json({ message: 'Event allocation saved', allocation });
+    return res
+      .status(201)
+      .json({ message: 'Event allocation saved', allocation });
   } catch (error) {
     return next(error);
   }
@@ -107,7 +116,9 @@ export async function deleteEventAllocation(req, res, next) {
   try {
     const eventId = req.params.eventId || req.params.id;
     await deleteEventAllocationService(eventId);
-    return res.status(200).json({ message: 'Event allocation deleted successfully' });
+    return res
+      .status(200)
+      .json({ message: 'Event allocation deleted successfully' });
   } catch (error) {
     return next(error);
   }
@@ -128,7 +139,12 @@ export async function updateEventNotes(req, res, next) {
     const payload = validateSchema(notesSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const updatedNotes = await updateEventNotesService(eventId, payload);
-    return res.status(200).json({ message: 'Event notes updated', notes: updatedNotes.notes || payload.notes });
+    return res
+      .status(200)
+      .json({
+        message: 'Event notes updated',
+        notes: updatedNotes.notes || payload.notes,
+      });
   } catch (error) {
     return next(error);
   }
@@ -138,7 +154,9 @@ export async function deleteEventNotes(req, res, next) {
   try {
     const eventId = req.params.eventId || req.params.id;
     await deleteEventNotesService(eventId);
-    return res.status(200).json({ message: 'Event notes deleted successfully' });
+    return res
+      .status(200)
+      .json({ message: 'Event notes deleted successfully' });
   } catch (error) {
     return next(error);
   }
@@ -158,8 +176,16 @@ export async function createEventChecklist(req, res, next) {
   try {
     const payload = validateSchema(checklistSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
-    const createdChecklist = await createEventChecklistService(eventId, payload);
-    return res.status(201).json({ message: 'Event checklist created', checklist: createdChecklist.checklist || payload.checklist });
+    const createdChecklist = await createEventChecklistService(
+      eventId,
+      payload
+    );
+    return res
+      .status(201)
+      .json({
+        message: 'Event checklist created',
+        checklist: createdChecklist.checklist || payload.checklist,
+      });
   } catch (error) {
     return next(error);
   }
@@ -169,8 +195,16 @@ export async function updateEventChecklist(req, res, next) {
   try {
     const payload = validateSchema(checklistSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
-    const updatedChecklist = await updateEventChecklistService(eventId, payload);
-    return res.status(200).json({ message: 'Event checklist updated', checklist: updatedChecklist.checklist || payload.checklist });
+    const updatedChecklist = await updateEventChecklistService(
+      eventId,
+      payload
+    );
+    return res
+      .status(200)
+      .json({
+        message: 'Event checklist updated',
+        checklist: updatedChecklist.checklist || payload.checklist,
+      });
   } catch (error) {
     return next(error);
   }
@@ -181,7 +215,12 @@ export async function patchEventChecklist(req, res, next) {
     const payload = validateSchema(patchChecklistSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const updatedChecklist = await patchEventChecklistService(eventId, payload);
-    return res.status(200).json({ message: 'Event checklist partially updated', checklist: updatedChecklist.checklist || payload.checklist });
+    return res
+      .status(200)
+      .json({
+        message: 'Event checklist partially updated',
+        checklist: updatedChecklist.checklist || payload.checklist,
+      });
   } catch (error) {
     return next(error);
   }
@@ -203,7 +242,9 @@ export async function updateEventAllocation(req, res, next) {
     const payload = validateSchema(allocationSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const allocation = await createOrUpdateAllocationService(eventId, payload);
-    return res.status(200).json({ message: 'Event allocation updated', allocation });
+    return res
+      .status(200)
+      .json({ message: 'Event allocation updated', allocation });
   } catch (error) {
     return next(error);
   }
@@ -214,7 +255,9 @@ export async function createPrecheck(req, res, next) {
     const payload = validateSchema(precheckSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const precheck = await createPrecheckService(eventId, payload);
-    return res.status(201).json({ message: 'Pre-event verification created', precheck });
+    return res
+      .status(201)
+      .json({ message: 'Pre-event verification created', precheck });
   } catch (error) {
     return next(error);
   }
@@ -225,7 +268,9 @@ export async function updatePrecheck(req, res, next) {
     const payload = validateSchema(precheckSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const precheck = await updatePrecheckService(eventId, payload);
-    return res.status(200).json({ message: 'Pre-event verification updated', precheck });
+    return res
+      .status(200)
+      .json({ message: 'Pre-event verification updated', precheck });
   } catch (error) {
     return next(error);
   }
@@ -246,7 +291,9 @@ export async function createProgramFlow(req, res, next) {
     const payload = validateSchema(programFlowSchema, req.body);
     const eventId = req.params.eventId || req.params.id;
     const flow = await createProgramFlowService(eventId, payload);
-    return res.status(201).json({ message: 'Program flow entry created', flow });
+    return res
+      .status(201)
+      .json({ message: 'Program flow entry created', flow });
   } catch (error) {
     return next(error);
   }
@@ -266,7 +313,9 @@ export async function updateProgramFlow(req, res, next) {
   try {
     const payload = validateSchema(updateProgramFlowSchema, req.body);
     const flow = await updateProgramFlowService(req.params.flow_id, payload);
-    return res.status(200).json({ message: 'Program flow entry updated', flow });
+    return res
+      .status(200)
+      .json({ message: 'Program flow entry updated', flow });
   } catch (error) {
     return next(error);
   }

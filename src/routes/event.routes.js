@@ -50,7 +50,7 @@ import {
   manualCheckIn,
   createRsvpGuest,
   generateRsvpQr,
-  getEventRsvps
+  getEventRsvps,
 } from '../controllers/rsvp.controller.js';
 import costBreakdownRoutes from './costBreakdown.routes.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
@@ -310,7 +310,11 @@ router.get('/:eventId/tasks', getTasks);
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.put('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), updateTask);
+router.put(
+  '/:eventId/tasks/:task_id',
+  requireRole('ADMIN', 'ORGANIZER'),
+  updateTask
+);
 
 /**
  * @swagger
@@ -334,7 +338,11 @@ router.put('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), update
  *       200:
  *         description: Task deleted successfully
  */
-router.delete('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), deleteTask);
+router.delete(
+  '/:eventId/tasks/:task_id',
+  requireRole('ADMIN', 'ORGANIZER'),
+  deleteTask
+);
 
 /**
  * @swagger
@@ -371,7 +379,11 @@ router.delete('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), del
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.put('/:eventId/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), moveTask);
+router.put(
+  '/:eventId/tasks/:task_id/move',
+  requireRole('ADMIN', 'ORGANIZER'),
+  moveTask
+);
 
 /**
  * @swagger
@@ -396,7 +408,11 @@ router.put('/:eventId/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), m
  *       200:
  *         description: Event status updated successfully
  */
-router.put('/:eventId/status', requireRole('ADMIN', 'ORGANIZER'), changeEventStatus);
+router.put(
+  '/:eventId/status',
+  requireRole('ADMIN', 'ORGANIZER'),
+  changeEventStatus
+);
 
 /**
  * @swagger
@@ -1511,7 +1527,11 @@ router.get('/:eventId/rsvp', validateTokenMiddleware, getRsvpList);
  *       400:
  *         description: Invalid request or guest not attending
  */
-router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualCheckIn);
+router.put(
+  '/:eventId/rsvp/:guestId/checkin',
+  validateTokenMiddleware,
+  manualCheckIn
+);
 
 /**
  * @swagger

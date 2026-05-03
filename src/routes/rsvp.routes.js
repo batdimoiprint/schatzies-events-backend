@@ -1,5 +1,10 @@
 import express from 'express';
-import { createRsvp, checkEmailExistsInRsvp, verifyRsvpEmailController, deleteRsvpGuestController } from '../controllers/rsvp.controller.js';
+import {
+  createRsvp,
+  checkEmailExistsInRsvp,
+  verifyRsvpEmailController,
+  deleteRsvpGuestController,
+} from '../controllers/rsvp.controller.js';
 
 const router = express.Router();
 

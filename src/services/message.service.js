@@ -101,10 +101,14 @@ async function findAssignedOrganizer(clientId) {
   const user = await findUserByUserId(clientId);
   if (user && user.email) {
     const inquiry = await getInquiryByEmail(user.email);
-    if (inquiry && inquiry.meetingDetails && inquiry.meetingDetails.organizerId) {
-      return { 
-        eventId: `INQUIRY#${inquiry.id}`, 
-        organizerId: inquiry.meetingDetails.organizerId 
+    if (
+      inquiry &&
+      inquiry.meetingDetails &&
+      inquiry.meetingDetails.organizerId
+    ) {
+      return {
+        eventId: `INQUIRY#${inquiry.id}`,
+        organizerId: inquiry.meetingDetails.organizerId,
       };
     }
   }
@@ -121,13 +125,16 @@ async function isOrganizerAssignedToClient(organizerId, clientId) {
   const events = await getEvents(clientId);
   if (events && events.length > 0) {
     for (const event of events) {
-      const headOrg = event.headOrganizerId || event.organizer_id || event.user_id || '';
+      const headOrg =
+        event.headOrganizerId || event.organizer_id || event.user_id || '';
 
       // Check if they are the head organizer
       if (headOrg === organizerId) return true;
 
       // Check worker organizer assignments
-      const workerIds = Array.isArray(event.workerOrganizerIds) ? event.workerOrganizerIds : [];
+      const workerIds = Array.isArray(event.workerOrganizerIds)
+        ? event.workerOrganizerIds
+        : [];
       if (workerIds.includes(organizerId)) return true;
     }
   }
@@ -136,7 +143,11 @@ async function isOrganizerAssignedToClient(organizerId, clientId) {
   const user = await findUserByUserId(clientId);
   if (user && user.email) {
     const inquiry = await getInquiryByEmail(user.email);
-    if (inquiry && inquiry.meetingDetails && inquiry.meetingDetails.organizerId === organizerId) {
+    if (
+      inquiry &&
+      inquiry.meetingDetails &&
+      inquiry.meetingDetails.organizerId === organizerId
+    ) {
       return true;
     }
   }
@@ -153,8 +164,11 @@ async function getClientsForOrganizer(organizerId) {
   const clientIds = new Set();
 
   for (const event of allEvents) {
-    const headOrg = event.headOrganizerId || event.organizer_id || event.user_id || '';
-    const workerIds = Array.isArray(event.workerOrganizerIds) ? event.workerOrganizerIds : [];
+    const headOrg =
+      event.headOrganizerId || event.organizer_id || event.user_id || '';
+    const workerIds = Array.isArray(event.workerOrganizerIds)
+      ? event.workerOrganizerIds
+      : [];
 
     if (headOrg === organizerId || workerIds.includes(organizerId)) {
       const cId = event.clientId || event.client_id || '';
@@ -225,7 +239,11 @@ async function findOrCreateConversation(clientId, organizerId, eventId) {
   return createConversation(clientId, organizerId, eventId);
 }
 
-async function updateConversationLastMessage(conversationId, messageBody, timestamp) {
+async function updateConversationLastMessage(
+  conversationId,
+  messageBody,
+  timestamp
+) {
   // We do a full put-over for the META item
   const getCmd = new GetItemCommand({
     TableName: DYNAMO_TABLE,
@@ -274,8 +292,14 @@ export async function getConversationsForUser(userId, userRole) {
   // Enrich with participant details
   const enriched = [];
   for (const conv of conversations) {
-    const otherId = conv.participant1Id === userId ? conv.participant2Id : conv.participant1Id;
-    const otherRole = conv.participant1Id === userId ? conv.participant2Role : conv.participant1Role;
+    const otherId =
+      conv.participant1Id === userId
+        ? conv.participant2Id
+        : conv.participant1Id;
+    const otherRole =
+      conv.participant1Id === userId
+        ? conv.participant2Role
+        : conv.participant1Role;
 
     const otherUser = await findUserByUserId(otherId);
     const safeOther = stripSensitive(otherUser);
@@ -287,10 +311,14 @@ export async function getConversationsForUser(userId, userRole) {
         {
           id: otherId,
           role: otherRole,
-          name: safeOther ? `${safeOther.firstName} ${safeOther.lastName}`.trim() : '',
+          name: safeOther
+            ? `${safeOther.firstName} ${safeOther.lastName}`.trim()
+            : '',
           email: safeOther?.email || '',
           contactNumber: safeOther?.contactNumber || '',
-          initial: safeOther ? (safeOther.firstName?.[0] || '').toUpperCase() : '',
+          initial: safeOther
+            ? (safeOther.firstName?.[0] || '').toUpperCase()
+            : '',
           profilePic: safeOther?.profilePic || '',
         },
       ],
@@ -298,9 +326,13 @@ export async function getConversationsForUser(userId, userRole) {
         otherRole === 'ORGANIZER'
           ? {
               id: otherId,
-              name: safeOther ? `${safeOther.firstName} ${safeOther.lastName}`.trim() : '',
+              name: safeOther
+                ? `${safeOther.firstName} ${safeOther.lastName}`.trim()
+                : '',
               email: safeOther?.email || '',
-              initial: safeOther ? (safeOther.firstName?.[0] || '').toUpperCase() : '',
+              initial: safeOther
+                ? (safeOther.firstName?.[0] || '').toUpperCase()
+                : '',
             }
           : undefined,
     });
@@ -329,14 +361,19 @@ export async function getMessagesForConversation(conversationId, userId) {
     throw new Error('Conversation not found');
   }
 
-  if (convMeta.participant1Id !== userId && convMeta.participant2Id !== userId) {
+  if (
+    convMeta.participant1Id !== userId &&
+    convMeta.participant2Id !== userId
+  ) {
     console.log('[DEBUG] Participant mismatch (GET):', {
       conversationId,
       userId,
       participant1Id: convMeta.participant1Id,
-      participant2Id: convMeta.participant2Id
+      participant2Id: convMeta.participant2Id,
     });
-    throw new Error('Access denied: you are not a participant of this conversation');
+    throw new Error(
+      'Access denied: you are not a participant of this conversation'
+    );
   }
 
   // Query all MSG# items — ascending order, capped at 50 for stable polling
@@ -347,8 +384,8 @@ export async function getMessagesForConversation(conversationId, userId) {
       ':pk': { S: `CHAT#${conversationId}` },
       ':msgPrefix': { S: 'MSG#' },
     },
-    ScanIndexForward: true,   // ascending by SK (timestamp-based)
-    Limit: 50,                // cap to prevent unbounded responses
+    ScanIndexForward: true, // ascending by SK (timestamp-based)
+    Limit: 50, // cap to prevent unbounded responses
   });
 
   const msgResp = await dynamoClient.send(msgCmd);
@@ -404,18 +441,24 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
       participant1Id: convMeta.participant1Id,
       participant2Id: convMeta.participant2Id,
     });
-    throw new Error('Access denied: you are not a participant of this conversation');
+    throw new Error(
+      'Access denied: you are not a participant of this conversation'
+    );
   }
 
   // Determine receiver
   const receiverId =
-    convMeta.participant1Id === senderId ? convMeta.participant2Id : convMeta.participant1Id;
+    convMeta.participant1Id === senderId
+      ? convMeta.participant2Id
+      : convMeta.participant1Id;
 
   // Role-specific validation
   if (normalizedRole === 'CLIENT') {
     // Client must be participant1 (or participant2) and receiver must be ORGANIZER
     const receiverRole =
-      convMeta.participant1Id === receiverId ? convMeta.participant1Role : convMeta.participant2Role;
+      convMeta.participant1Id === receiverId
+        ? convMeta.participant1Role
+        : convMeta.participant2Role;
 
     if (String(receiverRole).toUpperCase() !== 'ORGANIZER') {
       throw new Error('Clients can only message their assigned organizer');
@@ -431,7 +474,9 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
   if (normalizedRole === 'ORGANIZER') {
     // Organizer must only reply to assigned clients
     const receiverRole =
-      convMeta.participant1Id === receiverId ? convMeta.participant1Role : convMeta.participant2Role;
+      convMeta.participant1Id === receiverId
+        ? convMeta.participant1Role
+        : convMeta.participant2Role;
 
     if (String(receiverRole).toUpperCase() !== 'CLIENT') {
       throw new Error('Organizers can only message assigned clients');
@@ -459,11 +504,14 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
   };
 
   // ConditionExpression prevents duplicate writes on network retries
-  await dynamoClient.send(new PutItemCommand({
-    TableName: DYNAMO_TABLE,
-    Item: msgItem,
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-  }));
+  await dynamoClient.send(
+    new PutItemCommand({
+      TableName: DYNAMO_TABLE,
+      Item: msgItem,
+      ConditionExpression:
+        'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    })
+  );
 
   // Update conversation metadata with last message preview
   await updateConversationLastMessage(conversationId, normalizedBody, now);
@@ -484,16 +532,27 @@ export async function initiateClientConversation(clientId, messageBody) {
   // Find the organizer assigned to this client
   const assignment = await findAssignedOrganizer(clientId);
   if (!assignment) {
-    throw new Error('No organizer is assigned to your appointment. Please contact admin.');
+    throw new Error(
+      'No organizer is assigned to your appointment. Please contact admin.'
+    );
   }
 
   const { eventId, organizerId } = assignment;
 
   // Find or create the conversation
-  const conversation = await findOrCreateConversation(clientId, organizerId, eventId);
+  const conversation = await findOrCreateConversation(
+    clientId,
+    organizerId,
+    eventId
+  );
 
   // Send the message
-  const message = await sendMessage(conversation.id, clientId, 'CLIENT', normalizedBody);
+  const message = await sendMessage(
+    conversation.id,
+    clientId,
+    'CLIENT',
+    normalizedBody
+  );
 
   return { conversation, message };
 }

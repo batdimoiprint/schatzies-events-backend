@@ -300,7 +300,11 @@ router.post('/:id/assign-event', validateTokenMiddleware, assignVendorToEvent);
  *       500:
  *         description: Server error
  */
-router.delete('/:id/unassign-event', validateTokenMiddleware, unassignVendorFromEvent);
+router.delete(
+  '/:id/unassign-event',
+  validateTokenMiddleware,
+  unassignVendorFromEvent
+);
 
 /**
  * @swagger
@@ -503,7 +507,11 @@ router.get('/:id/workers/:workerId/events', getWorkerEvents);
  *       404:
  *         description: Worker not found
  */
-router.put('/:id/workers/:workerId', validateTokenMiddleware, updateVendorWorker);
+router.put(
+  '/:id/workers/:workerId',
+  validateTokenMiddleware,
+  updateVendorWorker
+);
 
 /**
  * @swagger
@@ -531,7 +539,11 @@ router.put('/:id/workers/:workerId', validateTokenMiddleware, updateVendorWorker
  *       500:
  *         description: Server error
  */
-router.delete('/:id/workers/:workerId', validateTokenMiddleware, deleteVendorWorker);
+router.delete(
+  '/:id/workers/:workerId',
+  validateTokenMiddleware,
+  deleteVendorWorker
+);
 
 /**
  * @swagger
@@ -570,7 +582,11 @@ router.delete('/:id/workers/:workerId', validateTokenMiddleware, deleteVendorWor
  *       404:
  *         description: Worker or event not found
  */
-router.post('/:id/workers/:workerId/assign-event', validateTokenMiddleware, assignWorkerToEvent);
+router.post(
+  '/:id/workers/:workerId/assign-event',
+  validateTokenMiddleware,
+  assignWorkerToEvent
+);
 
 /**
  * @swagger
@@ -598,7 +614,11 @@ router.post('/:id/workers/:workerId/assign-event', validateTokenMiddleware, assi
  *       500:
  *         description: Server error
  */
-router.delete('/:id/workers/:workerId/unassign-event', validateTokenMiddleware, unassignWorkerFromEvent);
+router.delete(
+  '/:id/workers/:workerId/unassign-event',
+  validateTokenMiddleware,
+  unassignWorkerFromEvent
+);
 
 /**
  * @swagger

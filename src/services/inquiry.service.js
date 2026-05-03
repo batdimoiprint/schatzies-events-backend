@@ -139,7 +139,7 @@ export async function createInquiry(inquiryData) {
   }
 
   validateRequired(inquiryData);
-  
+
   const available = await isDateAvailable(inquiryData.date);
   if (!available) {
     throw new Error('This date is already booked. Please choose another date.');
