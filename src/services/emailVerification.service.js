@@ -79,13 +79,7 @@ function parseGmailAccounts() {
     }
   }
 
-  if (uniqueAccounts.length > 0) {
-    console.log(`Gmail pool: loaded ${uniqueAccounts.length} account(s)`);
-  } else {
-    console.warn(
-      'No Gmail accounts configured (set GMAIL_ACCOUNTS, GMAIL_USER/GMAIL_PASS, or GMAIL_USER_x/GMAIL_PASS_x).'
-    );
-  }
+
 
   return uniqueAccounts;
 }
