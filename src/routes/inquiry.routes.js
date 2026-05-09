@@ -81,6 +81,8 @@ router.post('/', createInquiryController);
  */
 router.get('/', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), getInquiriesController);
 
+router.get('/booked-dates', getBookedDatesController);
+
 /**
  * @swagger
  * /api/inquiries/{id}:
@@ -172,6 +174,5 @@ router.post('/:id/communications', validateTokenMiddleware, requireRole('ADMIN',
 router.post('/:id/meeting', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), scheduleMeetingController);
 
 router.get('/:id/isUserRegistered', checkUserRegisteredController);
-router.get('/booked-dates', getBookedDatesController);
 
 export default router;
