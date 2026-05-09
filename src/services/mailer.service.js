@@ -644,7 +644,10 @@ export async function sendUserCredentialsEmail(user, plainPassword, loginLink) {
       .join(' ') || 'Customer';
   const username = user.email;
   const resolvedLoginLink =
-    loginLink || process.env.FRONTEND_URL || 'http://localhost:3000/login';
+    loginLink ||
+    (process.env.NODE_ENV === 'production'
+      ? process.env.FRONTEND_URL
+      : 'http://localhost:5173') + '/login';
   const subject = 'Your Schatzies Events account credentials';
   const text =
     `Hello ${fullName},\n\n` +

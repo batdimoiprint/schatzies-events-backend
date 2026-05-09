@@ -48,7 +48,7 @@ export async function createUserHandler(req, res) {
     }
 
     const user = await createUser(req.body ?? {});
-    const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
+    const loginLink = `${process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:5173'}/login`;
     const createdPassword = req.body?.password;
 
     // Send account creation email with temporary password

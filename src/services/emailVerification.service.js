@@ -18,7 +18,9 @@ const VERIFICATION_TOKEN_TTL_MS = 15 * 60 * 1000; // 15 minutes
  * Get the frontend URL from environment variables, defaulting to localhost for development.
  */
 function getFrontendUrl() {
-  return process.env.FRONTEND_URL || 'http://localhost:5173';
+  return process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : 'http://localhost:5173';
 }
 
 // ─── Gmail Account Pool ─────────────────────────────────────────────────────

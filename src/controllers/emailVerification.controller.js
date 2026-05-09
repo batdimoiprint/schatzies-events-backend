@@ -8,7 +8,9 @@ import {
  * Get the frontend URL from environment variables, defaulting to localhost for development.
  */
 function getFrontendUrl() {
-  return process.env.FRONTEND_URL || 'http://localhost:5173';
+  return process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : 'http://localhost:5173';
 }
 
 /**
