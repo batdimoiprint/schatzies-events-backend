@@ -3,7 +3,6 @@ import {
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, {
-  DASHBOARD_ANALYTICS_TABLE,
   DYNAMO_TABLE,
 } from '../configs/dynamo.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
@@ -96,7 +95,7 @@ async function updateAnalyticsRecord(
   expressionAttributeValues
 ) {
   const command = new UpdateItemCommand({
-    TableName: DASHBOARD_ANALYTICS_TABLE,
+    TableName: DYNAMO_TABLE,
     Key: buildKey(pkType, sk),
     UpdateExpression: updateExpression,
     ExpressionAttributeNames: expressionAttributeNames,
@@ -369,7 +368,7 @@ export async function updateUpcomingEventsSnapshot(events = []) {
   );
 
   const command = new UpdateItemCommand({
-    TableName: DASHBOARD_ANALYTICS_TABLE,
+    TableName: DYNAMO_TABLE,
     Key: buildKey(ANALYTICS_TYPES.UPCOMING, 'SNAPSHOT#CURRENT'),
     UpdateExpression: 'SET #upcomingEvents = :events, #updatedAt = :now',
     ExpressionAttributeNames: {
@@ -411,7 +410,7 @@ export async function updateVendorSnapshot(vendorId, isActive) {
 
   if (isActive) {
     const command = new UpdateItemCommand({
-      TableName: DASHBOARD_ANALYTICS_TABLE,
+      TableName: DYNAMO_TABLE,
       Key: key,
       UpdateExpression:
         'ADD #activeVendorCount :one, #activeVendorIds :vendorSet SET #updatedAt = :now',
@@ -435,7 +434,7 @@ export async function updateVendorSnapshot(vendorId, isActive) {
   }
 
   const command = new UpdateItemCommand({
-    TableName: DASHBOARD_ANALYTICS_TABLE,
+    TableName: DYNAMO_TABLE,
     Key: key,
     UpdateExpression:
       'ADD #activeVendorCount :minusOne DELETE #activeVendorIds :vendorSet SET #updatedAt = :now',
@@ -507,7 +506,7 @@ async function refreshUpcomingSnapshotIfMissing(upcoming) {
 
   const refreshCommand = new BatchGetItemCommand({
     RequestItems: {
-      [DASHBOARD_ANALYTICS_TABLE]: {
+      [DYNAMO_TABLE]: {
         Keys: [buildKey(ANALYTICS_TYPES.UPCOMING, 'SNAPSHOT#CURRENT')],
       },
     },
@@ -515,7 +514,7 @@ async function refreshUpcomingSnapshotIfMissing(upcoming) {
 
   const refreshResponse = await dynamoClient.send(refreshCommand);
   const refreshedItem =
-    refreshResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE]?.[0] || null;
+    refreshResponse.Responses?.[DYNAMO_TABLE]?.[0] || null;
   return parseDashboardItem(refreshedItem) || {};
 }
 
@@ -525,7 +524,7 @@ export async function getDashboardSummary() {
   const yearKey = String(now.getUTCFullYear());
 
   const requestItems = {
-    [DASHBOARD_ANALYTICS_TABLE]: {
+    [DYNAMO_TABLE]: {
       Keys: [
         buildKey(ANALYTICS_TYPES.GLOBAL, `MONTH#${monthKey}`),
         buildKey(ANALYTICS_TYPES.GLOBAL, `YEAR#${yearKey}`),
@@ -544,7 +543,7 @@ export async function getDashboardSummary() {
 
   const response = await dynamoClient.send(command);
   const analyticsReturned =
-    response.Responses?.[DASHBOARD_ANALYTICS_TABLE] || [];
+    response.Responses?.[DYNAMO_TABLE] || [];
   const analyticsItems = analyticsReturned
     .filter((item) => item.PK?.S?.startsWith('ANALYTICS#'))
     .map(parseDashboardItem);
@@ -582,22 +581,15 @@ export async function getDashboardSummary() {
       })),
     };
 
-    if (DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE) {
-      requestItems[DASHBOARD_ANALYTICS_TABLE].Keys.push(
-        ...vendorRequestItems.Keys
-      );
-    } else {
-      requestItems[DYNAMO_TABLE] = vendorRequestItems;
-    }
+    requestItems[DYNAMO_TABLE].Keys.push(
+      ...vendorRequestItems.Keys
+    );
 
     const vendorCommand = new BatchGetItemCommand({
       RequestItems: requestItems,
     });
     const vendorResponse = await dynamoClient.send(vendorCommand);
-    const vendorResponseItems =
-      DYNAMO_TABLE === DASHBOARD_ANALYTICS_TABLE
-        ? vendorResponse.Responses?.[DASHBOARD_ANALYTICS_TABLE] || []
-        : vendorResponse.Responses?.[DYNAMO_TABLE] || [];
+    const vendorResponseItems = vendorResponse.Responses?.[DYNAMO_TABLE] || [];
 
     topActiveVendors = vendorResponseItems
       .filter((item) => item.PK?.S?.startsWith('VENDOR#'))
