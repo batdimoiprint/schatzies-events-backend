@@ -176,7 +176,9 @@ export async function createRsvp(req, res) {
 
     // Send verification email
     const origin = req.get('origin') || req.get('referer');
-    let baseUrl = process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:5173';
+    let baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',')[0].trim() 
+      : 'http://localhost:5173';
 
     if (
       origin &&
@@ -255,7 +257,9 @@ export async function generateRsvpQr(req, res) {
     }
 
     // Generate QR code pointing to the RSVP page
-    const baseUrl = process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:5173';
+    const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',')[0].trim() 
+      : 'http://localhost:5173';
     const rsvpUrl = `${baseUrl}/rsvp?eventId=${eventId}`;
 
     const qrCodeBuffer = await QRCode.toBuffer(rsvpUrl, {
