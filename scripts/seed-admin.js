@@ -6,12 +6,12 @@ try {
   await client.send(new PutItemCommand({
     TableName: process.env.TABLE_NAME,
     Item: {
-      PK: { S: "USER#admin@schatzies.com" },
+      PK: { S: "USER#schatzieseventsadmin@gmail.com" },
       SK: { S: "PROFILE" },
       firstName: { S: "Admin" },
       middleName: { S: "" },
       lastName: { S: "Schatzies" },
-      email: { S: "admin@schatzies.com" },
+      email: { S: "schatzieseventsadmin@gmail.com" },
       password: { S: process.env.ADMIN_HASH },
       role: { S: "ADMIN" },
       contactNumber: { S: "" },
