@@ -38,3 +38,10 @@ jobs:
           aws lambda update-function-code \
             --function-name $LAMBDA_NAME \
             --zip-file fileb://function.zip
+
+      - name: Seed admin user
+        run: node scripts/seed-admin.js
+        env:
+          AWS_REGION: ap-southeast-1
+          TABLE_NAME: schatzies_main_table
+          ADMIN_HASH: ${{ secrets.ADMIN_SEED_HASH }}

@@ -453,6 +453,55 @@ export async function resetPasswordWithToken(resetToken, newPassword) {
   return stripPassword(mapDynamoUser(response.Attributes));
 }
 
+export async function forceChangePassword(resetToken, newPassword) {
+  if (!resetToken || !newPassword) {
+    return null;
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, JWT_SECRET);
+  } catch {
+    return null;
+  }
+
+  if (
+    !payload ||
+    payload.purpose !== 'force-change-password' ||
+    !payload.user_id
+  ) {
+    return null;
+  }
+
+  const user = await findUserByUserId(payload.user_id);
+  if (!user) {
+    return null;
+  }
+
+  const hashedPassword = await bcrypt.hash(normalizeString(newPassword), 10);
+  const command = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${user.user_id}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression:
+      'SET #password = :password, #isPasswordChanged = :isPasswordChanged',
+    ExpressionAttributeNames: {
+      '#password': 'password',
+      '#isPasswordChanged': 'isPasswordChanged',
+    },
+    ExpressionAttributeValues: {
+      ':password': { S: hashedPassword },
+      ':isPasswordChanged': { BOOL: true },
+    },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const response = await dynamoClient.send(command);
+  return stripPassword(mapDynamoUser(response.Attributes));
+}
+
 export function verifyAuthToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET);

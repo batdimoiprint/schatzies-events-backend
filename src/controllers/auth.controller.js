@@ -1,11 +1,15 @@
 import {
   authenticateUser,
   createPasswordResetChallenge,
+  forceChangePassword,
   resetPasswordWithToken,
   signAuthToken,
   verifyPasswordResetCode,
 } from '../services/auth.service.js';
 import { sendPasswordResetCodeEmail } from '../services/mailer.service.js';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const AUTH_COOKIE_NAME = 'auth_token';
 const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -55,6 +59,24 @@ export async function login(req, res) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Force password change for users who haven't changed their temp password
+    if (user.isPasswordChanged === false) {
+      const resetToken = jwt.sign(
+        {
+          user_id: user.user_id,
+          email: user.email,
+          purpose: 'force-change-password',
+        },
+        JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+
+      return res.json({
+        requiresPasswordReset: true,
+        resetToken,
+      });
+    }
+
     const token = signAuthToken(user);
     setAuthCookie(res, token);
 
@@ -66,6 +88,32 @@ export async function login(req, res) {
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ error: 'Unable to login' });
+  }
+}
+
+export async function forceChangePasswordHandler(req, res) {
+  try {
+    const { resetToken, password } = req.body ?? {};
+
+    if (!resetToken || !password) {
+      return res
+        .status(400)
+        .json({ error: 'resetToken and password are required' });
+    }
+
+    const updatedUser = await forceChangePassword(resetToken, password);
+    if (!updatedUser) {
+      return res
+        .status(400)
+        .json({ error: 'Invalid or expired reset token' });
+    }
+
+    return res.json({
+      message: 'Password updated successfully',
+      user: updatedUser,
+    });
+  } catch {
+    return res.status(500).json({ error: 'Unable to change password' });
   }
 }
 
