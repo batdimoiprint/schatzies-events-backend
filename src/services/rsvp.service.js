@@ -245,7 +245,7 @@ export async function createRsvpGuest(
 
   // QR code will be generated after email verification
   // if (isAttending(payload.status || 'ATTENDING')) {
-  //   const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  //   const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',')[0].trim() : 'http://localhost:5173';
   //   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
   //   const qrCodeImage = await QRCode.toDataURL(checkInUrl);
   //   item.qrCode = { S: qrCodeImage };
@@ -436,7 +436,9 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
   const now = new Date().toISOString();
 
   // Generate QR code for check-in
-  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',')[0].trim() 
+    : 'http://localhost:5173';
   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
 
   const qrCodeBuffer = await QRCode.toBuffer(checkInUrl, {
