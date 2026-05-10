@@ -6,6 +6,7 @@ import {
   DeleteItemCommand,
   GetItemCommand,
   PutItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getInquiriesByEmail, createInquiry } from './inquiry.service.js';
@@ -295,6 +296,43 @@ export async function isEmailVerified(email) {
 
   const response = await dynamoClient.send(command);
   return response.Item?.verified?.S === 'true';
+}
+
+/**
+ * Get all verified emails from DynamoDB.
+ * Scans for all items with PK starting with VERIFIED_EMAIL#.
+ */
+export async function getVerifiedEmails() {
+  const items = [];
+  let lastKey = undefined;
+
+  do {
+    const result = await dynamoClient.send(
+      new ScanCommand({
+        TableName: DYNAMO_TABLE,
+        FilterExpression: 'begins_with(PK, :prefix)',
+        ExpressionAttributeValues: {
+          ':prefix': { S: 'VERIFIED_EMAIL#' },
+        },
+        ExclusiveStartKey: lastKey,
+      })
+    );
+
+    for (const item of result.Items || []) {
+      items.push({
+        email: item.email?.S || item.PK?.S?.replace('VERIFIED_EMAIL#', '') || '',
+        verified: item.verified?.S === 'true',
+        verifiedAt: item.verifiedAt?.S || '',
+      });
+    }
+
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Sort by verifiedAt descending (most recent first)
+  items.sort((a, b) => (b.verifiedAt || '').localeCompare(a.verifiedAt || ''));
+
+  return items;
 }
 
 // ─── HTML Email Template ────────────────────────────────────────────────────

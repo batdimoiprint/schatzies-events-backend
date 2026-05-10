@@ -2,6 +2,7 @@ import {
   checkOrSendVerification,
   verifyEmailToken,
   isEmailVerified,
+  getVerifiedEmails,
 } from '../services/emailVerification.service.js';
 
 /**
@@ -150,5 +151,22 @@ export async function checkEmailVerifiedController(req, res) {
     return res
       .status(500)
       .json({ error: 'Unable to check email verification status' });
+  }
+}
+
+/**
+ * GET /api/auth/verified-emails
+ *
+ * Admin endpoint to list all verified email addresses.
+ */
+export async function getVerifiedEmailsController(req, res) {
+  try {
+    const emails = await getVerifiedEmails();
+    return res.json({ emails, total: emails.length });
+  } catch (error) {
+    console.error('get-verified-emails error:', error);
+    return res
+      .status(500)
+      .json({ error: 'Unable to fetch verified emails' });
   }
 }

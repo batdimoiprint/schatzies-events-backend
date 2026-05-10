@@ -245,7 +245,7 @@ export async function getBookedDates() {
   // For now, any existing inquiry blocks the date
   return all
     .filter((inq) => inq.status !== 'Cancelled' && inq.status !== 'Rejected')
-    .map((inq) => inq.date)
+    .map((inq) => (inq.date || '').split('T')[0])
     .filter(Boolean);
 }
 
