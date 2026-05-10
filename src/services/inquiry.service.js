@@ -164,6 +164,7 @@ function mapToFrontend(u, meetingDetails = null) {
     packageInitialAmount: u.packageInitialAmount,
     downpaymentAmount: u.downpaymentAmount,
     currency: u.currency || PACKAGE_PRICING.currency,
+    venue: u.venue || '',
     createdAt: u.createdAt || u.created_at,
     updatedAt: u.updatedAt || u.updated_at,
   };
@@ -409,6 +410,7 @@ export async function updateInquiry(inquiryId, updateData) {
     'packageInitialAmount',
     'downpaymentAmount',
     'currency',
+    'venue',
   ];
 
   if (USE_DYNAMO) {

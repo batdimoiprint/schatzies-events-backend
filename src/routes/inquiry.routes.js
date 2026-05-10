@@ -163,6 +163,8 @@ router.get(
  *                 type: number
  *               currency:
  *                 type: string
+ *               venue:
+ *                 type: string
  *               message:
  *                 type: string
  *     responses:
