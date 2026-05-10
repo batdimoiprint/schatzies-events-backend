@@ -165,6 +165,7 @@ function mapDynamoEvent(item) {
     eventDate: item.eventDate?.S || '',
     eventTime: item.eventTime?.S || '',
     startTime: item.startTime?.S || item.eventTime?.S || '',
+    endTime: item.endTime?.S || '',
     eventLocation: item.eventLocation?.S || item.location?.S || '',
     status: item.status?.S || '',
     id: item.SK?.S?.replace('EVENT#', '') || '',
@@ -235,6 +236,7 @@ function buildDynamoEventItem(payload) {
   const startTime = buildStringAttribute(
     payload.startTime || payload.eventTime || payload.time
   );
+  const endTime = buildStringAttribute(payload.endTime);
   const eventLocation = normalizeString(
     payload.eventLocation || payload.location || ''
   );
@@ -331,6 +333,10 @@ function buildDynamoEventItem(payload) {
 
   if (startTime) {
     item.startTime = startTime;
+  }
+
+  if (endTime) {
+    item.endTime = endTime;
   }
 
   if (eventLocation) {
