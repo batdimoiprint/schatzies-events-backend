@@ -39,26 +39,31 @@ const debutPackages = [
 function validateRequired(inquiryData) {
   const { firstName, lastName, date, eventType, eventPackage, eventPax } =
     inquiryData;
-  if (
-    !firstName ||
-    !lastName ||
-    !date ||
-    !eventType ||
-    !eventPackage ||
-    !eventPax
-  ) {
+
+  // Basic required fields for all inquiries
+  if (!firstName || !lastName || !date || !eventType) {
     throw new Error('Missing required fields');
   }
-  if (eventType === 'Wedding' && !weddingPackages.includes(eventPackage)) {
-    throw new Error('Invalid Wedding package');
-  }
-  if (eventType === 'Debut' && !debutPackages.includes(eventPackage)) {
-    throw new Error('Invalid Debut package');
-  }
-  const validPax =
-    eventPackage === 'Blooms' ? [50, 100, 150, 200] : [100, 150, 200];
-  if (!validPax.includes(eventPax)) {
-    throw new Error(`Invalid number of pax for ${eventPackage}`);
+
+  // Package and Pax are required for standard events (Wedding/Debut)
+  // For "Others", they are optional or can be custom strings
+  if (eventType === 'Wedding' || eventType === 'Debut') {
+    if (!eventPackage || !eventPax) {
+      throw new Error(`Missing package or guest count for ${eventType}`);
+    }
+
+    if (eventType === 'Wedding' && !weddingPackages.includes(eventPackage)) {
+      throw new Error('Invalid Wedding package');
+    }
+    if (eventType === 'Debut' && !debutPackages.includes(eventPackage)) {
+      throw new Error('Invalid Debut package');
+    }
+
+    const validPax =
+      eventPackage === 'Blooms' ? [50, 100, 150, 200] : [100, 150, 200];
+    if (!validPax.includes(eventPax)) {
+      throw new Error(`Invalid number of pax for ${eventPackage}`);
+    }
   }
 }
 
