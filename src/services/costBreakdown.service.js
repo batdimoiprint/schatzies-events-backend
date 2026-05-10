@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -14,7 +15,8 @@ function parseNumberField(value, fieldName) {
     throw new Error(`${fieldName} is required`);
   }
 
-  const numberValue = typeof value === 'string' ? Number(value.trim()) : Number(value);
+  const numberValue =
+    typeof value === 'string' ? Number(value.trim()) : Number(value);
   if (Number.isNaN(numberValue)) {
     throw new Error(`${fieldName} must be a valid number`);
   }
@@ -56,12 +58,20 @@ function mapCostBreakdownItem(item) {
   return {
     costBreakdown_id: item.costBreakdown_id?.S || '',
     event_id: item.event_id?.S || '',
-    packagePricePerPax: item.packagePricePerPax?.N ? Number(item.packagePricePerPax.N) : 0,
+    packagePricePerPax: item.packagePricePerPax?.N
+      ? Number(item.packagePricePerPax.N)
+      : 0,
     eventPax: item.eventPax?.N ? Number(item.eventPax.N) : 0,
-    totalPackageCost: item.totalPackageCost?.N ? Number(item.totalPackageCost.N) : 0,
-    totalVendorCost: item.totalVendorCost?.N ? Number(item.totalVendorCost.N) : 0,
+    totalPackageCost: item.totalPackageCost?.N
+      ? Number(item.totalPackageCost.N)
+      : 0,
+    totalVendorCost: item.totalVendorCost?.N
+      ? Number(item.totalVendorCost.N)
+      : 0,
     manpowerCost: item.manpowerCost?.N ? Number(item.manpowerCost.N) : 0,
-    additionalCharges: item.additionalCharges?.N ? Number(item.additionalCharges.N) : 0,
+    additionalCharges: item.additionalCharges?.N
+      ? Number(item.additionalCharges.N)
+      : 0,
     revenue: item.revenue?.N ? Number(item.revenue.N) : 0,
     profit: item.profit?.N ? Number(item.profit.N) : 0,
     created_at: item.created_at?.S || '',
@@ -97,16 +107,27 @@ async function findCostBreakdownItem(eventId) {
   return response.Item || null;
 }
 
-function buildComputedCostBreakdown(eventId, input, totalVendorCost, existingId) {
-  const packagePricePerPax = parseNumberField(input.packagePricePerPax, 'packagePricePerPax');
+function buildComputedCostBreakdown(
+  eventId,
+  input,
+  totalVendorCost,
+  existingId
+) {
+  const packagePricePerPax = parseNumberField(
+    input.packagePricePerPax,
+    'packagePricePerPax'
+  );
   const eventPax = parseNumberField(input.eventPax, 'eventPax');
   const manpowerCost = parseNumberField(input.manpowerCost, 'manpowerCost');
-  const additionalCharges = parseNumberField(input.additionalCharges, 'additionalCharges');
+  const additionalCharges = parseNumberField(
+    input.additionalCharges,
+    'additionalCharges'
+  );
 
   const totalPackageCost = packagePricePerPax * eventPax;
   const revenue = totalPackageCost + additionalCharges;
   const profit = revenue - (totalVendorCost + manpowerCost);
-  const timestamp = new Date().toISOString();
+  const timestamp = nowPH();
 
   return {
     costBreakdown_id: existingId || randomUUID(),
@@ -147,7 +168,12 @@ export async function createCostBreakdown(eventId, payload) {
 
   const existing = await getCostBreakdown(eventId);
   const totalVendorCost = await getVendorCostTotal(eventId);
-  const item = buildComputedCostBreakdown(eventId, payload, totalVendorCost, existing?.costBreakdown_id);
+  const item = buildComputedCostBreakdown(
+    eventId,
+    payload,
+    totalVendorCost,
+    existing?.costBreakdown_id
+  );
   await dynamoClient.send(
     new PutItemCommand({
       TableName: DYNAMO_TABLE,
@@ -171,7 +197,12 @@ export async function updateCostBreakdown(eventId, payload) {
   }
 
   const totalVendorCost = await getVendorCostTotal(eventId);
-  const breakdown = buildComputedCostBreakdown(eventId, payload, totalVendorCost, existing.costBreakdown_id);
+  const breakdown = buildComputedCostBreakdown(
+    eventId,
+    payload,
+    totalVendorCost,
+    existing.costBreakdown_id
+  );
 
   const command = new UpdateItemCommand({
     TableName: DYNAMO_TABLE,
@@ -214,6 +245,6 @@ export async function exportCostBreakdown(eventId) {
     additionalCharges: breakdown.additionalCharges,
     revenue: breakdown.revenue,
     profit: breakdown.profit,
-    generatedAt: new Date().toISOString(),
+    generatedAt: nowPH(),
   };
 }

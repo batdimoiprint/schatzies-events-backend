@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   currentUser,
+  forceChangePasswordHandler,
   login,
   logout,
   requestPasswordReset,
@@ -155,6 +156,7 @@ const router = express.Router();
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/login', login);
+router.post('/force-change-password', forceChangePasswordHandler);
 router.post('/forgot-password', requestPasswordReset);
 router.post('/forgot-password/verify', verifyPasswordReset);
 router.post('/forgot-password/reset', resetPassword);

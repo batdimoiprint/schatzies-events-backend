@@ -10,6 +10,7 @@ import {
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
 import { normalizeString } from '../utils/dynamoHelpers.js';
+import { nowPH } from '../utils/timezone.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -40,6 +41,7 @@ function mapDynamoUser(item) {
     city: item.city?.S || '',
     country: item.country?.S || '',
     gender: item.gender?.S || '',
+    isPasswordChanged: item.isPasswordChanged?.BOOL ?? false,
     profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
     passwordResetCodeHash: item.passwordResetCodeHash?.S || '',
@@ -89,7 +91,7 @@ function buildDynamoItem(payload) {
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
     profilePic: { S: normalizeString(payload.profilePic) },
-    created_at: { S: payload.created_at || new Date().toISOString() },
+    created_at: { S: payload.created_at || nowPH() },
   };
 }
 
@@ -290,7 +292,7 @@ export async function registerUser(payload) {
     city: payload.city || '',
     country: payload.country || '',
     gender: payload.gender || '',
-    created_at: new Date().toISOString(),
+    created_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -350,7 +352,7 @@ export async function createPasswordResetChallenge(email) {
   const expiresAt = new Date(
     Date.now() + PASSWORD_RESET_CODE_TTL_MS
   ).toISOString();
-  const issuedAt = new Date().toISOString();
+  const issuedAt = nowPH();
 
   const updatedUser = await updateUserFields(user.user_id, {
     passwordResetCodeHash: codeHash,
@@ -444,6 +446,55 @@ export async function resetPasswordWithToken(resetToken, newPassword) {
     },
     ExpressionAttributeValues: {
       ':password': { S: hashedPassword },
+    },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const response = await dynamoClient.send(command);
+  return stripPassword(mapDynamoUser(response.Attributes));
+}
+
+export async function forceChangePassword(resetToken, newPassword) {
+  if (!resetToken || !newPassword) {
+    return null;
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, JWT_SECRET);
+  } catch {
+    return null;
+  }
+
+  if (
+    !payload ||
+    payload.purpose !== 'force-change-password' ||
+    !payload.user_id
+  ) {
+    return null;
+  }
+
+  const user = await findUserByUserId(payload.user_id);
+  if (!user) {
+    return null;
+  }
+
+  const hashedPassword = await bcrypt.hash(normalizeString(newPassword), 10);
+  const command = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${user.user_id}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression:
+      'SET #password = :password, #isPasswordChanged = :isPasswordChanged',
+    ExpressionAttributeNames: {
+      '#password': 'password',
+      '#isPasswordChanged': 'isPasswordChanged',
+    },
+    ExpressionAttributeValues: {
+      ':password': { S: hashedPassword },
+      ':isPasswordChanged': { BOOL: true },
     },
     ReturnValues: 'ALL_NEW',
   });

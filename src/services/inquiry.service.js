@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+import { nowPH } from '../utils/timezone.js';
 import {
   PutItemCommand,
   ScanCommand,
@@ -21,7 +22,7 @@ const inquiries = [];
 const TABLE = process.env.AWS_DYNAMO_TABLE || DYNAMO_TABLE;
 
 const weddingPackages = [
-  'Bloom',
+  'Blooms',
   'Fascinating',
   'Windy',
   'De Luxe',
@@ -55,7 +56,7 @@ function validateRequired(inquiryData) {
     throw new Error('Invalid Debut package');
   }
   const validPax =
-    eventPackage === 'Bloom' ? [50, 100, 150, 200] : [100, 150, 200];
+    eventPackage === 'Blooms' ? [50, 100, 150, 200] : [100, 150, 200];
   if (!validPax.includes(eventPax)) {
     throw new Error(`Invalid number of pax for ${eventPackage}`);
   }
@@ -140,8 +141,13 @@ export async function createInquiry(inquiryData) {
 
   validateRequired(inquiryData);
 
+  const available = await isDateAvailable(inquiryData.date);
+  if (!available) {
+    throw new Error('This date is already booked. Please choose another date.');
+  }
+
   const id = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const newInquiry = {
     id,
@@ -161,6 +167,13 @@ export async function createInquiry(inquiryData) {
     createdAt: now,
     updatedAt: now,
   };
+
+  console.log('Creating new inquiry:', {
+    id,
+    email: newInquiry.email,
+    eventType: newInquiry.eventType,
+    eventPackage: newInquiry.eventPackage,
+  });
 
   const item = {
     PK: `INQUIRY#${newInquiry.id}`,
@@ -226,10 +239,33 @@ export async function getInquiries() {
   return attachMeetingsToInquiries([...inquiries]);
 }
 
-export async function getInquiryByEmail(email) {
+export async function getBookedDates() {
+  const all = await getInquiries();
+  // Filter out cancelled inquiries if you have a cancelled status
+  // For now, any existing inquiry blocks the date
+  return all
+    .filter((inq) => inq.status !== 'Cancelled' && inq.status !== 'Rejected')
+    .map((inq) => (inq.date || '').split('T')[0])
+    .filter(Boolean);
+}
+
+export async function isDateAvailable(date) {
+  if (!date) return true;
+  const booked = await getBookedDates();
+  // Simple string comparison for ISO dates (YYYY-MM-DD)
+  const normalizedDate = date.split('T')[0];
+  return !booked.some((d) => d.split('T')[0] === normalizedDate);
+}
+
+export async function getInquiriesByEmail(email) {
   if (!email) throw new Error('Email is required');
   const all = await getInquiries();
-  return all.find((inq) => inq.email?.toLowerCase() === email.toLowerCase()) || null;
+  return all.filter((inq) => inq.email?.toLowerCase() === email.toLowerCase());
+}
+
+export async function getInquiryByEmail(email) {
+  const all = await getInquiriesByEmail(email);
+  return all[0] || null;
 }
 
 export async function getInquiryById(inquiryId) {
@@ -293,7 +329,7 @@ export async function updateInquiry(inquiryId, updateData) {
       idx += 1;
     });
     parts.push('#updated_at = :u');
-    ExpressionAttributeValues[':u'] = new Date().toISOString();
+    ExpressionAttributeValues[':u'] = nowPH();
     ExpressionAttributeNames['#updated_at'] = 'updated_at';
 
     const UpdateExpression = 'SET ' + parts.join(', ');
@@ -320,7 +356,7 @@ export async function updateInquiry(inquiryId, updateData) {
   const updated = {
     ...existing,
     ...updateData,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowPH(),
   };
 
   inquiries[index] = updated;
@@ -363,7 +399,7 @@ export async function addCommunication(inquiryId, communication) {
   const communications = inquiry.communications || [];
   communications.push({
     ...communication,
-    timestamp: new Date().toISOString(),
+    timestamp: nowPH(),
   });
 
   return updateInquiry(inquiryId, { communications });
@@ -404,7 +440,7 @@ export async function scheduleMeeting(inquiryId, meetingDetails) {
     eventType: eventType || 'Client',
     organizerId,
     inquiryUserId: inquiryUserId || '',
-    timestamp: new Date().toISOString(),
+    timestamp: nowPH(),
   };
 
   // Update inquiry status only. Meeting data is stored in CALENDAR.

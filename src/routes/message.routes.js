@@ -10,9 +10,18 @@ import {
   getMessagesController,
   sendMessageController,
   initiateConversationController,
+  deleteConversationController,
 } from '../controllers/message.controller.js';
 
 const router = express.Router();
+
+// Disable ETag caching for real-time messages
+router.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
 
 /**
  * @swagger
@@ -148,7 +157,7 @@ router.get(
 router.post(
   '/conversations/:conversationId/messages',
   validateTokenMiddleware,
-  requireRole('CLIENT', 'ORGANIZER'),
+  requireRole('CLIENT', 'ORGANIZER', 'ADMIN'),
   validateConversationId,
   validateSendMessage,
   sendMessageController
@@ -202,6 +211,39 @@ router.post(
   requireRole('CLIENT'),
   validateSendMessage,
   initiateConversationController
+);
+
+/**
+ * @swagger
+ * /api/messages/conversations/{conversationId}:
+ *   delete:
+ *     summary: Delete a conversation (admin only)
+ *     tags: [Messages]
+ *     description: >
+ *       Permanently deletes a conversation and all its messages.
+ *       Only admins can perform this action.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversation deleted successfully
+ *       403:
+ *         description: Only admins can delete conversations
+ *       404:
+ *         description: Conversation not found
+ */
+router.delete(
+  '/conversations/:conversationId',
+  validateTokenMiddleware,
+  requireRole('ADMIN'),
+  validateConversationId,
+  deleteConversationController
 );
 
 export default router;

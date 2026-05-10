@@ -7,6 +7,7 @@ import {
   markCalendarDate as markCalendarDateService,
   markCalendarEntryDone as markCalendarEntryDoneService,
 } from '../services/calendar.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 function createError(message, status = 400) {
   const error = new Error(message);
@@ -128,6 +129,42 @@ export async function createCalendarEntry(req, res, next) {
       label,
       ...meetingFields,
     });
+
+    // Send push notification for meetings
+    try {
+      if (calendarType === 'MEETING') {
+        // If inquiryUserId is provided, notify that user
+        if (inquiryUserId) {
+          await sendPushToUser(inquiryUserId, {
+            title: 'Meeting Scheduled',
+            body: `A meeting "${title}" has been scheduled for ${calendarDate}`,
+            data: {
+              type: 'calendar',
+              entryId: entry.entryId,
+              calendarType: 'MEETING',
+              url: '/calendar',
+            },
+          });
+        }
+
+        // Also notify admin
+        const adminUserId = await getAdminUserId();
+        if (adminUserId && adminUserId !== userId) {
+          await sendPushToUser(adminUserId, {
+            title: 'New Meeting Scheduled',
+            body: `Meeting "${title}" scheduled for ${calendarDate}`,
+            data: {
+              type: 'calendar',
+              entryId: entry.entryId,
+              calendarType: 'MEETING',
+              url: '/admin/calendar',
+            },
+          });
+        }
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
+    }
 
     return res.status(201).json({ entry });
   } catch (error) {

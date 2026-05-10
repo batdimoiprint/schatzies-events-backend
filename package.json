@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "NODE_ENV=development nodemon src/server.js",
+    "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "offline": "serverless offline start",
     "format": "prettier --write \"src/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.js\""
@@ -34,6 +34,7 @@
     "helmet": "^8.1.0",
     "joi": "^17.10.0",
     "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.4",
     "qrcode": "^1.5.4",
@@ -41,9 +42,11 @@
     "sharp": "^0.34.5",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-dist": "^5.0.0",
-    "swagger-ui-express": "^5.0.0"
+    "swagger-ui-express": "^5.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.0.2",
     "prettier": "^3.8.1",
     "serverless": "^4.33.0",

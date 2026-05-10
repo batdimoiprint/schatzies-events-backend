@@ -10,7 +10,8 @@ import {
   updateInquiryStatusController,
   addInquiryCommunicationController,
   scheduleMeetingController,
-  checkUserRegisteredController
+  checkUserRegisteredController,
+  getBookedDatesController,
 } from '../controllers/inquiry.controller.js';
 
 const router = express.Router();
@@ -78,7 +79,14 @@ router.post('/', createInquiryController);
  *       200:
  *         description: List of inquiries
  */
-router.get('/', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), getInquiriesController);
+router.get(
+  '/',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  getInquiriesController
+);
+
+router.get('/booked-dates', getBookedDatesController);
 
 /**
  * @swagger
@@ -98,7 +106,12 @@ router.get('/', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), getI
  *       404:
  *         description: Inquiry not found
  */
-router.get('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), getInquiryByIdController);
+router.get(
+  '/:id',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  getInquiryByIdController
+);
 
 /**
  * @swagger
@@ -143,7 +156,12 @@ router.get('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), g
  *       404:
  *         description: Inquiry not found
  */
-router.patch('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryController);
+router.patch(
+  '/:id',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  updateInquiryController
+);
 
 /**
  * @swagger
@@ -163,12 +181,32 @@ router.patch('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'),
  *       404:
  *         description: Inquiry not found
  */
-router.delete('/:id', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), deleteInquiryController);
+router.delete(
+  '/:id',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  deleteInquiryController
+);
 
 // Phase 2 Routes (Admin/Organizer protected)
-router.patch('/:id/status', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), updateInquiryStatusController);
-router.post('/:id/communications', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), addInquiryCommunicationController);
-router.post('/:id/meeting', validateTokenMiddleware, requireRole('ADMIN', 'ORGANIZER'), scheduleMeetingController);
+router.patch(
+  '/:id/status',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  updateInquiryStatusController
+);
+router.post(
+  '/:id/communications',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  addInquiryCommunicationController
+);
+router.post(
+  '/:id/meeting',
+  validateTokenMiddleware,
+  requireRole('ADMIN', 'ORGANIZER'),
+  scheduleMeetingController
+);
 
 router.get('/:id/isUserRegistered', checkUserRegisteredController);
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import bcrypt from 'bcryptjs';
 import {
   GetItemCommand,
@@ -10,7 +11,11 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getEventById } from './event.service.js';
-import { normalizeString, buildStringAttribute, buildNumberAttribute } from '../utils/dynamoHelpers.js';
+import {
+  normalizeString,
+  buildStringAttribute,
+  buildNumberAttribute,
+} from '../utils/dynamoHelpers.js';
 
 function mapDynamoOrganizer(item) {
   if (!item) {
@@ -19,7 +24,8 @@ function mapDynamoOrganizer(item) {
 
   const firstName = item.firstName?.S || '';
   const lastName = item.lastName?.S || '';
-  const fullName = item.name?.S || [firstName, lastName].filter(Boolean).join(' ');
+  const fullName =
+    item.name?.S || [firstName, lastName].filter(Boolean).join(' ');
 
   return {
     id: item.PK?.S?.replace('USER#', '') || '',
@@ -53,8 +59,12 @@ function buildDynamoOrganizerItem(payload) {
     PK: { S: `USER#${organizerId}` },
     SK: { S: 'PROFILE' },
     role: { S: 'ORGANIZER' },
-    created_at: { S: payload.created_at || payload.createdAt || new Date().toISOString() },
-    updated_at: { S: payload.updated_at || payload.updatedAt || new Date().toISOString() },
+    created_at: {
+      S: payload.created_at || payload.createdAt || nowPH(),
+    },
+    updated_at: {
+      S: payload.updated_at || payload.updatedAt || nowPH(),
+    },
   };
 
   if (firstName) {
@@ -80,7 +90,9 @@ function buildDynamoOrganizerItem(payload) {
     item.password = { S: password };
   }
 
-  item.contactNumber = buildStringAttribute(payload.phone || payload.contactNumber);
+  item.contactNumber = buildStringAttribute(
+    payload.phone || payload.contactNumber
+  );
   item.middleName = buildStringAttribute(payload.middleName);
   item.birthDate = buildStringAttribute(payload.birthDate);
   item.houseNumber = buildStringAttribute(payload.houseNumber);
@@ -195,10 +207,15 @@ export async function findOrganizerByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const found = (response.Items || []).find((item) => item.role?.S === 'ORGANIZER');
+    const found = (response.Items || []).find(
+      (item) => item.role?.S === 'ORGANIZER'
+    );
     return mapDynamoOrganizer(found);
   } catch (error) {
-    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+    if (
+      error.name === 'ValidationException' ||
+      error.name === 'ResourceNotFoundException'
+    ) {
       return scanOrganizerByEmail(normalizedEmail);
     }
     throw error;
@@ -223,15 +240,18 @@ export async function createOrganizer(organizerData) {
   const organizerPayload = {
     ...organizerData,
     id: randomUUID(),
-    password: organizerData.password ? await bcrypt.hash(normalizeString(organizerData.password), 10) : undefined,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    password: organizerData.password
+      ? await bcrypt.hash(normalizeString(organizerData.password), 10)
+      : undefined,
+    created_at: nowPH(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: buildDynamoOrganizerItem(organizerPayload),
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression:
+      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
 
   await dynamoClient.send(command);
@@ -255,11 +275,14 @@ export async function updateOrganizer(organizerId, updateData) {
   const updatedPayload = {
     ...existing,
     ...updateData,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   if (updateData.password) {
-    updatedPayload.password = await bcrypt.hash(normalizeString(updateData.password), 10);
+    updatedPayload.password = await bcrypt.hash(
+      normalizeString(updateData.password),
+      10
+    );
   }
 
   const command = new PutItemCommand({

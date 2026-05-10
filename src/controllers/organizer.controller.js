@@ -18,9 +18,12 @@ export async function createOrganizer(req, res) {
   try {
     const organizerPayload = req.body ?? {};
     const created = await createOrganizerService(organizerPayload);
-    return res.status(201).json({ message: 'Organizer created successfully', organizer: created });
+    return res
+      .status(201)
+      .json({ message: 'Organizer created successfully', organizer: created });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to create organizer';
+    const message =
+      error instanceof Error ? error.message : 'Unable to create organizer';
     return res.status(400).json({ error: message });
   }
 }
@@ -30,7 +33,8 @@ export async function getOrganizers(req, res) {
     const organizers = await getOrganizersService();
     return res.status(200).json({ organizers });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch organizers';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch organizers';
     return res.status(500).json({ error: message });
   }
 }
@@ -44,7 +48,8 @@ export async function getOrganizerById(req, res) {
     }
     return res.status(200).json({ organizer });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to fetch organizer';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch organizer';
     return res.status(500).json({ error: message });
   }
 }
@@ -54,12 +59,16 @@ export async function updateOrganizer(req, res) {
     const { id } = req.params;
     const updatePayload = req.body ?? {};
     const updatedOrganizer = await updateOrganizerService(id, updatePayload);
-    return res.status(200).json({ message: 'Organizer updated successfully', organizer: updatedOrganizer });
+    return res.status(200).json({
+      message: 'Organizer updated successfully',
+      organizer: updatedOrganizer,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === 'Organizer not found') {
       return res.status(404).json({ error: error.message });
     }
-    const message = error instanceof Error ? error.message : 'Unable to update organizer';
+    const message =
+      error instanceof Error ? error.message : 'Unable to update organizer';
     return res.status(400).json({ error: message });
   }
 }
@@ -73,7 +82,8 @@ export async function deleteOrganizer(req, res) {
     if (error instanceof Error && error.message === 'Organizer not found') {
       return res.status(404).json({ error: error.message });
     }
-    const message = error instanceof Error ? error.message : 'Unable to delete organizer';
+    const message =
+      error instanceof Error ? error.message : 'Unable to delete organizer';
     return res.status(500).json({ error: message });
   }
 }
@@ -84,7 +94,9 @@ export async function getHeadOrganizerByEvent(req, res) {
     const organizer = await getHeadOrganizerByEventIdService(eventId);
 
     if (!organizer) {
-      return res.status(404).json({ error: 'No head organizer assigned to this event' });
+      return res
+        .status(404)
+        .json({ error: 'No head organizer assigned to this event' });
     }
 
     return res.status(200).json({ organizer });
@@ -93,7 +105,8 @@ export async function getHeadOrganizerByEvent(req, res) {
       return res.status(404).json({ error: error.message });
     }
 
-    const message = error instanceof Error ? error.message : 'Unable to fetch head organizer';
+    const message =
+      error instanceof Error ? error.message : 'Unable to fetch head organizer';
     return res.status(500).json({ error: message });
   }
 }
@@ -112,10 +125,18 @@ export async function assignHeadOrganizer(req, res) {
       return res.status(404).json({ error: 'Organizer not found' });
     }
 
-    const updatedEvent = await updateEventService(eventId, { headOrganizerId: organizerId });
-    return res.status(200).json({ message: 'Head organizer assigned to event', event: updatedEvent });
+    const updatedEvent = await updateEventService(eventId, {
+      headOrganizerId: organizerId,
+    });
+    return res.status(200).json({
+      message: 'Head organizer assigned to event',
+      event: updatedEvent,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to assign head organizer';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to assign head organizer';
     return res.status(400).json({ error: message });
   }
 }
@@ -130,7 +151,9 @@ export async function assignWorkerOrganizer(req, res) {
     }
 
     if (!event.headOrganizerId) {
-      return res.status(400).json({ error: 'Head organizer must be assigned before adding workers' });
+      return res.status(400).json({
+        error: 'Head organizer must be assigned before adding workers',
+      });
     }
 
     const organizer = await getOrganizerByIdService(organizerId);
@@ -138,12 +161,16 @@ export async function assignWorkerOrganizer(req, res) {
       return res.status(404).json({ error: 'Organizer not found' });
     }
 
-    const updatedEvent = await assignWorkerOrganizerService(eventId, organizerId);
+    const updatedEvent = await assignWorkerOrganizerService(
+      eventId,
+      organizerId
+    );
     const mailResult = await sendWorkerRsvpEmail(organizer, updatedEvent);
 
     if (mailResult.skipped) {
       return res.status(200).json({
-        message: 'Worker assigned to event, but RSVP email was not sent because SMTP is not configured',
+        message:
+          'Worker assigned to event, but RSVP email was not sent because SMTP is not configured',
         event: updatedEvent,
         rsvpLink: mailResult.link,
       });
@@ -155,7 +182,10 @@ export async function assignWorkerOrganizer(req, res) {
       rsvpLink: mailResult.link,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to assign worker organizer';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to assign worker organizer';
     return res.status(400).json({ error: message });
   }
 }
@@ -170,13 +200,23 @@ export async function unassignHeadOrganizer(req, res) {
     }
 
     if (event.headOrganizerId !== organizerId) {
-      return res.status(400).json({ error: 'This organizer is not the head organizer for this event' });
+      return res.status(400).json({
+        error: 'This organizer is not the head organizer for this event',
+      });
     }
 
-    const updatedEvent = await updateEventService(eventId, { headOrganizerId: null });
-    return res.status(200).json({ message: 'Head organizer unassigned from event', event: updatedEvent });
+    const updatedEvent = await updateEventService(eventId, {
+      headOrganizerId: null,
+    });
+    return res.status(200).json({
+      message: 'Head organizer unassigned from event',
+      event: updatedEvent,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to unassign head organizer';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to unassign head organizer';
     return res.status(400).json({ error: message });
   }
 }
@@ -195,10 +235,18 @@ export async function unassignWorkerOrganizer(req, res) {
       return res.status(404).json({ error: 'Organizer not found' });
     }
 
-    const updatedEvent = await unassignWorkerOrganizerService(eventId, organizerId);
-    return res.status(200).json({ message: 'Worker unassigned from event', event: updatedEvent });
+    const updatedEvent = await unassignWorkerOrganizerService(
+      eventId,
+      organizerId
+    );
+    return res
+      .status(200)
+      .json({ message: 'Worker unassigned from event', event: updatedEvent });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to unassign worker organizer';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Unable to unassign worker organizer';
     return res.status(400).json({ error: message });
   }
 }

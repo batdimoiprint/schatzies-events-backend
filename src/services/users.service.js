@@ -1,5 +1,13 @@
 import bcrypt from 'bcryptjs';
-import { GetItemCommand, PutItemCommand, QueryCommand, ScanCommand, DeleteItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import { nowPH } from '../utils/timezone.js';
+import {
+  GetItemCommand,
+  PutItemCommand,
+  QueryCommand,
+  ScanCommand,
+  DeleteItemCommand,
+  UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
 import { normalizeString } from '../utils/dynamoHelpers.js';
@@ -7,6 +15,21 @@ import { normalizeString } from '../utils/dynamoHelpers.js';
 function mapDynamoUser(item) {
   if (!item) {
     return null;
+  }
+
+  // Map pushSubscriptions from DynamoDB List format to JavaScript array
+  let pushSubscriptions = [];
+  if (item.pushSubscriptions?.L) {
+    pushSubscriptions = item.pushSubscriptions.L.map((sub) => ({
+      endpoint: sub.M?.endpoint?.S || '',
+      expirationTime: sub.M?.expirationTime?.N
+        ? Number(sub.M.expirationTime.N)
+        : null,
+      keys: {
+        p256dh: sub.M?.keys?.M?.p256dh?.S || '',
+        auth: sub.M?.keys?.M?.auth?.S || '',
+      },
+    }));
   }
 
   return {
@@ -25,8 +48,10 @@ function mapDynamoUser(item) {
     country: item.country?.S || '',
     gender: item.gender?.S || '',
     isOnline: item.isOnline?.BOOL || false,
+    isPasswordChanged: item.isPasswordChanged?.BOOL ?? false,
     profilePic: item.profilePic?.S || '',
     created_at: item.created_at?.S || '',
+    pushSubscriptions,
   };
 }
 
@@ -55,15 +80,17 @@ function buildDynamoItem(payload) {
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
     isOnline: { BOOL: payload.isOnline ?? false },
+    isPasswordChanged: { BOOL: payload.isPasswordChanged ?? false },
     profilePic: { S: normalizeString(payload.profilePic) },
-    created_at: { S: payload.created_at || new Date().toISOString() },
+    created_at: { S: payload.created_at || nowPH() },
   };
 }
 
 async function scanUserByEmail(email) {
   const command = new ScanCommand({
     TableName: DYNAMO_TABLE,
-    FilterExpression: 'begins_with(PK, :pkPrefix) AND SK = :sk AND #email = :emailValue',
+    FilterExpression:
+      'begins_with(PK, :pkPrefix) AND SK = :sk AND #email = :emailValue',
     ExpressionAttributeNames: {
       '#email': 'email',
     },
@@ -95,10 +122,15 @@ export async function findUserByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const userItem = (response.Items || []).find(item => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE');
+    const userItem = (response.Items || []).find(
+      (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
+    );
     return userItem ? mapDynamoUser(userItem) : null;
   } catch (error) {
-    if (error.name === 'ValidationException' || error.name === 'ResourceNotFoundException') {
+    if (
+      error.name === 'ValidationException' ||
+      error.name === 'ResourceNotFoundException'
+    ) {
       return scanUserByEmail(normalizedEmail);
     }
     throw error;
@@ -184,17 +216,19 @@ export async function createUser(payload) {
     country: payload.country || '',
     gender: payload.gender || '',
     isOnline: false,
-    created_at: new Date().toISOString(),
+    isPasswordChanged: false,
+    created_at: nowPH(),
   };
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: buildDynamoItem(userPayload),
-    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression:
+      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
 
   await dynamoClient.send(command);
-  
+
   // Return user without password
   const { password, ...safeUser } = userPayload;
   return safeUser;
@@ -216,8 +250,19 @@ export async function updateUser(userId, payload) {
   const expressionAttributeValues = {};
 
   const updatableFields = [
-    'firstName', 'middleName', 'lastName', 'birthDate', 'houseNumber',
-    'street', 'barangay', 'city', 'country', 'gender', 'contactNumber', 'role', 'profilePic'
+    'firstName',
+    'middleName',
+    'lastName',
+    'birthDate',
+    'houseNumber',
+    'street',
+    'barangay',
+    'city',
+    'country',
+    'gender',
+    'contactNumber',
+    'role',
+    'profilePic',
   ];
 
   if (payload.isOnline !== undefined) {
@@ -246,13 +291,18 @@ export async function updateUser(userId, payload) {
     if (payload[field] !== undefined) {
       updateExpressions.push(`#${field} = :${field}`);
       expressionAttributeNames[`#${field}`] = field;
-      expressionAttributeValues[`:${field}`] = { S: normalizeString(payload[field]) };
+      expressionAttributeValues[`:${field}`] = {
+        S: normalizeString(payload[field]),
+      };
     }
   }
 
   // Handle password separately (needs hashing)
   if (payload.password) {
-    const hashedPassword = await bcrypt.hash(normalizeString(payload.password), 10);
+    const hashedPassword = await bcrypt.hash(
+      normalizeString(payload.password),
+      10
+    );
     updateExpressions.push('#password = :password');
     expressionAttributeNames['#password'] = 'password';
     expressionAttributeValues[':password'] = { S: hashedPassword };
@@ -299,4 +349,62 @@ export async function deleteUser(userId) {
 
   await dynamoClient.send(command);
   return { message: 'User deleted successfully' };
+}
+
+export async function replacePassword(userId, currentPassword, newPassword) {
+  const normalizedUserId = normalizeString(userId);
+  if (!normalizedUserId) {
+    throw new Error('userId is required');
+  }
+
+  // Fetch full user record including hashed password
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizedUserId}` },
+      SK: { S: 'PROFILE' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  if (!response.Item) {
+    throw new Error('User not found');
+  }
+
+  const storedHash = response.Item.password?.S || '';
+  if (!storedHash) {
+    throw new Error('User has no password set');
+  }
+
+  const isValid = await bcrypt.compare(
+    normalizeString(currentPassword),
+    storedHash
+  );
+  if (!isValid) {
+    throw new Error('Current password is incorrect');
+  }
+
+  const hashedNewPassword = await bcrypt.hash(normalizeString(newPassword), 10);
+
+  const updateCommand = new UpdateItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `USER#${normalizedUserId}` },
+      SK: { S: 'PROFILE' },
+    },
+    UpdateExpression:
+      'SET #password = :password, #isPasswordChanged = :isPasswordChanged',
+    ExpressionAttributeNames: {
+      '#password': 'password',
+      '#isPasswordChanged': 'isPasswordChanged',
+    },
+    ExpressionAttributeValues: {
+      ':password': { S: hashedNewPassword },
+      ':isPasswordChanged': { BOOL: true },
+    },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  const updateResponse = await dynamoClient.send(updateCommand);
+  return mapDynamoUser(updateResponse.Attributes);
 }

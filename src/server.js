@@ -1,29 +1,27 @@
 import './configs/env.js';
+import { nowPH } from './utils/timezone.js';
 import express from 'express';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './configs/swagger.js';
 import routes from './routes/index.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 import corsMiddleware from './configs/cors.js';
 import { configureHelmet } from './configs/helmet.js';
 import { apiLimiter } from './configs/rate-limit.js';
 import errorHandler from './middleware/error.middleware.js';
+import {
+  getLogger,
+  getErrorLogger,
+  skipHealthCheck,
+} from './configs/logger.js';
 
 const app = express();
 
-app.use((req, res, next) => {
-  console.log('Incoming request:', req.method, req.originalUrl, {
-    origin: req.headers.origin,
-    contentType: req.headers['content-type'],
-    cookie: req.headers.cookie ? '[present]' : '[none]',
-  });
-  next();
-});
+// HTTP Request Logger - Morgan
+app.use(getLogger());
+
+// Error Logger - logs only 4xx and 5xx responses
+app.use(getErrorLogger());
 
 // Security Middleware
 app.use(configureHelmet());
@@ -51,13 +49,15 @@ app.use(
 );
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.json({ status: 'healthy', timestamp: nowPH() });
 });
 
 // API Routes
 const apiPrefix = process.env.API_PREFIX || '/api';
-const normalizedPrefix = apiPrefix.startsWith('/') ? apiPrefix : `/${apiPrefix}`;
-console.log(`Routing API to: ${normalizedPrefix}`);
+const normalizedPrefix = apiPrefix.startsWith('/')
+  ? apiPrefix
+  : `/${apiPrefix}`;
+// Mount all API feature routes under the shared prefix.
 app.use(normalizedPrefix, routes);
 
 // 404 Handler
@@ -72,6 +72,5 @@ app.use(errorHandler);
 export default app;
 
 app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
-  console.log('API Docs available at http://localhost:3000/api-docs');
+  console.log('API Docs: http://localhost:3000/api-docs');
 });

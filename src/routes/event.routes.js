@@ -50,7 +50,7 @@ import {
   manualCheckIn,
   createRsvpGuest,
   generateRsvpQr,
-  getEventRsvps
+  getEventRsvps,
 } from '../controllers/rsvp.controller.js';
 import costBreakdownRoutes from './costBreakdown.routes.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
@@ -310,7 +310,11 @@ router.get('/:eventId/tasks', getTasks);
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.put('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), updateTask);
+router.put(
+  '/:eventId/tasks/:task_id',
+  requireRole('ADMIN', 'ORGANIZER'),
+  updateTask
+);
 
 /**
  * @swagger
@@ -334,7 +338,11 @@ router.put('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), update
  *       200:
  *         description: Task deleted successfully
  */
-router.delete('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), deleteTask);
+router.delete(
+  '/:eventId/tasks/:task_id',
+  requireRole('ADMIN', 'ORGANIZER'),
+  deleteTask
+);
 
 /**
  * @swagger
@@ -371,7 +379,11 @@ router.delete('/:eventId/tasks/:task_id', requireRole('ADMIN', 'ORGANIZER'), del
  *                 task:
  *                   $ref: '#/components/schemas/Task'
  */
-router.put('/:eventId/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), moveTask);
+router.put(
+  '/:eventId/tasks/:task_id/move',
+  requireRole('ADMIN', 'ORGANIZER'),
+  moveTask
+);
 
 /**
  * @swagger
@@ -396,7 +408,11 @@ router.put('/:eventId/tasks/:task_id/move', requireRole('ADMIN', 'ORGANIZER'), m
  *       200:
  *         description: Event status updated successfully
  */
-router.put('/:eventId/status', requireRole('ADMIN', 'ORGANIZER'), changeEventStatus);
+router.put(
+  '/:eventId/status',
+  requireRole('ADMIN', 'ORGANIZER'),
+  changeEventStatus
+);
 
 /**
  * @swagger
@@ -1365,6 +1381,43 @@ router.put('/:eventId', validateTokenMiddleware, updateEvent);
 /**
  * @swagger
  * /api/events/{eventId}:
+ *   patch:
+ *     tags:
+ *       - Events
+ *     summary: Partially update an existing event by ID (single field update)
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Partial event update - only include fields you want to update
+ *     responses:
+ *       200:
+ *         description: Event updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 event:
+ *                   $ref: '#/components/schemas/Event'
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+router.patch('/:eventId', validateTokenMiddleware, updateEvent);
+
+/**
+ * @swagger
+ * /api/events/{eventId}:
  *   delete:
  *     tags:
  *       - Events
@@ -1474,7 +1527,11 @@ router.get('/:eventId/rsvp', validateTokenMiddleware, getRsvpList);
  *       400:
  *         description: Invalid request or guest not attending
  */
-router.put('/:eventId/rsvp/:guestId/checkin', validateTokenMiddleware, manualCheckIn);
+router.put(
+  '/:eventId/rsvp/:guestId/checkin',
+  validateTokenMiddleware,
+  manualCheckIn
+);
 
 /**
  * @swagger

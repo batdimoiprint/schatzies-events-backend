@@ -16,12 +16,16 @@ import {
   getOrganizersByIds as getOrganizersByIdsService,
 } from '../services/organizer.service.js';
 import { findUserByUserId as getUserByUserIdService } from '../services/users.service.js';
-import { getEventsByFilter as getEventsByFilterService, getTasksByEventId as getTasksByEventIdService } from '../services/eventPlanner.service.js';
+import {
+  getEventsByFilter as getEventsByFilterService,
+  getTasksByEventId as getTasksByEventIdService,
+} from '../services/eventPlanner.service.js';
 
 export async function createEvent(req, res) {
   try {
     const eventPayload = req.body ?? {};
-    const clientId = eventPayload.client_id || eventPayload.clientId || req.user?.user_id;
+    const clientId =
+      eventPayload.client_id || eventPayload.clientId || req.user?.user_id;
     const createdEvent = await createEventService(eventPayload, clientId);
 
     return res.status(201).json({
@@ -76,7 +80,8 @@ export async function sendEventMessage(req, res) {
 
     if (event.headOrganizerId !== currentUserId) {
       return res.status(403).json({
-        error: 'Only the head organizer can send messages to the assigned client',
+        error:
+          'Only the head organizer can send messages to the assigned client',
       });
     }
 
@@ -122,7 +127,9 @@ export async function getEventById(req, res) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    const client = event.clientId ? await getUserByUserIdService(event.clientId) : null;
+    const client = event.clientId
+      ? await getUserByUserIdService(event.clientId)
+      : null;
     const tasks = await getTasksByEventIdService(eventId);
     const groupedTasks = { TODO: [], IN_PROGRESS: [], COMPLETED: [] };
     tasks.forEach((task) => {
@@ -133,13 +140,15 @@ export async function getEventById(req, res) {
     });
     const totalTasks = tasks.length;
     const completedTasks = groupedTasks.COMPLETED.length;
-    const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+    const progress =
+      totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
 
     const vendors = await getVendorsByEventIdService(eventId);
-    
+
     // Fetch real guests and headcount from DynamoDB RSVP data
     const attendees = await getAllRsvps(eventId);
-    const { expectedGuests, currentHeadcount } = await getHeadcountService(eventId);
+    const { expectedGuests, currentHeadcount } =
+      await getHeadcountService(eventId);
 
     const percentArrived =
       expectedGuests === 0
@@ -152,26 +161,31 @@ export async function getEventById(req, res) {
     }
 
     const assignmentIds = Array.isArray(event.workerOrganizerAssignments)
-      ? event.workerOrganizerAssignments.map((assignment) => assignment.organizerId)
+      ? event.workerOrganizerAssignments.map(
+          (assignment) => assignment.organizerId
+        )
       : Array.isArray(event.workerOrganizerIds)
-      ? event.workerOrganizerIds
-      : [];
+        ? event.workerOrganizerIds
+        : [];
 
     const workerOrganizersRaw = await getOrganizersByIdsService(assignmentIds);
-    const workerOrganizers = (Array.isArray(event.workerOrganizerAssignments)
-      ? event.workerOrganizerAssignments
-      : assignmentIds.map((organizerId) => ({
-          organizerId,
-          status: 'pending',
-          updatedAt: null,
-        })))
-      .map((assignment) => {
-        const organizer = workerOrganizersRaw.find((org) => org.id === assignment.organizerId);
-        return {
-          ...assignment,
-          organizer,
-        };
-      });
+    const workerOrganizers = (
+      Array.isArray(event.workerOrganizerAssignments)
+        ? event.workerOrganizerAssignments
+        : assignmentIds.map((organizerId) => ({
+            organizerId,
+            status: 'pending',
+            updatedAt: null,
+          }))
+    ).map((assignment) => {
+      const organizer = workerOrganizersRaw.find(
+        (org) => org.id === assignment.organizerId
+      );
+      return {
+        ...assignment,
+        organizer,
+      };
+    });
 
     const organizerName = headOrganizer
       ? `${headOrganizer.firstName || ''} ${headOrganizer.lastName || ''}`.trim()
@@ -191,7 +205,7 @@ export async function getEventById(req, res) {
         clientEmail: client?.email || '',
         eventType: event.eventType || '',
         package: {
-          name: event.eventPackage || '',
+          name: event.eventPackageKey || event.eventPackage || '',
           pax: event.eventPax || 0,
         },
         venue: event.venue || '',

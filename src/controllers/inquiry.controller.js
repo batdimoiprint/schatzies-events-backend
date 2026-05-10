@@ -1,18 +1,65 @@
 import * as inquiryService from '../services/inquiry.service.js';
+import { isEmailVerified } from '../services/emailVerification.service.js';
 import {
   sendInquiryCreatedEmail,
   sendInquiryStatusUpdatedEmail,
+  sendInquiryAdminNotificationEmail,
 } from '../services/mailer.service.js';
+import { sendPushToUser, getAdminUserId } from '../utils/push.util.js';
 
 // POST /api/inquiries
 export async function createInquiryController(req, res) {
   try {
+    const { email } = req.body ?? {};
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ error: 'Email is required to submit an inquiry' });
+    }
+
+    // Requirement: Check if email is verified
+    const verified = await isEmailVerified(email);
+    if (!verified) {
+      return res.status(403).json({
+        error: 'Email not verified',
+        message:
+          'Please verify your email address before submitting the inquiry form.',
+      });
+    }
+
     const newInquiry = await inquiryService.createInquiry(req.body);
 
+    // Email to the client who submitted the inquiry
     try {
       await sendInquiryCreatedEmail(newInquiry);
     } catch (mailError) {
       console.error('Failed to send inquiry created email:', mailError);
+    }
+
+    // Email to admin about the new inquiry
+    try {
+      await sendInquiryAdminNotificationEmail(newInquiry);
+    } catch (mailError) {
+      console.error('Failed to send admin notification email:', mailError);
+    }
+
+    // Send push notification to admin
+    try {
+      const adminUserId = await getAdminUserId();
+      if (adminUserId) {
+        await sendPushToUser(adminUserId, {
+          title: 'New Inquiry Received',
+          body: `${newInquiry.firstName} ${newInquiry.lastName} submitted a new inquiry for ${newInquiry.eventType}`,
+          data: {
+            type: 'inquiry',
+            inquiryId: newInquiry.inquiry_id,
+            url: '/admin/inquiries',
+          },
+        });
+      }
+    } catch (pushError) {
+      console.error('Failed to send push notification:', pushError);
     }
 
     res.status(201).json(newInquiry);
@@ -190,6 +237,15 @@ export async function checkUserRegisteredController(req, res) {
       return res.status(404).json({ error: 'Inquiry not found' });
     }
     res.json({ isUserRegistered: inquiry.is_Account_Created === true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+// GET /api/inquiries/booked-dates
+export async function getBookedDatesController(req, res) {
+  try {
+    const dates = await inquiryService.getBookedDates();
+    res.json(dates);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

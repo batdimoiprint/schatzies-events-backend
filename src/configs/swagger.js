@@ -179,7 +179,8 @@ const swaggerSpec = swaggerJsdoc({
             },
             description: {
               type: 'string',
-              example: 'A year-end celebration for employees and their families.',
+              example:
+                'A year-end celebration for employees and their families.',
             },
             location: {
               type: 'string',
@@ -334,7 +335,12 @@ const swaggerSpec = swaggerJsdoc({
         },
         CostBreakdownRequest: {
           type: 'object',
-          required: ['packagePricePerPax', 'eventPax', 'manpowerCost', 'additionalCharges'],
+          required: [
+            'packagePricePerPax',
+            'eventPax',
+            'manpowerCost',
+            'additionalCharges',
+          ],
           properties: {
             packagePricePerPax: {
               type: 'number',
@@ -466,7 +472,8 @@ const swaggerSpec = swaggerJsdoc({
             },
             description: {
               type: 'string',
-              example: 'Review and confirm the seating layout with the venue coordinator.',
+              example:
+                'Review and confirm the seating layout with the venue coordinator.',
             },
             status: {
               type: 'string',
@@ -498,7 +505,8 @@ const swaggerSpec = swaggerJsdoc({
             },
             description: {
               type: 'string',
-              example: 'Review and confirm the seating layout with the venue coordinator.',
+              example:
+                'Review and confirm the seating layout with the venue coordinator.',
             },
           },
         },
@@ -511,7 +519,8 @@ const swaggerSpec = swaggerJsdoc({
             },
             description: {
               type: 'string',
-              example: 'Review and confirm the seating layout with the venue coordinator.',
+              example:
+                'Review and confirm the seating layout with the venue coordinator.',
             },
           },
         },
@@ -887,13 +896,22 @@ const swaggerSpec = swaggerJsdoc({
               items: {
                 type: 'object',
                 properties: {
-                  id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+                  id: {
+                    type: 'string',
+                    example: '550e8400-e29b-41d4-a716-446655440000',
+                  },
                   title: { type: 'string', example: 'Annual Company Party' },
-                  eventTitle: { type: 'string', example: 'Annual Company Party' },
+                  eventTitle: {
+                    type: 'string',
+                    example: 'Annual Company Party',
+                  },
                   date: { type: 'string', example: '2026-05-01' },
                   startTime: { type: 'string', example: '14:00' },
                   status: { type: 'string', example: 'PLANNING' },
-                  eventId: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+                  eventId: {
+                    type: 'string',
+                    example: '550e8400-e29b-41d4-a716-446655440000',
+                  },
                   eventType: { type: 'string', example: 'Wedding' },
                   clientName: { type: 'string', example: 'Jane Doe' },
                   clientId: { type: 'string', example: 'client-123' },
@@ -910,7 +928,10 @@ const swaggerSpec = swaggerJsdoc({
                     type: 'object',
                     properties: {
                       id: { type: 'string', example: 'vendor-123' },
-                      vendorName: { type: 'string', example: 'Floral Design Co.' },
+                      vendorName: {
+                        type: 'string',
+                        example: 'Floral Design Co.',
+                      },
                     },
                   },
                 },
@@ -975,7 +996,10 @@ const swaggerSpec = swaggerJsdoc({
         Allocation: {
           type: 'object',
           properties: {
-            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
             vendors: {
               type: 'array',
               items: {
@@ -1019,32 +1043,62 @@ const swaggerSpec = swaggerJsdoc({
             },
             flow_type: { type: 'string', example: 'Cocktail Reception' },
             food_package: { type: 'string', example: 'Buffet Deluxe' },
-            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
-            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
           },
         },
         PrecheckRequest: {
           type: 'object',
-          required: ['venue_secured', 'vendors_ready', 'manpower_ready', 'supplies_ready'],
+          required: [
+            'venue_secured',
+            'vendors_ready',
+            'manpower_ready',
+            'supplies_ready',
+          ],
           properties: {
             venue_secured: { type: 'boolean', example: true },
             vendors_ready: { type: 'boolean', example: true },
             manpower_ready: { type: 'boolean', example: true },
             supplies_ready: { type: 'boolean', example: true },
-            remarks: { type: 'string', example: 'All pre-event items are ready.' },
+            remarks: {
+              type: 'string',
+              example: 'All pre-event items are ready.',
+            },
           },
         },
         Precheck: {
           type: 'object',
           properties: {
-            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
             venue_secured: { type: 'boolean', example: true },
             vendors_ready: { type: 'boolean', example: true },
             manpower_ready: { type: 'boolean', example: true },
             supplies_ready: { type: 'boolean', example: true },
-            remarks: { type: 'string', example: 'All pre-event items are ready.' },
-            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
-            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            remarks: {
+              type: 'string',
+              example: 'All pre-event items are ready.',
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
           },
         },
         ProgramFlowRequest: {
@@ -1052,31 +1106,78 @@ const swaggerSpec = swaggerJsdoc({
           required: ['title', 'start_time', 'end_time'],
           properties: {
             title: { type: 'string', example: 'Opening Ceremony' },
-            description: { type: 'string', example: 'Live band performance and welcome remarks.' },
-            start_time: { type: 'string', format: 'date-time', example: '2026-05-01T09:00:00.000Z' },
-            end_time: { type: 'string', format: 'date-time', example: '2026-05-01T10:00:00.000Z' },
+            description: {
+              type: 'string',
+              example: 'Live band performance and welcome remarks.',
+            },
+            start_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T09:00:00.000Z',
+            },
+            end_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T10:00:00.000Z',
+            },
           },
         },
         UpdateProgramFlowRequest: {
           type: 'object',
           properties: {
             title: { type: 'string', example: 'Opening Ceremony' },
-            description: { type: 'string', example: 'Live band performance and welcome remarks.' },
-            start_time: { type: 'string', format: 'date-time', example: '2026-05-01T09:00:00.000Z' },
-            end_time: { type: 'string', format: 'date-time', example: '2026-05-01T10:00:00.000Z' },
+            description: {
+              type: 'string',
+              example: 'Live band performance and welcome remarks.',
+            },
+            start_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T09:00:00.000Z',
+            },
+            end_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T10:00:00.000Z',
+            },
           },
         },
         ProgramFlow: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824' },
-            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            id: {
+              type: 'string',
+              example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824',
+            },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
             title: { type: 'string', example: 'Opening Ceremony' },
-            description: { type: 'string', example: 'Live band performance and welcome remarks.' },
-            start_time: { type: 'string', format: 'date-time', example: '2026-05-01T09:00:00.000Z' },
-            end_time: { type: 'string', format: 'date-time', example: '2026-05-01T10:00:00.000Z' },
-            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
-            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            description: {
+              type: 'string',
+              example: 'Live band performance and welcome remarks.',
+            },
+            start_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T09:00:00.000Z',
+            },
+            end_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T10:00:00.000Z',
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
           },
         },
         TimelineTaskRequest: {
@@ -1084,7 +1185,11 @@ const swaggerSpec = swaggerJsdoc({
           required: ['task_name', 'scheduled_time'],
           properties: {
             task_name: { type: 'string', example: 'Set up stage lighting' },
-            scheduled_time: { type: 'string', format: 'date-time', example: '2026-05-01T08:00:00.000Z' },
+            scheduled_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T08:00:00.000Z',
+            },
             is_completed: { type: 'boolean', example: false },
           },
         },
@@ -1092,52 +1197,104 @@ const swaggerSpec = swaggerJsdoc({
           type: 'object',
           properties: {
             task_name: { type: 'string', example: 'Set up stage lighting' },
-            scheduled_time: { type: 'string', format: 'date-time', example: '2026-05-01T08:00:00.000Z' },
+            scheduled_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T08:00:00.000Z',
+            },
             is_completed: { type: 'boolean', example: true },
           },
         },
         TimelineTask: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824' },
-            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            id: {
+              type: 'string',
+              example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824',
+            },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
             task_name: { type: 'string', example: 'Set up stage lighting' },
-            scheduled_time: { type: 'string', format: 'date-time', example: '2026-05-01T08:00:00.000Z' },
+            scheduled_time: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-05-01T08:00:00.000Z',
+            },
             is_completed: { type: 'boolean', example: false },
-            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
-            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
           },
         },
         ResourceStatusRequest: {
           type: 'object',
           required: ['assignee_type', 'assignee_id', 'assignee_name', 'status'],
           properties: {
-            assignee_type: { type: 'string', enum: ['vendor', 'manpower'], example: 'vendor' },
+            assignee_type: {
+              type: 'string',
+              enum: ['vendor', 'manpower'],
+              example: 'vendor',
+            },
             assignee_id: { type: 'string', example: 'vendor-123' },
             assignee_name: { type: 'string', example: 'Floral Design Co.' },
-            status: { type: 'string', enum: ['pending', 'onsite', 'late'], example: 'pending' },
+            status: {
+              type: 'string',
+              enum: ['pending', 'onsite', 'late'],
+              example: 'pending',
+            },
           },
         },
         UpdateResourceStatusRequest: {
           type: 'object',
           properties: {
-            assignee_type: { type: 'string', enum: ['vendor', 'manpower'], example: 'vendor' },
+            assignee_type: {
+              type: 'string',
+              enum: ['vendor', 'manpower'],
+              example: 'vendor',
+            },
             assignee_id: { type: 'string', example: 'vendor-123' },
             assignee_name: { type: 'string', example: 'Floral Design Co.' },
-            status: { type: 'string', enum: ['pending', 'onsite', 'late'], example: 'onsite' },
+            status: {
+              type: 'string',
+              enum: ['pending', 'onsite', 'late'],
+              example: 'onsite',
+            },
           },
         },
         ResourceStatus: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824' },
-            event_id: { type: 'string', example: '550e8400-e29b-41d4-a716-446655440000' },
+            id: {
+              type: 'string',
+              example: '2f1a7cde-8c84-4d4f-b2a3-019fb3c8b824',
+            },
+            event_id: {
+              type: 'string',
+              example: '550e8400-e29b-41d4-a716-446655440000',
+            },
             assignee_type: { type: 'string', example: 'vendor' },
             assignee_id: { type: 'string', example: 'vendor-123' },
             assignee_name: { type: 'string', example: 'Floral Design Co.' },
             status: { type: 'string', example: 'pending' },
-            created_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
-            updated_at: { type: 'string', format: 'date-time', example: '2026-04-01T12:00:00.000Z' },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
+            updated_at: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-01T12:00:00.000Z',
+            },
           },
         },
       },
