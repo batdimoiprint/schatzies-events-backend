@@ -86,6 +86,8 @@ router.get(
   getInquiriesController
 );
 
+router.get('/booked-dates', getBookedDatesController);
+
 /**
  * @swagger
  * /api/inquiries/{id}:
@@ -207,6 +209,5 @@ router.post(
 );
 
 router.get('/:id/isUserRegistered', checkUserRegisteredController);
-router.get('/booked-dates', getBookedDatesController);
 
 export default router;
