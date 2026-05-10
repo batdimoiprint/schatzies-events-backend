@@ -27,16 +27,14 @@ export async function createCostBreakdown(req, res) {
     }
 
     const payload = {
-      packagePricePerPax: parseNumberField(
-        req.body?.packagePricePerPax,
-        'packagePricePerPax'
+      packagePrice: parseNumberField(
+        req.body?.packagePrice ?? req.body?.packagePricePerPax,
+        'packagePrice'
       ),
       eventPax: parseNumberField(req.body?.eventPax, 'eventPax'),
-      manpowerCost: parseNumberField(req.body?.manpowerCost, 'manpowerCost'),
-      additionalCharges: parseNumberField(
-        req.body?.additionalCharges,
-        'additionalCharges'
-      ),
+      additionalCharges: req.body?.additionalCharges != null
+        ? parseNumberField(req.body.additionalCharges, 'additionalCharges')
+        : 0,
     };
 
     const breakdown = await createCostBreakdownService(eventId, payload);
@@ -82,16 +80,14 @@ export async function updateCostBreakdown(req, res) {
     }
 
     const payload = {
-      packagePricePerPax: parseNumberField(
-        req.body?.packagePricePerPax,
-        'packagePricePerPax'
+      packagePrice: parseNumberField(
+        req.body?.packagePrice ?? req.body?.packagePricePerPax,
+        'packagePrice'
       ),
       eventPax: parseNumberField(req.body?.eventPax, 'eventPax'),
-      manpowerCost: parseNumberField(req.body?.manpowerCost, 'manpowerCost'),
-      additionalCharges: parseNumberField(
-        req.body?.additionalCharges,
-        'additionalCharges'
-      ),
+      additionalCharges: req.body?.additionalCharges != null
+        ? parseNumberField(req.body.additionalCharges, 'additionalCharges')
+        : 0,
     };
 
     const breakdown = await updateCostBreakdownService(eventId, payload);
