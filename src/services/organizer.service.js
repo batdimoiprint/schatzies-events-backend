@@ -210,7 +210,22 @@ export async function findOrganizerByEmail(email) {
     const found = (response.Items || []).find(
       (item) => item.role?.S === 'ORGANIZER'
     );
-    return mapDynamoOrganizer(found);
+    
+    if (!found) {
+      return null;
+    }
+
+    // GSI might not project all attributes. Fetch full record.
+    const getCommand = new GetItemCommand({
+      TableName: DYNAMO_TABLE,
+      Key: {
+        PK: found.PK,
+        SK: found.SK || { S: 'PROFILE' },
+      },
+    });
+
+    const getResponse = await dynamoClient.send(getCommand);
+    return getResponse.Item ? mapDynamoOrganizer(getResponse.Item) : null;
   } catch (error) {
     if (
       error.name === 'ValidationException' ||

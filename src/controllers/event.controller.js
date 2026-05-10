@@ -198,6 +198,7 @@ export async function getEventById(req, res) {
       event: {
         ...event,
         eventTitle: event.title || '',
+        invitationDate: event.endDate || event.startDate || event.eventDate || '',
         dateStart: event.startDate || event.eventDate || '',
         dateEnd: event.endDate || '',
         organizerName,

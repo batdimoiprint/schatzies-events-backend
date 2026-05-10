@@ -384,10 +384,26 @@ export async function verifyRsvpEmailController(req, res) {
       // Non-fatal error, continue to respond successfully
     }
 
+    // Ensure we have a Data URL for the QR code
+    let displayQrCode = guest.qrCodeDataUrl || guest.qrCodeUrl;
+    
+    if (!displayQrCode && (guest.qrCode || guest.id)) {
+      try {
+        const QRCode = (await import('qrcode')).default;
+        const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL 
+          ? process.env.FRONTEND_URL.split(',')[0].trim() 
+          : 'http://localhost:5173';
+        const checkInUrl = guest.qrCode || `${baseUrl}/checkin?eventId=${eventId}&guestId=${guest.id || guestId}`;
+        displayQrCode = await QRCode.toDataURL(checkInUrl);
+      } catch (qrErr) {
+        console.error('Error generating fallback QR Data URL:', qrErr);
+      }
+    }
+
     return res.status(200).json({
       message: 'Email verified successfully. Your QR code is ready!',
       guest,
-      qrCode: guest.qrCode,
+      qrCode: displayQrCode || guest.qrCode,
     });
   } catch (error) {
     console.error('Error verifying RSVP email:', error);
