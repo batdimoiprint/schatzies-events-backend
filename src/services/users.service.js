@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -81,7 +82,7 @@ function buildDynamoItem(payload) {
     isOnline: { BOOL: payload.isOnline ?? false },
     isPasswordChanged: { BOOL: payload.isPasswordChanged ?? false },
     profilePic: { S: normalizeString(payload.profilePic) },
-    created_at: { S: payload.created_at || new Date().toISOString() },
+    created_at: { S: payload.created_at || nowPH() },
   };
 }
 
@@ -216,7 +217,7 @@ export async function createUser(payload) {
     gender: payload.gender || '',
     isOnline: false,
     isPasswordChanged: false,
-    created_at: new Date().toISOString(),
+    created_at: nowPH(),
   };
 
   const command = new PutItemCommand({

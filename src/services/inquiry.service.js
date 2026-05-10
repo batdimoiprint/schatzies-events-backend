@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+import { nowPH } from '../utils/timezone.js';
 import {
   PutItemCommand,
   ScanCommand,
@@ -146,7 +147,7 @@ export async function createInquiry(inquiryData) {
   }
 
   const id = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const newInquiry = {
     id,
@@ -328,7 +329,7 @@ export async function updateInquiry(inquiryId, updateData) {
       idx += 1;
     });
     parts.push('#updated_at = :u');
-    ExpressionAttributeValues[':u'] = new Date().toISOString();
+    ExpressionAttributeValues[':u'] = nowPH();
     ExpressionAttributeNames['#updated_at'] = 'updated_at';
 
     const UpdateExpression = 'SET ' + parts.join(', ');
@@ -355,7 +356,7 @@ export async function updateInquiry(inquiryId, updateData) {
   const updated = {
     ...existing,
     ...updateData,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowPH(),
   };
 
   inquiries[index] = updated;
@@ -398,7 +399,7 @@ export async function addCommunication(inquiryId, communication) {
   const communications = inquiry.communications || [];
   communications.push({
     ...communication,
-    timestamp: new Date().toISOString(),
+    timestamp: nowPH(),
   });
 
   return updateInquiry(inquiryId, { communications });
@@ -439,7 +440,7 @@ export async function scheduleMeeting(inquiryId, meetingDetails) {
     eventType: eventType || 'Client',
     organizerId,
     inquiryUserId: inquiryUserId || '',
-    timestamp: new Date().toISOString(),
+    timestamp: nowPH(),
   };
 
   // Update inquiry status only. Meeting data is stored in CALENDAR.

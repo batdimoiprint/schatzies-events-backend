@@ -1,4 +1,5 @@
 import './configs/env.js';
+import { nowPH } from './utils/timezone.js';
 import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './configs/swagger.js';
@@ -48,7 +49,7 @@ app.use(
 );
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.json({ status: 'healthy', timestamp: nowPH() });
 });
 
 // API Routes

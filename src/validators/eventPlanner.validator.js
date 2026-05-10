@@ -2,6 +2,8 @@ import Joi from 'joi';
 
 export const confirmEventSchema = Joi.object({
   event_date: Joi.string().isoDate().required(),
+  start_date: Joi.string().isoDate().optional(),
+  end_date: Joi.string().isoDate().optional(),
   venue: Joi.string().trim().required(),
   notes: Joi.string().trim().allow('').optional(),
 });

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -150,7 +151,7 @@ function buildRsvpItem(
   verificationToken = null
 ) {
   const guestId = normalizeString(payload.guestId) || randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const baseItem = {
     PK: { S: buildEventPK(eventId) },
@@ -321,7 +322,7 @@ export async function checkInRsvpGuest(eventId, guestId, checkedInBy = '') {
     throw new Error('Guest ID is required');
   }
 
-  const now = new Date().toISOString();
+  const now = nowPH();
   const updateExpr = normalizeString(checkedInBy)
     ? 'SET isScanned = :true, checkedInAt = :now, checkedInBy = :checkedBy, #timestamp = :now'
     : 'SET isScanned = :true, checkedInAt = :now, #timestamp = :now';
@@ -433,7 +434,7 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
     throw new Error('Invalid verification token');
   }
 
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   // Generate QR code for check-in
   const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL 

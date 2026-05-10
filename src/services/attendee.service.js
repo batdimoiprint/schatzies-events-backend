@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import { getEventById } from './event.service.js';
 
 const attendees = [];
@@ -27,8 +28,8 @@ export async function createAttendee(attendeeData) {
     qrCode: randomUUID(),
     status: 'registered',
     checkinTime: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: nowPH(),
+    updatedAt: nowPH(),
   };
 
   attendees.push(newAttendee);
@@ -83,7 +84,7 @@ export async function updateAttendee(attendeeId, updateData) {
     status: status !== undefined ? status : existingAttendee.status,
     checkinTime:
       checkinTime !== undefined ? checkinTime : existingAttendee.checkinTime,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowPH(),
   };
 
   attendees[index] = updatedAttendee;
@@ -118,8 +119,8 @@ export async function checkInAttendee(attendeeId) {
   const checkedInAttendee = {
     ...attendee,
     status: 'checked_in',
-    checkinTime: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    checkinTime: nowPH(),
+    updatedAt: nowPH(),
   };
 
   attendees[index] = checkedInAttendee;
@@ -149,8 +150,8 @@ export async function checkInAttendeeByQr(eventId, qrCode) {
   const checkedInAttendee = {
     ...attendee,
     status: 'checked_in',
-    checkinTime: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    checkinTime: nowPH(),
+    updatedAt: nowPH(),
   };
 
   attendees[attendeeIndex] = checkedInAttendee;

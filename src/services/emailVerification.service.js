@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import nodemailer from 'nodemailer';
 import { sendSmtpMail, sendInquiryCreatedEmail } from './mailer.service.js';
 import {
@@ -188,7 +189,7 @@ async function storeVerificationToken(token, email, pendingInquiry = null) {
     expiresAt: { S: expiresAt.toISOString() },
     ttl: { N: String(ttlEpoch) },
     used: { S: 'false' },
-    createdAt: { S: new Date().toISOString() },
+    createdAt: { S: nowPH() },
   };
 
   if (pendingInquiry) {
@@ -261,7 +262,7 @@ async function deleteVerificationToken(token) {
  */
 async function markEmailVerified(email) {
   const normalizedEmail = email.toLowerCase().trim();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
@@ -326,15 +327,15 @@ function buildVerificationEmailHtml(verifyUrl) {
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px;">
-              <h2 style="margin:0 0 12px;color:#1a1a2e;font-size:20px;font-weight:600;">Verify Your Email</h2>
+              <h2 style="margin:0 0 12px;color:#1a1a2e;font-size:20px;font-weight:600;">Confirm Your Inquiry</h2>
               <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">
-                Thank you for your interest in Schatzies Events! Please click the button below to verify your email address. This link will expire in <strong>15 minutes</strong>.
+                Thank you for your interest in Schatzies Events! Please click the button below to confirm your inquiry submission. This link will expire in <strong>15 minutes</strong>.
               </p>
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
                 <tr>
                   <td style="border-radius:8px;background:#e91e63;">
                     <a href="${escapeHtml(verifyUrl)}" target="_blank" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">
-                      Verify Email
+                      Confirm Inquiry
                     </a>
                   </td>
                 </tr>
@@ -401,10 +402,10 @@ export async function checkOrSendVerification(email, pendingInquiry = null) {
   const verifyUrl = `${getFrontendUrl()}/verify?token=${token}`;
 
   // 4. Send email via Gmail pool (round-robin with failover)
-  const subject = 'Verify your email – Schatzies Events';
+  const subject = 'Confirm your inquiry – Schatzies Events';
   const text =
     `Hello,\n\n` +
-    `Please verify your email by clicking this link:\n${verifyUrl}\n\n` +
+    `Please confirm your inquiry by clicking this link:\n${verifyUrl}\n\n` +
     `This link expires in 15 minutes.\n\n` +
     `If you did not request this, you can ignore this email.\n\n` +
     `Best regards,\nSchatzies Events`;

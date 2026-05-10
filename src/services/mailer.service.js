@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { nowPH } from '../utils/timezone.js';
 
 const smtpHost = process.env.SMTP_HOST;
 const smtpPort = process.env.SMTP_PORT;
@@ -132,7 +133,7 @@ export async function sendInquiryCreatedEmail(inquiry) {
       .join(' ') || 'Client';
   const inquiryDate = formatDate(inquiry.date);
   const createdAt = formatDate(
-    inquiry.createdAt || inquiry.created_at || new Date().toISOString()
+    inquiry.createdAt || inquiry.created_at || nowPH()
   );
   const eventType = inquiry.eventType || 'N/A';
   const eventPax = inquiry.eventPax ?? inquiry.package?.pax ?? 'N/A';
@@ -900,7 +901,7 @@ export async function sendInquiryAdminNotificationEmail(inquiry) {
   const eventType = inquiry.eventType || 'N/A';
   const inquiryDate = formatDate(inquiry.date);
   const createdAt = formatDate(
-    inquiry.createdAt || inquiry.created_at || new Date().toISOString()
+    inquiry.createdAt || inquiry.created_at || nowPH()
   );
   const eventPax = inquiry.eventPax ?? inquiry.package?.pax ?? 'N/A';
   const eventPackage = inquiry.eventPackage || inquiry.package?.name || 'N/A';

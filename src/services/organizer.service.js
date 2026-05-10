@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import bcrypt from 'bcryptjs';
 import {
   GetItemCommand,
@@ -59,10 +60,10 @@ function buildDynamoOrganizerItem(payload) {
     SK: { S: 'PROFILE' },
     role: { S: 'ORGANIZER' },
     created_at: {
-      S: payload.created_at || payload.createdAt || new Date().toISOString(),
+      S: payload.created_at || payload.createdAt || nowPH(),
     },
     updated_at: {
-      S: payload.updated_at || payload.updatedAt || new Date().toISOString(),
+      S: payload.updated_at || payload.updatedAt || nowPH(),
     },
   };
 
@@ -242,8 +243,8 @@ export async function createOrganizer(organizerData) {
     password: organizerData.password
       ? await bcrypt.hash(normalizeString(organizerData.password), 10)
       : undefined,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: nowPH(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -274,7 +275,7 @@ export async function updateOrganizer(organizerId, updateData) {
   const updatedPayload = {
     ...existing,
     ...updateData,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   if (updateData.password) {

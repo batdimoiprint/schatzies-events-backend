@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   PutItemCommand,
   QueryCommand,
@@ -209,7 +210,7 @@ async function findConversation(participant1Id, participant2Id) {
 }
 
 async function createConversation(clientId, organizerId, eventId) {
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const item = {
     PK: { S: `CHAT#${eventId}` },
@@ -490,7 +491,7 @@ export async function sendMessage(conversationId, senderId, senderRole, body) {
 
   // Persist the message — UUID in SK prevents duplicates even on retry
   const messageId = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const msgItem = {
     PK: { S: `CHAT#${conversationId}` },

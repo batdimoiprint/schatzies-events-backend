@@ -19,6 +19,7 @@ import {
   buildJsonOrStringAttribute,
   buildNumberAttribute,
 } from '../utils/dynamoHelpers.js';
+import { nowPH } from '../utils/timezone.js';
 
 function parseJsonAttribute(attr) {
   if (!attr || typeof attr.S !== 'string') {
@@ -50,7 +51,7 @@ function ensureWorkerAssignments(event) {
       ? event.workerOrganizerIds.map((id) => ({
           organizerId: id,
           status: 'pending',
-          updatedAt: event.updatedAt || new Date().toISOString(),
+          updatedAt: event.updatedAt || nowPH(),
         }))
       : [];
   }
@@ -180,7 +181,7 @@ function buildDynamoEventItem(payload) {
         organizerId: { S: normalizeString(assignment.organizerId) },
         status: { S: normalizeString(assignment.status || 'pending') },
         updatedAt: {
-          S: normalizeString(assignment.updatedAt) || new Date().toISOString(),
+          S: normalizeString(assignment.updatedAt) || nowPH(),
         },
       },
     })),
@@ -198,10 +199,10 @@ function buildDynamoEventItem(payload) {
     organizer_id: { S: userId },
     status: { S: status },
     created_at: {
-      S: payload.created_at || payload.createdAt || new Date().toISOString(),
+      S: payload.created_at || payload.createdAt || nowPH(),
     },
     updated_at: {
-      S: payload.updated_at || payload.updatedAt || new Date().toISOString(),
+      S: payload.updated_at || payload.updatedAt || nowPH(),
     },
     workerOrganizerIds: {
       L: organizerIds.map((id) => ({ S: normalizeString(id) })),
@@ -364,8 +365,8 @@ export async function createEvent(eventData, clientId) {
     ...eventData,
     id: normalizeString(eventData.id || eventData.eventId || randomUUID()),
     clientId: effectiveClientId,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: nowPH(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -406,7 +407,7 @@ export async function updateEvent(eventId, updateData) {
     clientId: existingEvent.clientId,
     createdAt: existingEvent.createdAt,
     created_at: existingEvent.createdAt,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   });
 
   const command = new PutItemCommand({
@@ -462,7 +463,7 @@ export async function addEventMessage(
     senderRole: normalizeString(senderRole || 'ORGANIZER'),
     receiverId: normalizeString(receiverId || existingEvent.clientId || ''),
     body: normalizedBody,
-    createdAt: new Date().toISOString(),
+    createdAt: nowPH(),
   };
 
   const updatedEvent = {
@@ -513,14 +514,14 @@ export async function assignWorkerOrganizer(eventId, organizerId) {
     updatedEvent.workerOrganizerAssignments.push({
       organizerId,
       status: 'pending',
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowPH(),
     });
   }
 
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );
-  updatedEvent.updated_at = new Date().toISOString();
+  updatedEvent.updated_at = nowPH();
 
   return updateEvent(eventId, updatedEvent);
 }
@@ -547,7 +548,7 @@ export async function unassignWorkerOrganizer(eventId, organizerId) {
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );
-  updatedEvent.updated_at = new Date().toISOString();
+  updatedEvent.updated_at = nowPH();
 
   return updateEvent(eventId, updatedEvent);
 }
@@ -583,12 +584,12 @@ export async function respondWorkerRsvp(eventId, organizerId, status) {
   updatedEvent.workerOrganizerAssignments[assignmentIndex] = {
     ...updatedEvent.workerOrganizerAssignments[assignmentIndex],
     status: normalizedStatus,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowPH(),
   };
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );
-  updatedEvent.updated_at = new Date().toISOString();
+  updatedEvent.updated_at = nowPH();
 
   return updateEvent(eventId, updatedEvent);
 }

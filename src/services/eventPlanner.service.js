@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -327,7 +328,7 @@ export async function createTask(eventId, payload) {
   const nextOrder =
     Math.max(0, ...sameStatusTasks.map((task) => task.order)) + 1;
   const taskId = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
@@ -381,7 +382,7 @@ export async function updateTask(eventId, taskId, payload) {
 
   updates.push('#updated_at = :updated_at');
   names['#updated_at'] = 'updated_at';
-  values[':updated_at'] = { S: new Date().toISOString() };
+  values[':updated_at'] = { S: nowPH() };
 
   const command = new UpdateItemCommand({
     TableName: DYNAMO_TABLE,
@@ -495,7 +496,7 @@ export async function moveTask(eventId, taskId, payload) {
     const expressionValues = {
       ':status': { S: task.status },
       ':order': { N: String(task.order) },
-      ':updated_at': { S: new Date().toISOString() },
+      ':updated_at': { S: nowPH() },
     };
 
     const updateExpression =
@@ -596,7 +597,7 @@ async function findAllocationByEventId(eventId) {
 }
 
 async function upsertAllocation(eventId, payload) {
-  const now = new Date().toISOString();
+  const now = nowPH();
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: {
@@ -630,7 +631,7 @@ async function findPrecheckByEventId(eventId) {
 }
 
 async function createPrecheckRecord(eventId, payload) {
-  const now = new Date().toISOString();
+  const now = nowPH();
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: {
@@ -688,7 +689,7 @@ async function updatePrecheckRecord(eventId, payload) {
   }
 
   updates.push('#updated_at = :updated_at');
-  values[':updated_at'] = { S: new Date().toISOString() };
+  values[':updated_at'] = { S: nowPH() };
   names['#updated_at'] = 'updated_at';
 
   const command = new UpdateItemCommand({
@@ -721,7 +722,7 @@ async function findProgramFlowsByEventId(eventId) {
 
 async function createProgramFlowRecord(eventId, payload) {
   const flowId = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: {
@@ -780,7 +781,7 @@ async function updateProgramFlowRecord(flowId, payload) {
   }
 
   updates.push('#updated_at = :updated_at');
-  values[':updated_at'] = { S: new Date().toISOString() };
+  values[':updated_at'] = { S: nowPH() };
   names['#updated_at'] = 'updated_at';
 
   const command = new UpdateItemCommand({
@@ -824,7 +825,7 @@ async function findTimelineTasksByEventId(eventId) {
 
 async function createTimelineTaskRecord(eventId, payload) {
   const taskId = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: {
@@ -876,7 +877,7 @@ async function updateTimelineTaskRecord(taskId, payload) {
   }
 
   updates.push('#updated_at = :updated_at');
-  values[':updated_at'] = { S: new Date().toISOString() };
+  values[':updated_at'] = { S: nowPH() };
   names['#updated_at'] = 'updated_at';
 
   const command = new UpdateItemCommand({
@@ -909,7 +910,7 @@ async function findResourceStatusesByEventId(eventId) {
 
 async function createResourceStatusRecord(eventId, payload) {
   const statusId = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
@@ -971,7 +972,7 @@ async function updateResourceStatusRecord(statusId, payload) {
   }
 
   updates.push('#updated_at = :updated_at');
-  values[':updated_at'] = { S: new Date().toISOString() };
+  values[':updated_at'] = { S: nowPH() };
   names['#updated_at'] = 'updated_at';
 
   const command = new UpdateItemCommand({
@@ -996,13 +997,25 @@ export async function confirmEvent(eventId, payload, adminId) {
     error.status = 404;
     throw error;
   }
-  return updateEventService(eventId, {
+
+  const updateFields = {
     eventDate: payload.event_date,
     venue: payload.venue,
     notes: payload.notes,
     confirmedBy: adminId,
     status: 'confirmed',
-  });
+  };
+
+  // Use provided start/end dates, otherwise preserve existing event dates
+  if (payload.start_date) {
+    updateFields.startDate = payload.start_date;
+  }
+
+  if (payload.end_date) {
+    updateFields.endDate = payload.end_date;
+  }
+
+  return updateEventService(eventId, updateFields);
 }
 
 export async function getConfirmedEvents() {

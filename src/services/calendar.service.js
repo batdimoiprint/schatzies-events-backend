@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   PutItemCommand,
   QueryCommand,
@@ -95,7 +96,7 @@ function buildQueryFilters(filters) {
 
 export async function createCalendarEntry(userId, payload) {
   const entryId = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
   const item = {
     PK: { S: buildPK() },
     SK: { S: buildSK(entryId) },
@@ -388,7 +389,7 @@ export async function updateCalendarEntry(userId, entryId, payload) {
 
   updates.push('#updatedAt = :updatedAt');
   names['#updatedAt'] = 'updatedAt';
-  values[':updatedAt'] = { S: new Date().toISOString() };
+  values[':updatedAt'] = { S: nowPH() };
 
   const command = new UpdateItemCommand({
     TableName: DYNAMO_TABLE,

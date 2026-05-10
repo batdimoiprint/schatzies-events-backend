@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -126,7 +127,7 @@ function buildComputedCostBreakdown(
   const totalPackageCost = packagePricePerPax * eventPax;
   const revenue = totalPackageCost + additionalCharges;
   const profit = revenue - (totalVendorCost + manpowerCost);
-  const timestamp = new Date().toISOString();
+  const timestamp = nowPH();
 
   return {
     costBreakdown_id: existingId || randomUUID(),
@@ -244,6 +245,6 @@ export async function exportCostBreakdown(eventId) {
     additionalCharges: breakdown.additionalCharges,
     revenue: breakdown.revenue,
     profit: breakdown.profit,
-    generatedAt: new Date().toISOString(),
+    generatedAt: nowPH(),
   };
 }
