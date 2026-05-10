@@ -1482,10 +1482,7 @@ router.patch('/:eventId/pricing', requireRole('ADMIN'), async (req, res) => {
       pricingUpdate.downpaymentAmount = parsed;
     }
 
-    // Recalculate packagePrice = packageInitialAmount - downpaymentAmount
-    const finalInitial = pricingUpdate.packageInitialAmount ?? existing.packageInitialAmount ?? 0;
-    const finalDown = pricingUpdate.downpaymentAmount ?? existing.downpaymentAmount ?? 0;
-    pricingUpdate.packagePrice = Math.max(0, finalInitial - finalDown);
+    // packageInitialAmount is the final package price; no need to recalculate packagePrice
 
     const updated = await updateEvt(eventId, pricingUpdate);
 

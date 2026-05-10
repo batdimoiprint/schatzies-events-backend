@@ -503,13 +503,7 @@ export async function createEvent(eventData, clientId) {
     }
 
     if (eventPayload.packagePrice === undefined) {
-      const packageInitialAmount =
-        toMoneyNumber(eventPayload.packageInitialAmount) ?? inquiryPackageInitialAmount;
-      const downpaymentAmount =
-        toMoneyNumber(eventPayload.downpaymentAmount) ?? inquiryDownpaymentAmount ?? 0;
-      if (packageInitialAmount !== undefined) {
-        eventPayload.packagePrice = Math.max(0, packageInitialAmount - downpaymentAmount);
-      }
+      // packageInitialAmount is the final package price; no need to compute packagePrice
     }
   }
 
@@ -522,8 +516,6 @@ export async function createEvent(eventData, clientId) {
     );
     if (computedPrice > 0) {
       eventPayload.packageInitialAmount = computedPrice;
-      const dp = toMoneyNumber(eventPayload.downpaymentAmount) ?? 0;
-      eventPayload.packagePrice = Math.max(0, computedPrice - dp);
     }
   }
 

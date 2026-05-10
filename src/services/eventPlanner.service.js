@@ -82,8 +82,10 @@ async function processNotePayload(note, eventId) {
             mimeType,
             eventId
           );
-          cleaned.noteImageUrl = uploadResult.Location || uploadResult.key;
+          cleaned[key] = uploadResult.Location || uploadResult.key;
         }
+      } else {
+        cleaned[key] = value;
       }
       continue;
     }
