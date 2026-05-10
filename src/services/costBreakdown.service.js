@@ -4,6 +4,7 @@ import {
   GetItemCommand,
   PutItemCommand,
   QueryCommand,
+  ScanCommand,
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
@@ -40,7 +41,11 @@ function buildCostBreakdownItem(item) {
     packagePricePerPax: { N: String(item.packagePricePerPax) },
     eventPax: { N: String(item.eventPax) },
     totalPackageCost: { N: String(item.totalPackageCost) },
+    organizerShare: { N: String(item.organizerShare) },
+    vendorBudget: { N: String(item.vendorBudget) },
     totalVendorCost: { N: String(item.totalVendorCost) },
+    vendorBalance: { N: String(item.vendorBalance) },
+    organizerTotal: { N: String(item.organizerTotal) },
     manpowerCost: { N: String(item.manpowerCost) },
     additionalCharges: { N: String(item.additionalCharges) },
     revenue: { N: String(item.revenue) },
@@ -65,9 +70,15 @@ function mapCostBreakdownItem(item) {
     totalPackageCost: item.totalPackageCost?.N
       ? Number(item.totalPackageCost.N)
       : 0,
+    organizerShare: item.organizerShare?.N
+      ? Number(item.organizerShare.N)
+      : 0,
+    vendorBudget: item.vendorBudget?.N ? Number(item.vendorBudget.N) : 0,
     totalVendorCost: item.totalVendorCost?.N
       ? Number(item.totalVendorCost.N)
       : 0,
+    vendorBalance: item.vendorBalance?.N ? Number(item.vendorBalance.N) : 0,
+    organizerTotal: item.organizerTotal?.N ? Number(item.organizerTotal.N) : 0,
     manpowerCost: item.manpowerCost?.N ? Number(item.manpowerCost.N) : 0,
     additionalCharges: item.additionalCharges?.N
       ? Number(item.additionalCharges.N)
@@ -80,20 +91,24 @@ function mapCostBreakdownItem(item) {
 }
 
 async function getVendorCostTotal(eventId) {
-  const command = new QueryCommand({
+  const command = new ScanCommand({
     TableName: DYNAMO_TABLE,
-    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :vendorPrefix)',
-    ExpressionAttributeValues: {
-      ':pk': { S: `EVENT#${eventId}` },
-      ':vendorPrefix': { S: 'VENDOR#' },
+    FilterExpression: '#sk = :profile AND #eventId = :eventId',
+    ExpressionAttributeNames: {
+      '#sk': 'SK',
+      '#eventId': 'eventId',
     },
-    ProjectionExpression: 'agreedCost',
+    ExpressionAttributeValues: {
+      ':profile': { S: 'PROFILE' },
+      ':eventId': { S: normalizeString(eventId) },
+    },
+    ProjectionExpression: 'price',
   });
 
   const response = await dynamoClient.send(command);
   return (response.Items || []).reduce((sum, item) => {
-    const agreedCost = item.agreedCost?.N ? Number(item.agreedCost.N) : 0;
-    return sum + (Number.isFinite(agreedCost) ? agreedCost : 0);
+    const price = item.price?.N ? Number(item.price.N) : 0;
+    return sum + (Number.isFinite(price) ? price : 0);
   }, 0);
 }
 
@@ -125,8 +140,12 @@ function buildComputedCostBreakdown(
   );
 
   const totalPackageCost = packagePricePerPax * eventPax;
+  const organizerShare = totalPackageCost * 0.2;
+  const vendorBudget = totalPackageCost - organizerShare;
+  const vendorBalance = vendorBudget - totalVendorCost;
+  const organizerTotal = organizerShare + vendorBalance;
   const revenue = totalPackageCost + additionalCharges;
-  const profit = revenue - (totalVendorCost + manpowerCost);
+  const profit = organizerTotal + additionalCharges - manpowerCost;
   const timestamp = nowPH();
 
   return {
@@ -135,7 +154,11 @@ function buildComputedCostBreakdown(
     packagePricePerPax,
     eventPax,
     totalPackageCost,
+    organizerShare,
+    vendorBudget,
     totalVendorCost,
+    vendorBalance,
+    organizerTotal,
     manpowerCost,
     additionalCharges,
     revenue,
@@ -208,12 +231,16 @@ export async function updateCostBreakdown(eventId, payload) {
     TableName: DYNAMO_TABLE,
     Key: buildCostBreakdownKey(eventId),
     UpdateExpression:
-      'SET packagePricePerPax = :packagePricePerPax, eventPax = :eventPax, totalPackageCost = :totalPackageCost, totalVendorCost = :totalVendorCost, manpowerCost = :manpowerCost, additionalCharges = :additionalCharges, revenue = :revenue, profit = :profit, updated_at = :updatedAt',
+      'SET packagePricePerPax = :packagePricePerPax, eventPax = :eventPax, totalPackageCost = :totalPackageCost, organizerShare = :organizerShare, vendorBudget = :vendorBudget, totalVendorCost = :totalVendorCost, vendorBalance = :vendorBalance, organizerTotal = :organizerTotal, manpowerCost = :manpowerCost, additionalCharges = :additionalCharges, revenue = :revenue, profit = :profit, updated_at = :updatedAt',
     ExpressionAttributeValues: {
       ':packagePricePerPax': { N: String(breakdown.packagePricePerPax) },
       ':eventPax': { N: String(breakdown.eventPax) },
       ':totalPackageCost': { N: String(breakdown.totalPackageCost) },
+      ':organizerShare': { N: String(breakdown.organizerShare) },
+      ':vendorBudget': { N: String(breakdown.vendorBudget) },
       ':totalVendorCost': { N: String(breakdown.totalVendorCost) },
+      ':vendorBalance': { N: String(breakdown.vendorBalance) },
+      ':organizerTotal': { N: String(breakdown.organizerTotal) },
       ':manpowerCost': { N: String(breakdown.manpowerCost) },
       ':additionalCharges': { N: String(breakdown.additionalCharges) },
       ':revenue': { N: String(breakdown.revenue) },
@@ -240,7 +267,11 @@ export async function exportCostBreakdown(eventId) {
     packagePricePerPax: breakdown.packagePricePerPax,
     eventPax: breakdown.eventPax,
     totalPackageCost: breakdown.totalPackageCost,
+    organizerShare: breakdown.organizerShare,
+    vendorBudget: breakdown.vendorBudget,
     totalVendorCost: breakdown.totalVendorCost,
+    vendorBalance: breakdown.vendorBalance,
+    organizerTotal: breakdown.organizerTotal,
     manpowerCost: breakdown.manpowerCost,
     additionalCharges: breakdown.additionalCharges,
     revenue: breakdown.revenue,
