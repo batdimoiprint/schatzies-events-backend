@@ -10,6 +10,7 @@ import {
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { randomUUID } from 'crypto';
 import { normalizeString } from '../utils/dynamoHelpers.js';
+import { nowPH } from '../utils/timezone.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -90,7 +91,7 @@ function buildDynamoItem(payload) {
     country: { S: normalizeString(payload.country) },
     gender: { S: normalizeString(payload.gender) },
     profilePic: { S: normalizeString(payload.profilePic) },
-    created_at: { S: payload.created_at || new Date().toISOString() },
+    created_at: { S: payload.created_at || nowPH() },
   };
 }
 
@@ -127,10 +128,26 @@ async function queryUserRecordByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const userItem = (response.Items || []).find(
+    const indexItem = (response.Items || []).find(
       (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
     );
-    return userItem ? mapDynamoUser(userItem) : null;
+
+    if (!indexItem) {
+      return null;
+    }
+
+    // GSI might not project all attributes (like password). 
+    // Fetch full record using PK/SK from main table.
+    const getCommand = new GetItemCommand({
+      TableName: DYNAMO_TABLE,
+      Key: {
+        PK: indexItem.PK,
+        SK: indexItem.SK,
+      },
+    });
+
+    const getResponse = await dynamoClient.send(getCommand);
+    return getResponse.Item ? mapDynamoUser(getResponse.Item) : null;
   } catch (error) {
     if (
       error.name === 'ValidationException' ||
@@ -291,7 +308,7 @@ export async function registerUser(payload) {
     city: payload.city || '',
     country: payload.country || '',
     gender: payload.gender || '',
-    created_at: new Date().toISOString(),
+    created_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -351,7 +368,7 @@ export async function createPasswordResetChallenge(email) {
   const expiresAt = new Date(
     Date.now() + PASSWORD_RESET_CODE_TTL_MS
   ).toISOString();
-  const issuedAt = new Date().toISOString();
+  const issuedAt = nowPH();
 
   const updatedUser = await updateUserFields(user.user_id, {
     passwordResetCodeHash: codeHash,

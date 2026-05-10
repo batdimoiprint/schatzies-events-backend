@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -81,7 +82,7 @@ function buildDynamoItem(payload) {
     isOnline: { BOOL: payload.isOnline ?? false },
     isPasswordChanged: { BOOL: payload.isPasswordChanged ?? false },
     profilePic: { S: normalizeString(payload.profilePic) },
-    created_at: { S: payload.created_at || new Date().toISOString() },
+    created_at: { S: payload.created_at || nowPH() },
   };
 }
 
@@ -121,10 +122,25 @@ export async function findUserByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const userItem = (response.Items || []).find(
+    const indexItem = (response.Items || []).find(
       (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
     );
-    return userItem ? mapDynamoUser(userItem) : null;
+    
+    if (!indexItem) {
+      return null;
+    }
+
+    // GSI might not project all attributes. Fetch full record.
+    const getCommand = new GetItemCommand({
+      TableName: DYNAMO_TABLE,
+      Key: {
+        PK: indexItem.PK,
+        SK: indexItem.SK,
+      },
+    });
+
+    const getResponse = await dynamoClient.send(getCommand);
+    return getResponse.Item ? mapDynamoUser(getResponse.Item) : null;
   } catch (error) {
     if (
       error.name === 'ValidationException' ||
@@ -216,7 +232,7 @@ export async function createUser(payload) {
     gender: payload.gender || '',
     isOnline: false,
     isPasswordChanged: false,
-    created_at: new Date().toISOString(),
+    created_at: nowPH(),
   };
 
   const command = new PutItemCommand({

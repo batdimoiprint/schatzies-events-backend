@@ -19,6 +19,8 @@ import {
   buildJsonOrStringAttribute,
   buildNumberAttribute,
 } from '../utils/dynamoHelpers.js';
+import { nowPH } from '../utils/timezone.js';
+import { getInquiryById as getInquiryByIdService } from './inquiry.service.js';
 
 function parseJsonAttribute(attr) {
   if (!attr || typeof attr.S !== 'string') {
@@ -50,7 +52,7 @@ function ensureWorkerAssignments(event) {
       ? event.workerOrganizerIds.map((id) => ({
           organizerId: id,
           status: 'pending',
-          updatedAt: event.updatedAt || new Date().toISOString(),
+          updatedAt: event.updatedAt || nowPH(),
         }))
       : [];
   }
@@ -62,6 +64,82 @@ function ensureWorkerAssignments(event) {
   }
 
   return event;
+}
+
+function toMoneyNumber(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = typeof value === 'string' ? Number(value.trim()) : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * Hardcoded package pricing matrix from Schatzies Events PH official pricing.
+ * Source: chat-support.json
+ *
+ * Wedding: Blooms, Fascinating, Windy, De Luxe, Grandezza
+ * Debut:   Charming, Irresistible, Flawless, Elegancia, Grandiosa
+ */
+function calculateEventPackagePrice(packageName, eventType, pax) {
+  const pkg = String(packageName || '').trim().toLowerCase();
+  const type = String(eventType || '').trim().toLowerCase();
+  const guestCount = Number(pax) || 0;
+
+  if (type === 'wedding') {
+    if (pkg === 'blooms') {
+      if (guestCount <= 50) return 200000;
+      if (guestCount <= 100) return 235000;
+      if (guestCount <= 150) return 277500;
+      return 320000;
+    }
+    if (pkg === 'fascinating') {
+      if (guestCount <= 100) return 295000;
+      if (guestCount <= 150) return 342500;
+      return 390000;
+    }
+    if (pkg === 'windy') {
+      if (guestCount <= 100) return 420000;
+      if (guestCount <= 150) return 480000;
+      return 540000;
+    }
+    if (pkg === 'de luxe') {
+      if (guestCount <= 100) return 520000;
+      if (guestCount <= 150) return 585000;
+      return 650000;
+    }
+    if (pkg === 'grandezza') {
+      if (guestCount <= 100) return 780000;
+      if (guestCount <= 150) return 870000;
+      return 960000;
+    }
+  } else if (type === 'debut') {
+    if (pkg === 'charming') {
+      if (guestCount <= 100) return 200000;
+      if (guestCount <= 150) return 242500;
+      return 285000;
+    }
+    if (pkg === 'irresistible') {
+      if (guestCount <= 100) return 295000;
+      if (guestCount <= 150) return 342500;
+      return 390000;
+    }
+    if (pkg === 'flawless') {
+      if (guestCount <= 100) return 395000;
+      if (guestCount <= 150) return 445000;
+      return 495000;
+    }
+    if (pkg === 'elegancia') {
+      if (guestCount <= 100) return 495000;
+      if (guestCount <= 150) return 555000;
+      return 615000;
+    }
+    if (pkg === 'grandiosa') {
+      if (guestCount <= 100) return 595000;
+      if (guestCount <= 150) return 670000;
+      return 745000;
+    }
+  }
+
+  return 0;
 }
 
 function mapDynamoEvent(item) {
@@ -77,9 +155,17 @@ function mapDynamoEvent(item) {
     eventType: item.eventType?.S || '',
     eventPackageKey: item.eventPackageKey?.S || item.eventPackage?.S || '',
     eventPax: item.eventPax?.N ? Number(item.eventPax.N) : null,
+    packageInitialAmount: item.packageInitialAmount?.N
+      ? Number(item.packageInitialAmount.N)
+      : null,
+    downpaymentAmount: item.downpaymentAmount?.N
+      ? Number(item.downpaymentAmount.N)
+      : null,
+    packagePrice: item.packagePrice?.N ? Number(item.packagePrice.N) : null,
     eventDate: item.eventDate?.S || '',
     eventTime: item.eventTime?.S || '',
     startTime: item.startTime?.S || item.eventTime?.S || '',
+    endTime: item.endTime?.S || '',
     eventLocation: item.eventLocation?.S || item.location?.S || '',
     status: item.status?.S || '',
     id: item.SK?.S?.replace('EVENT#', '') || '',
@@ -150,6 +236,7 @@ function buildDynamoEventItem(payload) {
   const startTime = buildStringAttribute(
     payload.startTime || payload.eventTime || payload.time
   );
+  const endTime = buildStringAttribute(payload.endTime);
   const eventLocation = normalizeString(
     payload.eventLocation || payload.location || ''
   );
@@ -170,6 +257,9 @@ function buildDynamoEventItem(payload) {
     payload.eventPax !== undefined && payload.eventPax !== null
       ? Number(payload.eventPax)
       : null;
+  const packageInitialAmount = buildNumberAttribute(payload.packageInitialAmount);
+  const downpaymentAmount = buildNumberAttribute(payload.downpaymentAmount);
+  const packagePrice = buildNumberAttribute(payload.packagePrice);
 
   const assignments = Array.isArray(payload.workerOrganizerAssignments)
     ? payload.workerOrganizerAssignments
@@ -180,7 +270,7 @@ function buildDynamoEventItem(payload) {
         organizerId: { S: normalizeString(assignment.organizerId) },
         status: { S: normalizeString(assignment.status || 'pending') },
         updatedAt: {
-          S: normalizeString(assignment.updatedAt) || new Date().toISOString(),
+          S: normalizeString(assignment.updatedAt) || nowPH(),
         },
       },
     })),
@@ -198,10 +288,10 @@ function buildDynamoEventItem(payload) {
     organizer_id: { S: userId },
     status: { S: status },
     created_at: {
-      S: payload.created_at || payload.createdAt || new Date().toISOString(),
+      S: payload.created_at || payload.createdAt || nowPH(),
     },
     updated_at: {
-      S: payload.updated_at || payload.updatedAt || new Date().toISOString(),
+      S: payload.updated_at || payload.updatedAt || nowPH(),
     },
     workerOrganizerIds: {
       L: organizerIds.map((id) => ({ S: normalizeString(id) })),
@@ -221,6 +311,18 @@ function buildDynamoEventItem(payload) {
     item.eventPax = { N: String(eventPax) };
   }
 
+  if (packageInitialAmount) {
+    item.packageInitialAmount = packageInitialAmount;
+  }
+
+  if (downpaymentAmount) {
+    item.downpaymentAmount = downpaymentAmount;
+  }
+
+  if (packagePrice) {
+    item.packagePrice = packagePrice;
+  }
+
   if (eventDate) {
     item.eventDate = { S: eventDate };
   }
@@ -231,6 +333,10 @@ function buildDynamoEventItem(payload) {
 
   if (startTime) {
     item.startTime = startTime;
+  }
+
+  if (endTime) {
+    item.endTime = endTime;
   }
 
   if (eventLocation) {
@@ -364,9 +470,54 @@ export async function createEvent(eventData, clientId) {
     ...eventData,
     id: normalizeString(eventData.id || eventData.eventId || randomUUID()),
     clientId: effectiveClientId,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: nowPH(),
+    updated_at: nowPH(),
   };
+
+  const inquiryId = normalizeString(eventData.inquiryId || eventData.inquiry_id || '');
+  if (inquiryId) {
+    const inquiry = await getInquiryByIdService(inquiryId).catch(() => null);
+    const inquiryPackageInitialAmount = toMoneyNumber(inquiry?.packageInitialAmount);
+    const inquiryDownpaymentAmount = toMoneyNumber(inquiry?.downpaymentAmount);
+
+    if (eventPayload.packageInitialAmount === undefined) {
+      eventPayload.packageInitialAmount =
+        toMoneyNumber(eventData.packageInitialAmount) ?? inquiryPackageInitialAmount;
+    }
+
+    // If packageInitialAmount is still not set, compute from event type + package + pax
+    if (eventPayload.packageInitialAmount === undefined || eventPayload.packageInitialAmount === null) {
+      const computedPrice = calculateEventPackagePrice(
+        normalizeString(eventPayload.eventPackageKey || eventPayload.eventPackage || inquiry?.eventPackage || ''),
+        normalizeString(eventPayload.eventType || inquiry?.eventType || ''),
+        Number(eventPayload.eventPax || inquiry?.eventPax) || 0,
+      );
+      if (computedPrice > 0) {
+        eventPayload.packageInitialAmount = computedPrice;
+      }
+    }
+
+    if (eventPayload.downpaymentAmount === undefined) {
+      eventPayload.downpaymentAmount =
+        toMoneyNumber(eventData.downpaymentAmount) ?? inquiryDownpaymentAmount;
+    }
+
+    if (eventPayload.packagePrice === undefined) {
+      // packageInitialAmount is the final package price; no need to compute packagePrice
+    }
+  }
+
+  // Final fallback: compute price even without an inquiry, from event data itself
+  if (eventPayload.packageInitialAmount === undefined || eventPayload.packageInitialAmount === null) {
+    const computedPrice = calculateEventPackagePrice(
+      normalizeString(eventPayload.eventPackageKey || eventPayload.eventPackage || ''),
+      normalizeString(eventPayload.eventType || ''),
+      Number(eventPayload.eventPax) || 0,
+    );
+    if (computedPrice > 0) {
+      eventPayload.packageInitialAmount = computedPrice;
+    }
+  }
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
@@ -406,7 +557,7 @@ export async function updateEvent(eventId, updateData) {
     clientId: existingEvent.clientId,
     createdAt: existingEvent.createdAt,
     created_at: existingEvent.createdAt,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   });
 
   const command = new PutItemCommand({
@@ -462,7 +613,7 @@ export async function addEventMessage(
     senderRole: normalizeString(senderRole || 'ORGANIZER'),
     receiverId: normalizeString(receiverId || existingEvent.clientId || ''),
     body: normalizedBody,
-    createdAt: new Date().toISOString(),
+    createdAt: nowPH(),
   };
 
   const updatedEvent = {
@@ -513,14 +664,14 @@ export async function assignWorkerOrganizer(eventId, organizerId) {
     updatedEvent.workerOrganizerAssignments.push({
       organizerId,
       status: 'pending',
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowPH(),
     });
   }
 
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );
-  updatedEvent.updated_at = new Date().toISOString();
+  updatedEvent.updated_at = nowPH();
 
   return updateEvent(eventId, updatedEvent);
 }
@@ -547,7 +698,7 @@ export async function unassignWorkerOrganizer(eventId, organizerId) {
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );
-  updatedEvent.updated_at = new Date().toISOString();
+  updatedEvent.updated_at = nowPH();
 
   return updateEvent(eventId, updatedEvent);
 }
@@ -583,12 +734,12 @@ export async function respondWorkerRsvp(eventId, organizerId, status) {
   updatedEvent.workerOrganizerAssignments[assignmentIndex] = {
     ...updatedEvent.workerOrganizerAssignments[assignmentIndex],
     status: normalizedStatus,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowPH(),
   };
   updatedEvent.workerOrganizerIds = updatedEvent.workerOrganizerAssignments.map(
     (assignment) => assignment.organizerId
   );
-  updatedEvent.updated_at = new Date().toISOString();
+  updatedEvent.updated_at = nowPH();
 
   return updateEvent(eventId, updatedEvent);
 }

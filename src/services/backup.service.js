@@ -3,6 +3,7 @@ import {
   BatchWriteItemCommand,
   DeleteItemCommand,
 } from '@aws-sdk/client-dynamodb';
+import { nowPH } from '../utils/timezone.js';
 import {
   PutObjectCommand,
   GetObjectCommand,
@@ -221,7 +222,7 @@ export async function restoreBackup(backupKey) {
     backupTimestamp: backup.timestamp,
     itemsDeleted: existingItems.length,
     itemsRestored: restoredCount,
-    restoredAt: new Date().toISOString(),
+    restoredAt: nowPH(),
   };
 }
 

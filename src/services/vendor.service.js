@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -53,10 +54,10 @@ function buildDynamoVendorItem(payload) {
   const vendorId = payload.id || randomUUID();
   const createdAt =
     normalizeString(payload.created_at || payload.createdAt) ||
-    new Date().toISOString();
+    nowPH();
   const updatedAt =
     normalizeString(payload.updated_at || payload.updatedAt) ||
-    new Date().toISOString();
+    nowPH();
 
   const item = {
     PK: { S: `VENDOR#${vendorId}` },
@@ -170,10 +171,10 @@ function buildDynamoVendorWorkerItem(payload) {
   );
   const createdAt =
     normalizeString(payload.created_at || payload.createdAt) ||
-    new Date().toISOString();
+    nowPH();
   const updatedAt =
     normalizeString(payload.updated_at || payload.updatedAt) ||
-    new Date().toISOString();
+    nowPH();
 
   const item = {
     PK: { S: `VENDOR#${vendorId}` },
@@ -248,7 +249,7 @@ function closeCurrentAssignment(history, currentEventId) {
       ...history.slice(0, -1),
       {
         ...lastEntry,
-        endedAt: new Date().toISOString(),
+        endedAt: nowPH(),
       },
     ];
   }
@@ -267,7 +268,7 @@ function recordAssignment(history, eventId, eventTitle) {
     {
       eventId,
       eventTitle,
-      assignedAt: new Date().toISOString(),
+      assignedAt: nowPH(),
     },
   ];
 }
@@ -509,8 +510,8 @@ export async function createVendorWorker(vendorId, workerData) {
     eventId: eventId || undefined,
     eventTitle: eventTitle || undefined,
     eventHistory,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: nowPH(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -607,7 +608,7 @@ export async function updateVendorWorker(vendorId, workerId, updateData) {
       updateData.eventId !== undefined
         ? updatedEventHistory
         : existing.eventHistory,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -697,7 +698,7 @@ export async function assignWorkerToEvent(vendorId, workerId, eventId) {
     eventId: normalizedEventId,
     eventTitle: eventTitleValue,
     eventHistory: updatedEventHistory,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   await dynamoClient.send(
@@ -735,7 +736,7 @@ export async function unassignWorkerFromEvent(vendorId, workerId) {
       Array.isArray(existing.eventHistory) ? existing.eventHistory : [],
       existing.eventId
     ),
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   await dynamoClient.send(
@@ -787,8 +788,8 @@ export async function createVendor(vendorData) {
     eventId: eventId || undefined,
     eventTitle,
     eventHistory,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: nowPH(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -933,7 +934,7 @@ export async function updateVendor(vendorId, updateData) {
       updateData.eventId !== undefined
         ? updatedEventHistory
         : existingVendor.eventHistory,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   const command = new PutItemCommand({
@@ -997,7 +998,7 @@ export async function assignVendorToEvent(vendorId, eventId) {
     eventId: normalizedEventId,
     eventTitle: event.title || event.eventTitle || undefined,
     eventHistory: updatedEventHistory,
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   await dynamoClient.send(
@@ -1098,7 +1099,7 @@ export async function unassignVendorFromEvent(vendorId) {
         : [],
       existingVendor.eventId
     ),
-    updated_at: new Date().toISOString(),
+    updated_at: nowPH(),
   };
 
   await dynamoClient.send(

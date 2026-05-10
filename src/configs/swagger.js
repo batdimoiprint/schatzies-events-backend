@@ -383,9 +383,25 @@ const swaggerSpec = swaggerJsdoc({
               type: 'number',
               example: 102000,
             },
+            organizerShare: {
+              type: 'number',
+              example: 20400,
+            },
+            vendorBudget: {
+              type: 'number',
+              example: 81600,
+            },
             totalVendorCost: {
               type: 'number',
               example: 60000,
+            },
+            vendorBalance: {
+              type: 'number',
+              example: 21600,
+            },
+            organizerTotal: {
+              type: 'number',
+              example: 42000,
             },
             manpowerCost: {
               type: 'number',
@@ -401,7 +417,7 @@ const swaggerSpec = swaggerJsdoc({
             },
             profit: {
               type: 'number',
-              example: 32000,
+              example: 11600,
             },
           },
         },
@@ -428,9 +444,25 @@ const swaggerSpec = swaggerJsdoc({
               type: 'number',
               example: 102000,
             },
+            organizerShare: {
+              type: 'number',
+              example: 20400,
+            },
+            vendorBudget: {
+              type: 'number',
+              example: 81600,
+            },
             totalVendorCost: {
               type: 'number',
               example: 60000,
+            },
+            vendorBalance: {
+              type: 'number',
+              example: 21600,
+            },
+            organizerTotal: {
+              type: 'number',
+              example: 42000,
             },
             manpowerCost: {
               type: 'number',
@@ -446,7 +478,7 @@ const swaggerSpec = swaggerJsdoc({
             },
             profit: {
               type: 'number',
-              example: 32000,
+              example: 11600,
             },
             generatedAt: {
               type: 'string',

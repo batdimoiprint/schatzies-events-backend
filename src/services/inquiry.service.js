@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
+import { nowPH } from '../utils/timezone.js';
 import {
   PutItemCommand,
   ScanCommand,
@@ -35,29 +36,110 @@ const debutPackages = [
   'Grandiosa',
 ];
 
+const PACKAGE_PRICING = {
+  currency: 'PHP',
+  wedding: {
+    Blooms: {
+      pricesByPax: { 50: 200000, 100: 235000, 150: 277500, 200: 320000 },
+      extraHeadRate: 850,
+      extraHeadThreshold: 100,
+    },
+    Fascinating: {
+      pricesByPax: { 100: 295000, 150: 342500, 200: 390000 },
+      extraHeadRate: 950,
+      extraHeadThreshold: 100,
+    },
+    Windy: {
+      pricesByPax: { 100: 420000, 150: 480000, 200: 540000 },
+      extraHeadRate: 950,
+      extraHeadThreshold: 100,
+    },
+    'De Luxe': {
+      pricesByPax: { 100: 520000, 150: 585000, 200: 650000 },
+      extraHeadRate: 1300,
+      extraHeadThreshold: 100,
+    },
+    Grandezza: {
+      pricesByPax: { 100: 780000, 150: 870000, 200: 960000 },
+      extraHeadRate: 1800,
+      extraHeadThreshold: 100,
+    },
+  },
+  debut: {
+    Charming: { pricesByPax: { 100: 200000, 150: 242500, 200: 285000 }, extraHeadRate: 850 },
+    Irresistible: {
+      pricesByPax: { 100: 295000, 150: 342500, 200: 390000 },
+      extraHeadRate: 950,
+    },
+    Flawless: { pricesByPax: { 100: 395000, 150: 445000, 200: 495000 }, extraHeadRate: 1000 },
+    Elegancia: {
+      pricesByPax: { 100: 495000, 150: 555000, 200: 615000 },
+      extraHeadRate: 1200,
+    },
+    Grandiosa: {
+      pricesByPax: { 100: 595000, 150: 670000, 200: 745000 },
+      extraHeadRate: 1500,
+    },
+  },
+};
+
+function toMoneyNumber(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[,\s]/g, '').trim();
+    if (!cleaned) return undefined;
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function computeInitialPackageAmount({ eventType, eventPackage, eventPax }) {
+  const pax = Number(eventPax);
+  if (!Number.isFinite(pax)) return undefined;
+
+  if (eventType === 'Wedding') {
+    const tier = PACKAGE_PRICING.wedding[eventPackage];
+    return tier?.pricesByPax?.[pax];
+  }
+
+  if (eventType === 'Debut') {
+    const tier = PACKAGE_PRICING.debut[eventPackage];
+    return tier?.pricesByPax?.[pax];
+  }
+
+  return undefined;
+}
+
 function validateRequired(inquiryData) {
   const { firstName, lastName, date, eventType, eventPackage, eventPax } =
     inquiryData;
-  if (
-    !firstName ||
-    !lastName ||
-    !date ||
-    !eventType ||
-    !eventPackage ||
-    !eventPax
-  ) {
+
+  // Basic required fields for all inquiries
+  if (!firstName || !lastName || !date || !eventType) {
     throw new Error('Missing required fields');
   }
-  if (eventType === 'Wedding' && !weddingPackages.includes(eventPackage)) {
-    throw new Error('Invalid Wedding package');
-  }
-  if (eventType === 'Debut' && !debutPackages.includes(eventPackage)) {
-    throw new Error('Invalid Debut package');
-  }
-  const validPax =
-    eventPackage === 'Blooms' ? [50, 100, 150, 200] : [100, 150, 200];
-  if (!validPax.includes(eventPax)) {
-    throw new Error(`Invalid number of pax for ${eventPackage}`);
+
+  // Package and Pax are required for standard events (Wedding/Debut)
+  // For "Others", they are optional or can be custom strings
+  if (eventType === 'Wedding' || eventType === 'Debut') {
+    if (!eventPackage || !eventPax) {
+      throw new Error(`Missing package or guest count for ${eventType}`);
+    }
+
+    if (eventType === 'Wedding' && !weddingPackages.includes(eventPackage)) {
+      throw new Error('Invalid Wedding package');
+    }
+    if (eventType === 'Debut' && !debutPackages.includes(eventPackage)) {
+      throw new Error('Invalid Debut package');
+    }
+
+    const validPax =
+      eventPackage === 'Blooms' ? [50, 100, 150, 200] : [100, 150, 200];
+    if (!validPax.includes(eventPax)) {
+      throw new Error(`Invalid number of pax for ${eventPackage}`);
+    }
   }
 }
 
@@ -79,6 +161,10 @@ function mapToFrontend(u, meetingDetails = null) {
     userId: u.userId || u.user_id || '',
     communications: u.communications || [],
     meetingDetails,
+    packageInitialAmount: u.packageInitialAmount,
+    downpaymentAmount: u.downpaymentAmount,
+    currency: u.currency || PACKAGE_PRICING.currency,
+    venue: u.venue || '',
     createdAt: u.createdAt || u.created_at,
     updatedAt: u.updatedAt || u.updated_at,
   };
@@ -146,7 +232,14 @@ export async function createInquiry(inquiryData) {
   }
 
   const id = randomUUID();
-  const now = new Date().toISOString();
+  const now = nowPH();
+
+  const packageInitialAmount = computeInitialPackageAmount({
+    eventType: inquiryData.eventType,
+    eventPackage: inquiryData.eventPackage,
+    eventPax: inquiryData.eventPax,
+  });
+  const downpaymentAmount = toMoneyNumber(inquiryData.downpaymentAmount);
 
   const newInquiry = {
     id,
@@ -162,6 +255,9 @@ export async function createInquiry(inquiryData) {
     contactNumber: inquiryData.contactNumber || null,
     status: 'Pending Review',
     is_Account_Created: false,
+    packageInitialAmount,
+    downpaymentAmount,
+    currency: PACKAGE_PRICING.currency,
     communications: [],
     createdAt: now,
     updatedAt: now,
@@ -190,6 +286,9 @@ export async function createInquiry(inquiryData) {
     status: newInquiry.status,
     is_Account_Created: newInquiry.is_Account_Created,
     userId: '',
+    packageInitialAmount: newInquiry.packageInitialAmount,
+    downpaymentAmount: newInquiry.downpaymentAmount,
+    currency: newInquiry.currency,
     communications: newInquiry.communications,
     created_at: newInquiry.createdAt,
     updated_at: newInquiry.updatedAt,
@@ -244,7 +343,7 @@ export async function getBookedDates() {
   // For now, any existing inquiry blocks the date
   return all
     .filter((inq) => inq.status !== 'Cancelled' && inq.status !== 'Rejected')
-    .map((inq) => inq.date)
+    .map((inq) => (inq.date || '').split('T')[0])
     .filter(Boolean);
 }
 
@@ -308,6 +407,10 @@ export async function updateInquiry(inquiryId, updateData) {
     'is_Account_Created',
     'userId',
     'communications',
+    'packageInitialAmount',
+    'downpaymentAmount',
+    'currency',
+    'venue',
   ];
 
   if (USE_DYNAMO) {
@@ -328,7 +431,7 @@ export async function updateInquiry(inquiryId, updateData) {
       idx += 1;
     });
     parts.push('#updated_at = :u');
-    ExpressionAttributeValues[':u'] = new Date().toISOString();
+    ExpressionAttributeValues[':u'] = nowPH();
     ExpressionAttributeNames['#updated_at'] = 'updated_at';
 
     const UpdateExpression = 'SET ' + parts.join(', ');
@@ -355,7 +458,7 @@ export async function updateInquiry(inquiryId, updateData) {
   const updated = {
     ...existing,
     ...updateData,
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowPH(),
   };
 
   inquiries[index] = updated;
@@ -398,7 +501,7 @@ export async function addCommunication(inquiryId, communication) {
   const communications = inquiry.communications || [];
   communications.push({
     ...communication,
-    timestamp: new Date().toISOString(),
+    timestamp: nowPH(),
   });
 
   return updateInquiry(inquiryId, { communications });
@@ -439,7 +542,7 @@ export async function scheduleMeeting(inquiryId, meetingDetails) {
     eventType: eventType || 'Client',
     organizerId,
     inquiryUserId: inquiryUserId || '',
-    timestamp: new Date().toISOString(),
+    timestamp: nowPH(),
   };
 
   // Update inquiry status only. Meeting data is stored in CALENDAR.

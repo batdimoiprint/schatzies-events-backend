@@ -2,6 +2,7 @@ import {
   BatchGetItemCommand,
   UpdateItemCommand,
 } from '@aws-sdk/client-dynamodb';
+import { nowPH } from '../utils/timezone.js';
 import dynamoClient, {
   DYNAMO_TABLE,
 } from '../configs/dynamo.js';
@@ -165,7 +166,7 @@ export async function updateKPIAnalytics(event) {
   const completed = status === 'COMPLETED' ? 1 : 0;
   const completedRevenue = status === 'COMPLETED' ? revenue : 0;
   const completedProfit = status === 'COMPLETED' ? profit : 0;
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const updateExpression =
     'ADD #totalEvents :one, #planning :planning, #execution :execution, #completed :completed, #completedRevenue :completedRevenue, #completedProfit :completedProfit SET #updatedAt = :now';
@@ -238,7 +239,7 @@ export async function updateStatusAnalytics(oldStatus, newStatus, event) {
   const revenue = Number(event.revenue || event.completedRevenue || 0);
   const profit = Number(event.profit || 0);
   const deltas = buildStatusDeltas(oldStatus, newStatus, revenue, profit);
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const updateExpression =
     'ADD #planning :planning, #execution :execution, #completed :completed, #completedRevenue :completedRevenue, #completedProfit :completedProfit SET #updatedAt = :now';
@@ -304,7 +305,7 @@ export async function updateSemiAnnualAnalytics(year, month, value) {
     ':emptyMap': { M: {} },
     ':zero': ZERO,
     ':value': { N: String(value) },
-    ':now': { S: new Date().toISOString() },
+    ':now': { S: nowPH() },
   };
 
   const updateExpression =
@@ -353,7 +354,7 @@ export async function updateUpcomingEventsSnapshot(events = []) {
   }
 
   const snapshot = uniqueEvents.slice(0, 10);
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   await Promise.all(
     snapshot.map(async (entry) => {
@@ -404,7 +405,7 @@ export async function updateVendorSnapshot(vendorId, isActive) {
     throw new Error('Vendor ID is required');
   }
 
-  const now = new Date().toISOString();
+  const now = nowPH();
   const key = buildKey(ANALYTICS_TYPES.VENDORS, 'SNAPSHOT#CURRENT');
   const vendorSet = { SS: [normalizeString(vendorId)] };
 
@@ -519,9 +520,9 @@ async function refreshUpcomingSnapshotIfMissing(upcoming) {
 }
 
 export async function getDashboardSummary() {
-  const now = new Date();
-  const monthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-  const yearKey = String(now.getUTCFullYear());
+  const phNow = nowPH();
+  const monthKey = phNow.slice(0, 7);
+  const yearKey = phNow.slice(0, 4);
 
   const requestItems = {
     [DYNAMO_TABLE]: {
@@ -556,11 +557,11 @@ export async function getDashboardSummary() {
   const monthlyKpi = find('GLOBAL', `MONTH#${monthKey}`) || {};
   const yearlyKpi = find('GLOBAL', `YEAR#${yearKey}`) || {};
   const weeklyKpi =
-    find('GLOBAL', `WEEK#${getWeekKey(now.toISOString())}`) || {};
+    find('GLOBAL', `WEEK#${getWeekKey(phNow)}`) || {};
   const monthlyStatus = find('STATUS', `MONTH#${monthKey}`) || {};
   const yearlyStatus = find('STATUS', `YEAR#${yearKey}`) || {};
   const weeklyStatus =
-    find('STATUS', `WEEK#${getWeekKey(now.toISOString())}`) || {};
+    find('STATUS', `WEEK#${getWeekKey(phNow)}`) || {};
   const semiAnnual = find('SEMI_ANNUAL', `YEAR#${yearKey}`) || {};
   let upcoming = find('UPCOMING', 'SNAPSHOT#CURRENT') || {};
   const vendors = find('VENDORS', 'SNAPSHOT#CURRENT') || {};

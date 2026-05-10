@@ -1,4 +1,5 @@
 import express from 'express';
+import { nowPH } from '../utils/timezone.js';
 import authRoutes from './auth.routes.js';
 import eventRoutes from './event.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
@@ -22,7 +23,7 @@ const router = express.Router();
 
 // Example route
 router.get('/health', (req, res) => {
-  res.json({ message: 'API is healthy', timestamp: new Date().toISOString() });
+  res.json({ message: 'API is healthy', timestamp: nowPH() });
 });
 
 //Public routes

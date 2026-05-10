@@ -9,7 +9,7 @@ import s3Client from '../configs/s3.js';
 import env from '../configs/env.js';
 
 const BUCKET_NAME = env.AWS_GENERAL_BUCKET;
-const NOTE_IMAGE_FOLDER = 'note-images';
+const NOTE_IMAGE_FOLDER = 'notes';
 
 /**
  * Upload a file to S3

@@ -2,6 +2,8 @@ import {
   checkOrSendVerification,
   verifyEmailToken,
   isEmailVerified,
+  getVerifiedEmails,
+  deleteVerifiedEmail,
 } from '../services/emailVerification.service.js';
 
 /**
@@ -150,5 +152,50 @@ export async function checkEmailVerifiedController(req, res) {
     return res
       .status(500)
       .json({ error: 'Unable to check email verification status' });
+  }
+}
+
+/**
+ * GET /api/auth/verified-emails
+ *
+ * Admin endpoint to list all verified email addresses.
+ */
+export async function getVerifiedEmailsController(req, res) {
+  try {
+    const emails = await getVerifiedEmails();
+    return res.json({ emails, total: emails.length });
+  } catch (error) {
+    console.error('get-verified-emails error:', error);
+    return res
+      .status(500)
+      .json({ error: 'Unable to fetch verified emails' });
+  }
+}
+
+/**
+ * DELETE /api/auth/verified-emails/:email
+ *
+ * Admin endpoint to delete a verified email record.
+ */
+export async function deleteVerifiedEmailController(req, res) {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({ error: 'email param is required' });
+    }
+
+    const result = await deleteVerifiedEmail(decodeURIComponent(email));
+    return res.json(result);
+  } catch (error) {
+    console.error('delete-verified-email error:', error);
+
+    if (error.message?.includes('not found')) {
+      return res.status(404).json({ error: error.message });
+    }
+
+    return res
+      .status(500)
+      .json({ error: 'Unable to delete verified email' });
   }
 }

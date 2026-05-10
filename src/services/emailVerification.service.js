@@ -1,10 +1,12 @@
 import crypto from 'crypto';
+import { nowPH } from '../utils/timezone.js';
 import nodemailer from 'nodemailer';
 import { sendSmtpMail, sendInquiryCreatedEmail } from './mailer.service.js';
 import {
   DeleteItemCommand,
   GetItemCommand,
   PutItemCommand,
+  ScanCommand,
 } from '@aws-sdk/client-dynamodb';
 import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { getInquiriesByEmail, createInquiry } from './inquiry.service.js';
@@ -188,7 +190,7 @@ async function storeVerificationToken(token, email, pendingInquiry = null) {
     expiresAt: { S: expiresAt.toISOString() },
     ttl: { N: String(ttlEpoch) },
     used: { S: 'false' },
-    createdAt: { S: new Date().toISOString() },
+    createdAt: { S: nowPH() },
   };
 
   if (pendingInquiry) {
@@ -261,7 +263,7 @@ async function deleteVerificationToken(token) {
  */
 async function markEmailVerified(email) {
   const normalizedEmail = email.toLowerCase().trim();
-  const now = new Date().toISOString();
+  const now = nowPH();
 
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
@@ -296,6 +298,80 @@ export async function isEmailVerified(email) {
   return response.Item?.verified?.S === 'true';
 }
 
+/**
+ * Get all verified emails from DynamoDB.
+ * Scans for all items with PK starting with VERIFIED_EMAIL#.
+ */
+export async function getVerifiedEmails() {
+  const items = [];
+  let lastKey = undefined;
+
+  do {
+    const result = await dynamoClient.send(
+      new ScanCommand({
+        TableName: DYNAMO_TABLE,
+        FilterExpression: 'begins_with(PK, :prefix)',
+        ExpressionAttributeValues: {
+          ':prefix': { S: 'VERIFIED_EMAIL#' },
+        },
+        ExclusiveStartKey: lastKey,
+      })
+    );
+
+    for (const item of result.Items || []) {
+      items.push({
+        email: item.email?.S || item.PK?.S?.replace('VERIFIED_EMAIL#', '') || '',
+        verified: item.verified?.S === 'true',
+        verifiedAt: item.verifiedAt?.S || '',
+      });
+    }
+
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  // Sort by verifiedAt descending (most recent first)
+  items.sort((a, b) => (b.verifiedAt || '').localeCompare(a.verifiedAt || ''));
+
+  return items;
+}
+
+/**
+ * Delete a verified email record from DynamoDB.
+ *
+ * Key schema:
+ *   PK = VERIFIED_EMAIL#<email>
+ *   SK = STATUS
+ */
+export async function deleteVerifiedEmail(email) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Verify the record exists first
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `VERIFIED_EMAIL#${normalizedEmail}` },
+      SK: { S: 'STATUS' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  if (!response.Item) {
+    throw new Error(`Verified email not found: ${normalizedEmail}`);
+  }
+
+  // Delete the record
+  const deleteCmd = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `VERIFIED_EMAIL#${normalizedEmail}` },
+      SK: { S: 'STATUS' },
+    },
+  });
+
+  await dynamoClient.send(deleteCmd);
+  return { email: normalizedEmail, deleted: true };
+}
+
 // ─── HTML Email Template ────────────────────────────────────────────────────
 
 function escapeHtml(value) {
@@ -326,15 +402,15 @@ function buildVerificationEmailHtml(verifyUrl) {
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px;">
-              <h2 style="margin:0 0 12px;color:#1a1a2e;font-size:20px;font-weight:600;">Verify Your Email</h2>
+              <h2 style="margin:0 0 12px;color:#1a1a2e;font-size:20px;font-weight:600;">Confirm Your Inquiry</h2>
               <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">
-                Thank you for your interest in Schatzies Events! Please click the button below to verify your email address. This link will expire in <strong>15 minutes</strong>.
+                Thank you for your interest in Schatzies Events! Please click the button below to confirm your inquiry submission. This link will expire in <strong>15 minutes</strong>.
               </p>
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
                 <tr>
                   <td style="border-radius:8px;background:#e91e63;">
                     <a href="${escapeHtml(verifyUrl)}" target="_blank" style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">
-                      Verify Email
+                      Confirm Inquiry
                     </a>
                   </td>
                 </tr>
@@ -401,10 +477,10 @@ export async function checkOrSendVerification(email, pendingInquiry = null) {
   const verifyUrl = `${getFrontendUrl()}/verify?token=${token}`;
 
   // 4. Send email via Gmail pool (round-robin with failover)
-  const subject = 'Verify your email – Schatzies Events';
+  const subject = 'Confirm your inquiry – Schatzies Events';
   const text =
     `Hello,\n\n` +
-    `Please verify your email by clicking this link:\n${verifyUrl}\n\n` +
+    `Please confirm your inquiry by clicking this link:\n${verifyUrl}\n\n` +
     `This link expires in 15 minutes.\n\n` +
     `If you did not request this, you can ignore this email.\n\n` +
     `Best regards,\nSchatzies Events`;

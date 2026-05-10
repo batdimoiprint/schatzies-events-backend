@@ -1417,6 +1417,90 @@ router.patch('/:eventId', validateTokenMiddleware, updateEvent);
 
 /**
  * @swagger
+ * /api/events/{eventId}/pricing:
+ *   patch:
+ *     tags:
+ *       - Events
+ *     summary: Update event pricing (admin only) — packageInitialAmount and downpaymentAmount
+ *     parameters:
+ *       - in: path
+ *         name: eventId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               packageInitialAmount:
+ *                 type: number
+ *                 description: Total event price
+ *               downpaymentAmount:
+ *                 type: number
+ *                 description: Downpayment amount
+ *     responses:
+ *       200:
+ *         description: Pricing updated successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Event not found
+ */
+router.patch('/:eventId/pricing', requireRole('ADMIN'), async (req, res) => {
+  try {
+    const eventId = req.params.eventId;
+    const { packageInitialAmount, downpaymentAmount } = req.body || {};
+
+    if (packageInitialAmount === undefined && downpaymentAmount === undefined) {
+      return res.status(400).json({ error: 'At least one of packageInitialAmount or downpaymentAmount is required' });
+    }
+
+    const { getEventById: getEvt, updateEvent: updateEvt } = await import('../services/event.service.js');
+    const existing = await getEvt(eventId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const pricingUpdate = {};
+
+    if (packageInitialAmount !== undefined) {
+      const parsed = Number(packageInitialAmount);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        return res.status(400).json({ error: 'packageInitialAmount must be a non-negative number' });
+      }
+      pricingUpdate.packageInitialAmount = parsed;
+    }
+
+    if (downpaymentAmount !== undefined) {
+      const parsed = Number(downpaymentAmount);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        return res.status(400).json({ error: 'downpaymentAmount must be a non-negative number' });
+      }
+      pricingUpdate.downpaymentAmount = parsed;
+    }
+
+    // packageInitialAmount is the final package price; no need to recalculate packagePrice
+
+    const updated = await updateEvt(eventId, pricingUpdate);
+
+    return res.status(200).json({
+      message: 'Pricing updated successfully',
+      event: updated,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Event not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    const message = error instanceof Error ? error.message : 'Unable to update pricing';
+    return res.status(400).json({ error: message });
+  }
+});
+
+/**
+ * @swagger
  * /api/events/{eventId}:
  *   delete:
  *     tags:

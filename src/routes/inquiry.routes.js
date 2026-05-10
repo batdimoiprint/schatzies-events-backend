@@ -59,6 +59,15 @@ const router = express.Router();
  *                 type: string
  *               eventPax:
  *                 type: integer
+ *               packageInitialAmount:
+ *                 type: number
+ *                 description: Initial package amount (PHP) based on package and pax; computed by the backend if omitted.
+ *               downpaymentAmount:
+ *                 type: number
+ *                 description: Downpayment amount (PHP); optional.
+ *               currency:
+ *                 type: string
+ *                 example: PHP
  *               message:
  *                 type: string
  *     responses:
@@ -148,6 +157,14 @@ router.get(
  *                 type: string
  *               eventPax:
  *                 type: integer
+ *               packageInitialAmount:
+ *                 type: number
+ *               downpaymentAmount:
+ *                 type: number
+ *               currency:
+ *                 type: string
+ *               venue:
+ *                 type: string
  *               message:
  *                 type: string
  *     responses:

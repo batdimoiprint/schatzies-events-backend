@@ -4,6 +4,8 @@ import {
   verifyEmailController,
   verifyEmailApiController,
   checkEmailVerifiedController,
+  getVerifiedEmailsController,
+  deleteVerifiedEmailController,
 } from '../controllers/emailVerification.controller.js';
 import { verificationLimiter } from '../configs/rate-limit.js';
 
@@ -65,5 +67,23 @@ router.post('/verify-email', verifyEmailApiController);
  *     summary: Check if an email is verified
  */
 router.get('/check-email-verified', checkEmailVerifiedController);
+
+/**
+ * @swagger
+ * /api/auth/verified-emails:
+ *   get:
+ *     tags: [Email Verification]
+ *     summary: Get all verified email addresses (admin)
+ */
+router.get('/verified-emails', getVerifiedEmailsController);
+
+/**
+ * @swagger
+ * /api/auth/verified-emails/{email}:
+ *   delete:
+ *     tags: [Email Verification]
+ *     summary: Delete a verified email record (admin)
+ */
+router.delete('/verified-emails/:email', deleteVerifiedEmailController);
 
 export default router;
