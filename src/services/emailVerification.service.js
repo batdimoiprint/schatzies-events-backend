@@ -335,6 +335,43 @@ export async function getVerifiedEmails() {
   return items;
 }
 
+/**
+ * Delete a verified email record from DynamoDB.
+ *
+ * Key schema:
+ *   PK = VERIFIED_EMAIL#<email>
+ *   SK = STATUS
+ */
+export async function deleteVerifiedEmail(email) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Verify the record exists first
+  const command = new GetItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `VERIFIED_EMAIL#${normalizedEmail}` },
+      SK: { S: 'STATUS' },
+    },
+  });
+
+  const response = await dynamoClient.send(command);
+  if (!response.Item) {
+    throw new Error(`Verified email not found: ${normalizedEmail}`);
+  }
+
+  // Delete the record
+  const deleteCmd = new DeleteItemCommand({
+    TableName: DYNAMO_TABLE,
+    Key: {
+      PK: { S: `VERIFIED_EMAIL#${normalizedEmail}` },
+      SK: { S: 'STATUS' },
+    },
+  });
+
+  await dynamoClient.send(deleteCmd);
+  return { email: normalizedEmail, deleted: true };
+}
+
 // ─── HTML Email Template ────────────────────────────────────────────────────
 
 function escapeHtml(value) {
