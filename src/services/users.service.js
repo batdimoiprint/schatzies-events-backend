@@ -122,10 +122,25 @@ export async function findUserByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const userItem = (response.Items || []).find(
+    const indexItem = (response.Items || []).find(
       (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
     );
-    return userItem ? mapDynamoUser(userItem) : null;
+    
+    if (!indexItem) {
+      return null;
+    }
+
+    // GSI might not project all attributes. Fetch full record.
+    const getCommand = new GetItemCommand({
+      TableName: DYNAMO_TABLE,
+      Key: {
+        PK: indexItem.PK,
+        SK: indexItem.SK,
+      },
+    });
+
+    const getResponse = await dynamoClient.send(getCommand);
+    return getResponse.Item ? mapDynamoUser(getResponse.Item) : null;
   } catch (error) {
     if (
       error.name === 'ValidationException' ||

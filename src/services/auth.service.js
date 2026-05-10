@@ -128,10 +128,26 @@ async function queryUserRecordByEmail(email) {
 
   try {
     const response = await dynamoClient.send(command);
-    const userItem = (response.Items || []).find(
+    const indexItem = (response.Items || []).find(
       (item) => item.PK?.S?.startsWith('USER#') && item.SK?.S === 'PROFILE'
     );
-    return userItem ? mapDynamoUser(userItem) : null;
+
+    if (!indexItem) {
+      return null;
+    }
+
+    // GSI might not project all attributes (like password). 
+    // Fetch full record using PK/SK from main table.
+    const getCommand = new GetItemCommand({
+      TableName: DYNAMO_TABLE,
+      Key: {
+        PK: indexItem.PK,
+        SK: indexItem.SK,
+      },
+    });
+
+    const getResponse = await dynamoClient.send(getCommand);
+    return getResponse.Item ? mapDynamoUser(getResponse.Item) : null;
   } catch (error) {
     if (
       error.name === 'ValidationException' ||

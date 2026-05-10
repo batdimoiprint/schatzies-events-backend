@@ -1,5 +1,4 @@
-import { randomUUID } from 'crypto';
-import { nowPH } from '../utils/timezone.js';
+﻿import { randomUUID } from 'crypto';
 import {
   GetItemCommand,
   PutItemCommand,
@@ -13,7 +12,6 @@ import { getEventById as getEventByIdService } from './event.service.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
 import QRCode from 'qrcode';
-import { uploadFile, getPresignedUrl } from './s3.service.js';
 
 const RSVP_SK_PREFIX = 'RSVP#';
 const QR_GSI_NAME = process.env.AWS_RSVP_QR_GSI_NAME || 'GSI1';
@@ -42,8 +40,6 @@ function mapRsvpItem(item) {
     status: item.status?.S || '',
     timestamp: item.timestamp?.S || '',
     qrCode: item.qrCode?.S || '',
-    qrCodeUrl: item.qrCodeUrl?.S || '',
-    qrCodeS3Key: item.qrCodeS3Key?.S || '',
     isScanned: item.isScanned?.BOOL || false,
     isVerified: item.isVerified?.BOOL || false,
     verificationToken: item.verificationToken?.S || null,
@@ -144,34 +140,20 @@ export async function getRsvpByGuestId(eventId, guestId) {
   return mapRsvpItem(response.Item);
 }
 
-function buildRsvpItem(
-  eventId,
-  payload,
-  ownerId = '',
-  createdBy = '',
-  verificationToken = null
-) {
+function buildRsvpItem(eventId, payload, ownerId = '', createdBy = '', verificationToken = null) {
   const guestId = normalizeString(payload.guestId) || randomUUID();
-  const now = nowPH();
+  const now = new Date().toISOString();
 
   const baseItem = {
     PK: { S: buildEventPK(eventId) },
     SK: { S: buildGuestSK(guestId) },
     eventId: { S: normalizeString(eventId) },
     ownerId: { S: normalizeString(ownerId) },
-    guestfirstName: {
-      S: normalizeString(payload.guestfirstName || payload.firstName || ''),
-    },
-    guestmiddleName: {
-      S: normalizeString(payload.guestmiddleName || payload.middleName || ''),
-    },
-    guestlastName: {
-      S: normalizeString(payload.guestlastName || payload.lastName || ''),
-    },
+    guestfirstName: { S: normalizeString(payload.guestfirstName || payload.firstName || '') },
+    guestmiddleName: { S: normalizeString(payload.guestmiddleName || payload.middleName || '') },
+    guestlastName: { S: normalizeString(payload.guestlastName || payload.lastName || '') },
     email: { S: normalizeString(payload.email || '') },
-    contactNumber: {
-      S: normalizeString(payload.contactNumber || payload.contact_number || ''),
-    },
+    contactNumber: { S: normalizeString(payload.contactNumber || payload.contact_number || '') },
     message: { S: normalizeString(payload.message || '') },
     status: { S: normalizeString(payload.status || 'ATTENDING').toUpperCase() },
     timestamp: { S: now },
@@ -193,11 +175,7 @@ function buildRsvpItem(
   return baseItem;
 }
 
-export async function createRsvpGuest(
-  eventId,
-  payload,
-  verificationToken = null
-) {
+export async function createRsvpGuest(eventId, payload, verificationToken = null) {
   if (!normalizeString(eventId)) {
     throw new Error('Event ID is required');
   }
@@ -216,38 +194,24 @@ export async function createRsvpGuest(
   // Add the capacity validation check here
   const { expectedGuests: currentAttending } = await getHeadcount(eventId);
   const eventPax = Number(event.eventPax) || 0;
-
-  if (
-    isAttending(payload.status || 'ATTENDING') &&
-    eventPax > 0 &&
-    currentAttending >= eventPax
-  ) {
+  
+  if (isAttending(payload.status || 'ATTENDING') && eventPax > 0 && currentAttending >= eventPax) {
     throw new Error('Event capacity has been reached. RSVP rejected.');
   }
 
-  const firstName = normalizeString(
-    payload.guestfirstName || payload.firstName || ''
-  );
-  const lastName = normalizeString(
-    payload.guestlastName || payload.lastName || ''
-  );
+  const firstName = normalizeString(payload.guestfirstName || payload.firstName || '');
+  const lastName = normalizeString(payload.guestlastName || payload.lastName || '');
 
   if (!firstName || !lastName) {
     throw new Error('Guest first name and last name are required');
   }
 
-  const item = buildRsvpItem(
-    eventId,
-    payload,
-    event.clientId || event.client_id || '',
-    payload.createdBy || '',
-    verificationToken
-  );
+  const item = buildRsvpItem(eventId, payload, event.clientId || event.client_id || '', payload.createdBy || '', verificationToken);
   const guestId = item.SK.S.replace(RSVP_SK_PREFIX, '');
 
   // QR code will be generated after email verification
   // if (isAttending(payload.status || 'ATTENDING')) {
-  //   const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',')[0].trim() : 'http://localhost:5173';
+  //   const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   //   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
   //   const qrCodeImage = await QRCode.toDataURL(checkInUrl);
   //   item.qrCode = { S: qrCodeImage };
@@ -256,8 +220,7 @@ export async function createRsvpGuest(
   const command = new PutItemCommand({
     TableName: DYNAMO_TABLE,
     Item: item,
-    ConditionExpression:
-      'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+    ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
   });
 
   await dynamoClient.send(command);
@@ -323,22 +286,22 @@ export async function checkInRsvpGuest(eventId, guestId, checkedInBy = '') {
     throw new Error('Guest ID is required');
   }
 
-  const now = nowPH();
-  const updateExpr = normalizeString(checkedInBy)
+  const now = new Date().toISOString();
+  const updateExpr = normalizeString(checkedInBy) 
     ? 'SET isScanned = :true, checkedInAt = :now, checkedInBy = :checkedBy, #timestamp = :now'
     : 'SET isScanned = :true, checkedInAt = :now, #timestamp = :now';
-
+  
   const exprAttrValues = {
     ':true': { BOOL: true },
     ':false': { BOOL: false },
     ':attending': { S: 'ATTENDING' },
     ':now': { S: now },
   };
-
+  
   if (normalizeString(checkedInBy)) {
     exprAttrValues[':checkedBy'] = { S: normalizeString(checkedInBy) };
   }
-
+  
   const params = {
     TableName: DYNAMO_TABLE,
     Key: {
@@ -386,9 +349,7 @@ export async function checkEmailExists(email, eventId = null) {
   if (eventId) {
     // Search within a specific event
     const rsvps = await queryRsvpsForEvent(eventId);
-    return rsvps.some(
-      (rsvp) => normalizeString(rsvp.email).toLowerCase() === normalizedEmail
-    );
+    return rsvps.some(rsvp => normalizeString(rsvp.email).toLowerCase() === normalizedEmail);
   } else {
     // Search globally across all events using Scan
     const scanParams = {
@@ -428,19 +389,6 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
   }
 
   if (guest.isVerified) {
-    // If guest is already verified, regenerate the presigned URL for display
-    if (guest.qrCodeS3Key) {
-      guest.qrCodeUrl = await getPresignedUrl(guest.qrCodeS3Key, 86400);
-    }
-    
-    // Also provide the data URL as a robust fallback
-    if (guest.qrCode) {
-      guest.qrCodeDataUrl = await QRCode.toDataURL(guest.qrCode, {
-        errorCorrectionLevel: 'M',
-        width: 400,
-        margin: 4,
-      });
-    }
     return guest;
   }
 
@@ -448,33 +396,12 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
     throw new Error('Invalid verification token');
   }
 
-  const now = nowPH();
-
+  const now = new Date().toISOString();
+  
   // Generate QR code for check-in
-  const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',')[0].trim()
-    : 'http://localhost:5173';
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
-
-  const qrCodeDataUrl = await QRCode.toDataURL(checkInUrl, {
-    errorCorrectionLevel: 'M',
-    width: 400,
-    margin: 4,
-  });
-
-  const qrCodeBuffer = await QRCode.toBuffer(checkInUrl, {
-    errorCorrectionLevel: 'M',
-    type: 'png',
-    width: 400,
-    margin: 4,
-  });
-
-  // Upload QR code to S3
-  const s3Key = `rsvp-qr/${eventId}/guest-${guestId}.png`;
-  await uploadFile(qrCodeBuffer, s3Key, 'image/png');
-
-  // Get presigned URL for the QR code
-  const qrCodeUrl = await getPresignedUrl(s3Key, 86400);
+  const qrCodeImage = await QRCode.toDataURL(checkInUrl);
 
   const params = {
     TableName: DYNAMO_TABLE,
@@ -482,31 +409,20 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
       PK: { S: buildEventPK(eventId) },
       SK: { S: buildGuestSK(guestId) },
     },
-    UpdateExpression:
-      'SET isVerified = :true, qrCode = :qrCode, qrCodeUrl = :qrCodeUrl, qrCodeDataUrl = :qrCodeDataUrl, qrCodeS3Key = :s3Key, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
+    UpdateExpression: 'SET isVerified = :true, qrCode = :qrCode, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
     ExpressionAttributeNames: {
       '#timestamp': 'timestamp',
     },
     ExpressionAttributeValues: {
       ':true': { BOOL: true },
-      ':qrCode': { S: checkInUrl }, // Fix: Store URL content for GSI lookup
-      ':qrCodeUrl': { S: qrCodeUrl }, // Store presigned URL for display
-      ':qrCodeDataUrl': { S: qrCodeDataUrl }, // Store Data URL for reliable fallback
-      ':s3Key': { S: s3Key },
+      ':qrCode': { S: checkInUrl },
       ':now': { S: now },
     },
     ReturnValues: 'ALL_NEW',
   };
 
   const response = await dynamoClient.send(new UpdateItemCommand(params));
-  const mapped = mapRsvpItem(response.Attributes);
-  
-  // Attach the data URL for immediate display
-  if (mapped) {
-    mapped.qrCodeDataUrl = qrCodeDataUrl;
-  }
-  
-  return mapped;
+  return mapRsvpItem(response.Attributes);
 }
 
 export async function deleteRsvpGuest(eventId, guestId) {

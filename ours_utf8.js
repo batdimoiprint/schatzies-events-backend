@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+﻿import { randomUUID } from 'crypto';
 import { nowPH } from '../utils/timezone.js';
 import {
   GetItemCommand,
@@ -42,7 +42,6 @@ function mapRsvpItem(item) {
     status: item.status?.S || '',
     timestamp: item.timestamp?.S || '',
     qrCode: item.qrCode?.S || '',
-    qrCodeUrl: item.qrCodeUrl?.S || '',
     qrCodeS3Key: item.qrCodeS3Key?.S || '',
     isScanned: item.isScanned?.BOOL || false,
     isVerified: item.isVerified?.BOOL || false,
@@ -428,19 +427,6 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
   }
 
   if (guest.isVerified) {
-    // If guest is already verified, regenerate the presigned URL for display
-    if (guest.qrCodeS3Key) {
-      guest.qrCodeUrl = await getPresignedUrl(guest.qrCodeS3Key, 86400);
-    }
-    
-    // Also provide the data URL as a robust fallback
-    if (guest.qrCode) {
-      guest.qrCodeDataUrl = await QRCode.toDataURL(guest.qrCode, {
-        errorCorrectionLevel: 'M',
-        width: 400,
-        margin: 4,
-      });
-    }
     return guest;
   }
 
@@ -451,16 +437,10 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
   const now = nowPH();
 
   // Generate QR code for check-in
-  const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',')[0].trim()
+  const baseUrl = process.env.NODE_ENV === 'production' && process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',')[0].trim() 
     : 'http://localhost:5173';
   const checkInUrl = `${baseUrl}/checkin?eventId=${eventId}&guestId=${guestId}`;
-
-  const qrCodeDataUrl = await QRCode.toDataURL(checkInUrl, {
-    errorCorrectionLevel: 'M',
-    width: 400,
-    margin: 4,
-  });
 
   const qrCodeBuffer = await QRCode.toBuffer(checkInUrl, {
     errorCorrectionLevel: 'M',
@@ -483,15 +463,13 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
       SK: { S: buildGuestSK(guestId) },
     },
     UpdateExpression:
-      'SET isVerified = :true, qrCode = :qrCode, qrCodeUrl = :qrCodeUrl, qrCodeDataUrl = :qrCodeDataUrl, qrCodeS3Key = :s3Key, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
+      'SET isVerified = :true, qrCode = :qrCode, qrCodeS3Key = :s3Key, #timestamp = :now, updatedAt = :now REMOVE verificationToken',
     ExpressionAttributeNames: {
       '#timestamp': 'timestamp',
     },
     ExpressionAttributeValues: {
       ':true': { BOOL: true },
-      ':qrCode': { S: checkInUrl }, // Fix: Store URL content for GSI lookup
-      ':qrCodeUrl': { S: qrCodeUrl }, // Store presigned URL for display
-      ':qrCodeDataUrl': { S: qrCodeDataUrl }, // Store Data URL for reliable fallback
+      ':qrCode': { S: qrCodeUrl },
       ':s3Key': { S: s3Key },
       ':now': { S: now },
     },
@@ -499,14 +477,7 @@ export async function verifyRsvpEmail(eventId, guestId, token) {
   };
 
   const response = await dynamoClient.send(new UpdateItemCommand(params));
-  const mapped = mapRsvpItem(response.Attributes);
-  
-  // Attach the data URL for immediate display
-  if (mapped) {
-    mapped.qrCodeDataUrl = qrCodeDataUrl;
-  }
-  
-  return mapped;
+  return mapRsvpItem(response.Attributes);
 }
 
 export async function deleteRsvpGuest(eventId, guestId) {
