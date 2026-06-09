@@ -45,9 +45,3 @@ jobs:
           AWS_REGION: ap-southeast-1
           TABLE_NAME: schatzies_main_table
           ADMIN_HASH: ${{ secrets.ADMIN_SEED_HASH }}
-
-      - name: Seed packages
-        run: node scripts/seed-packages.js
-        env:
-          AWS_REGION: ap-southeast-1
-          TABLE_NAME: schatzies_main_table
