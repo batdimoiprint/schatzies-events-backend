@@ -1,5 +1,21 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 
+// Build the server list from the environment so Swagger "Try it out"
+// targets the host the API is actually served from. On AWS the Lambda
+// receives API_GATEWAY_URL from CloudFormation; locally it falls back
+// to localhost.
+const servers = [];
+if (process.env.API_GATEWAY_URL) {
+  servers.push({
+    url: process.env.API_GATEWAY_URL,
+    description: 'AWS API Gateway',
+  });
+}
+servers.push({
+  url: 'http://localhost:3000',
+  description: 'Local development server',
+});
+
 const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.0',
@@ -8,12 +24,7 @@ const swaggerSpec = swaggerJsdoc({
       version: '1.0.0',
       description: 'Serverless Express API for Schatzies Events',
     },
-    servers: [
-      {
-        url: 'http://localhost:3000',
-        description: 'API Server',
-      },
-    ],
+    servers,
     tags: [
       { name: 'Auth', description: 'Authentication and session endpoints' },
       { name: 'Events', description: 'Event management endpoints' },

@@ -5,12 +5,16 @@ const s3Config = {
   region: env.AWS_REGION || 'ap-southeast-1',
 };
 
-// In production, we rely on the Lambda IAM Role (don't provide credentials)
-// In development, we use the local .env credentials
-if (env.NODE_ENV !== 'production') {
+// Only pass explicit credentials when both keys are set in the environment.
+// Otherwise fall back to the SDK default provider chain: shared
+// ~/.aws/credentials locally, Lambda IAM role in production. Passing a
+// credentials object with undefined fields makes the SDK throw
+// "Resolved credential object is not valid".
+if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) {
   s3Config.credentials = {
     accessKeyId: env.AWS_ACCESS_KEY_ID,
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    sessionToken: env.AWS_SESSION_TOKEN,
   };
 }
 

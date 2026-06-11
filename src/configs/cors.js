@@ -10,6 +10,10 @@ const allowedOrigins = [...frontendUrls, 'http://localhost:5174'];
 if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.push(localSwaggerUrl);
 }
+// Allow Swagger UI served from the deployed API Gateway origin
+if (process.env.API_GATEWAY_URL) {
+  allowedOrigins.push(process.env.API_GATEWAY_URL.replace(/\/+$/, ''));
+}
 
 const corsOptions = {
   origin(origin, callback) {

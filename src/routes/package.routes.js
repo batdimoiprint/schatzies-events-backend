@@ -80,11 +80,8 @@ const router = express.Router();
  *       properties:
  *         inclusionType:
  *           type: string
- *           enum:
- *             - Professional Coordination
- *             - Catering & Dining
- *             - Styling & Production
- *             - Media & Glamour
+ *           description: Free-form inclusion category (e.g. Reception Styling)
+ *           example: Reception Styling
  *         inclusion:
  *           type: string
  *           description: Description of what is included

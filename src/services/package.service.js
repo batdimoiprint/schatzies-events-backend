@@ -11,12 +11,6 @@ import dynamoClient, { DYNAMO_TABLE } from '../configs/dynamo.js';
 import { normalizeString } from '../utils/dynamoHelpers.js';
 
 const VALID_EVENT_TYPES = ['Debut', 'Wedding'];
-const VALID_INCLUSION_TYPES = [
-  'Professional Coordination',
-  'Catering & Dining',
-  'Styling & Production',
-  'Media & Glamour',
-];
 
 // ---- Mappers ----
 
@@ -388,11 +382,6 @@ export async function addPackageInclusion(packageId, inclusionData) {
 
   if (!inclusionType) throw new Error('inclusionType is required');
   if (!inclusion) throw new Error('inclusion is required');
-  if (!VALID_INCLUSION_TYPES.includes(inclusionType)) {
-    throw new Error(
-      `inclusionType must be one of: ${VALID_INCLUSION_TYPES.join(', ')}`
-    );
-  }
 
   const id = randomUUID();
   const item = buildPackageInclusionItem(packageId, {
@@ -435,15 +424,6 @@ export async function updatePackageInclusion(packageId, inclusionId, inclusionDa
     inclusionData.inclusionType !== undefined
       ? normalizeString(inclusionData.inclusionType)
       : existing.inclusionType;
-
-  if (
-    inclusionData.inclusionType !== undefined &&
-    !VALID_INCLUSION_TYPES.includes(inclusionType)
-  ) {
-    throw new Error(
-      `inclusionType must be one of: ${VALID_INCLUSION_TYPES.join(', ')}`
-    );
-  }
 
   const updated = {
     id: inclusionId,
