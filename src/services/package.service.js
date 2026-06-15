@@ -217,7 +217,7 @@ export async function getPackageById(packageId) {
   return assemblePackage(items);
 }
 
-export async function updatePackage(packageId, updateData, images = null) {
+export async function updatePackage(packageId, updateData, images = null, existingImages = null) {
   if (!packageId) throw new Error('Package ID is required');
 
   const existing = await getPackageById(packageId);
@@ -232,6 +232,9 @@ export async function updatePackage(packageId, updateData, images = null) {
     throw new Error(`eventType must be one of: ${VALID_EVENT_TYPES.join(', ')}`);
   }
 
+  const baseImages = existingImages !== null ? existingImages : existing.images;
+  const finalImages = images !== null ? [...baseImages, ...images] : baseImages;
+
   const updated = {
     id: packageId,
     eventType,
@@ -243,7 +246,7 @@ export async function updatePackage(packageId, updateData, images = null) {
       updateData.description !== undefined
         ? normalizeString(updateData.description)
         : existing.description,
-    images: images !== null ? images : existing.images,
+    images: finalImages,
     createdAt: existing.createdAt,
     updatedAt: nowPH(),
   };

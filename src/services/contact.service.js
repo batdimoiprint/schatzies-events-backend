@@ -176,7 +176,9 @@ function assembleContact(items) {
   if (!metadata) return null;
   return {
     ...mapContactMetadata(metadata),
-    addresses: items.filter((i) => i.SK?.S?.startsWith('ADDRESS#')).map(mapAddress),
+    addresses: items
+      .filter((i) => i.SK?.S?.startsWith('ADDRESS#'))
+      .map(mapAddress),
     phones: items.filter((i) => i.SK?.S?.startsWith('PHONE#')).map(mapPhone),
     links: items.filter((i) => i.SK?.S?.startsWith('LINK#')).map(mapLink),
     emails: items.filter((i) => i.SK?.S?.startsWith('EMAIL#')).map(mapEmail),
@@ -203,13 +205,19 @@ export async function createContact(data) {
 
   const id = normalizeString(data.id) || randomUUID();
   const now = nowPH();
-  const item = buildContactMetadataItem({ ...data, id, createdAt: now, updatedAt: now });
+  const item = buildContactMetadataItem({
+    ...data,
+    id,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   await dynamoClient.send(
     new PutItemCommand({
       TableName: DYNAMO_TABLE,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      ConditionExpression:
+        'attribute_not_exists(PK) AND attribute_not_exists(SK)',
     })
   );
   return mapContactMetadata(item);
@@ -219,15 +227,29 @@ export async function getContacts() {
   const response = await dynamoClient.send(
     new ScanCommand({
       TableName: DYNAMO_TABLE,
-      FilterExpression: '#sk = :metadata AND begins_with(#pk, :prefix)',
-      ExpressionAttributeNames: { '#sk': 'SK', '#pk': 'PK' },
+      FilterExpression: 'begins_with(#pk, :prefix)',
+      ExpressionAttributeNames: { '#pk': 'PK' },
       ExpressionAttributeValues: {
-        ':metadata': { S: 'METADATA' },
         ':prefix': { S: 'CONTACT#' },
       },
     })
   );
-  return (response.Items || []).map(mapContactMetadata);
+
+  const items = response.Items || [];
+  const groups = new Map();
+  for (const item of items) {
+    const pk = item.PK?.S;
+    if (!pk) continue;
+    if (!groups.has(pk)) groups.set(pk, []);
+    groups.get(pk).push(item);
+  }
+
+  const contacts = [];
+  for (const groupItems of groups.values()) {
+    const contact = assembleContact(groupItems);
+    if (contact) contacts.push(contact);
+  }
+  return contacts;
 }
 
 export async function getContactById(contactId) {
@@ -244,13 +266,21 @@ export async function updateContact(contactId, data) {
 
   const updated = buildContactMetadataItem({
     id: contactId,
-    name: data.name !== undefined ? normalizeString(data.name) || existing.name : existing.name,
-    description: data.description !== undefined ? normalizeString(data.description) : existing.description,
+    name:
+      data.name !== undefined
+        ? normalizeString(data.name) || existing.name
+        : existing.name,
+    description:
+      data.description !== undefined
+        ? normalizeString(data.description)
+        : existing.description,
     createdAt: existing.createdAt,
     updatedAt: nowPH(),
   });
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated }));
+  await dynamoClient.send(
+    new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated })
+  );
   return mapContactMetadata(updated);
 }
 
@@ -258,7 +288,8 @@ export async function deleteContact(contactId) {
   if (!contactId) throw new Error('Contact ID is required');
 
   const items = await queryContactItems(contactId);
-  if (!items.find((i) => i.SK?.S === 'METADATA')) throw new Error('Contact not found');
+  if (!items.find((i) => i.SK?.S === 'METADATA'))
+    throw new Error('Contact not found');
 
   await Promise.all(
     items.map((item) =>
@@ -283,13 +314,19 @@ export async function addAddress(contactId, data) {
   if (!normalizeString(data.label)) throw new Error('label is required');
 
   const id = randomUUID();
-  const item = buildAddressItem(contactId, { ...data, id, createdAt: nowPH(), updatedAt: nowPH() });
+  const item = buildAddressItem(contactId, {
+    ...data,
+    id,
+    createdAt: nowPH(),
+    updatedAt: nowPH(),
+  });
 
   await dynamoClient.send(
     new PutItemCommand({
       TableName: DYNAMO_TABLE,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      ConditionExpression:
+        'attribute_not_exists(PK) AND attribute_not_exists(SK)',
     })
   );
   return mapAddress(item);
@@ -305,7 +342,10 @@ export async function updateAddress(contactId, addressId, data) {
   const current = mapAddress(existing);
   const updated = buildAddressItem(contactId, {
     id: addressId,
-    label: data.label !== undefined ? normalizeString(data.label) || current.label : current.label,
+    label:
+      data.label !== undefined
+        ? normalizeString(data.label) || current.label
+        : current.label,
     street: data.street !== undefined ? data.street : current.street,
     barangay: data.barangay !== undefined ? data.barangay : current.barangay,
     city: data.city !== undefined ? data.city : current.city,
@@ -316,7 +356,9 @@ export async function updateAddress(contactId, addressId, data) {
     updatedAt: nowPH(),
   });
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated }));
+  await dynamoClient.send(
+    new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated })
+  );
   return mapAddress(updated);
 }
 
@@ -350,13 +392,19 @@ export async function addPhone(contactId, data) {
   if (!normalizeString(data.number)) throw new Error('number is required');
 
   const id = randomUUID();
-  const item = buildPhoneItem(contactId, { ...data, id, createdAt: nowPH(), updatedAt: nowPH() });
+  const item = buildPhoneItem(contactId, {
+    ...data,
+    id,
+    createdAt: nowPH(),
+    updatedAt: nowPH(),
+  });
 
   await dynamoClient.send(
     new PutItemCommand({
       TableName: DYNAMO_TABLE,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      ConditionExpression:
+        'attribute_not_exists(PK) AND attribute_not_exists(SK)',
     })
   );
   return mapPhone(item);
@@ -372,14 +420,22 @@ export async function updatePhone(contactId, phoneId, data) {
   const current = mapPhone(existing);
   const updated = buildPhoneItem(contactId, {
     id: phoneId,
-    label: data.label !== undefined ? normalizeString(data.label) || current.label : current.label,
-    number: data.number !== undefined ? normalizeString(data.number) || current.number : current.number,
+    label:
+      data.label !== undefined
+        ? normalizeString(data.label) || current.label
+        : current.label,
+    number:
+      data.number !== undefined
+        ? normalizeString(data.number) || current.number
+        : current.number,
     type: data.type !== undefined ? data.type : current.type,
     createdAt: current.createdAt,
     updatedAt: nowPH(),
   });
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated }));
+  await dynamoClient.send(
+    new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated })
+  );
   return mapPhone(updated);
 }
 
@@ -413,13 +469,19 @@ export async function addLink(contactId, data) {
   if (!normalizeString(data.url)) throw new Error('url is required');
 
   const id = randomUUID();
-  const item = buildLinkItem(contactId, { ...data, id, createdAt: nowPH(), updatedAt: nowPH() });
+  const item = buildLinkItem(contactId, {
+    ...data,
+    id,
+    createdAt: nowPH(),
+    updatedAt: nowPH(),
+  });
 
   await dynamoClient.send(
     new PutItemCommand({
       TableName: DYNAMO_TABLE,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      ConditionExpression:
+        'attribute_not_exists(PK) AND attribute_not_exists(SK)',
     })
   );
   return mapLink(item);
@@ -435,14 +497,22 @@ export async function updateLink(contactId, linkId, data) {
   const current = mapLink(existing);
   const updated = buildLinkItem(contactId, {
     id: linkId,
-    label: data.label !== undefined ? normalizeString(data.label) || current.label : current.label,
-    url: data.url !== undefined ? normalizeString(data.url) || current.url : current.url,
+    label:
+      data.label !== undefined
+        ? normalizeString(data.label) || current.label
+        : current.label,
+    url:
+      data.url !== undefined
+        ? normalizeString(data.url) || current.url
+        : current.url,
     platform: data.platform !== undefined ? data.platform : current.platform,
     createdAt: current.createdAt,
     updatedAt: nowPH(),
   });
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated }));
+  await dynamoClient.send(
+    new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated })
+  );
   return mapLink(updated);
 }
 
@@ -476,13 +546,19 @@ export async function addEmail(contactId, data) {
   if (!normalizeString(data.email)) throw new Error('email is required');
 
   const id = randomUUID();
-  const item = buildEmailItem(contactId, { ...data, id, createdAt: nowPH(), updatedAt: nowPH() });
+  const item = buildEmailItem(contactId, {
+    ...data,
+    id,
+    createdAt: nowPH(),
+    updatedAt: nowPH(),
+  });
 
   await dynamoClient.send(
     new PutItemCommand({
       TableName: DYNAMO_TABLE,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      ConditionExpression:
+        'attribute_not_exists(PK) AND attribute_not_exists(SK)',
     })
   );
   return mapEmail(item);
@@ -498,13 +574,21 @@ export async function updateEmail(contactId, emailId, data) {
   const current = mapEmail(existing);
   const updated = buildEmailItem(contactId, {
     id: emailId,
-    label: data.label !== undefined ? normalizeString(data.label) || current.label : current.label,
-    email: data.email !== undefined ? normalizeString(data.email) || current.email : current.email,
+    label:
+      data.label !== undefined
+        ? normalizeString(data.label) || current.label
+        : current.label,
+    email:
+      data.email !== undefined
+        ? normalizeString(data.email) || current.email
+        : current.email,
     createdAt: current.createdAt,
     updatedAt: nowPH(),
   });
 
-  await dynamoClient.send(new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated }));
+  await dynamoClient.send(
+    new PutItemCommand({ TableName: DYNAMO_TABLE, Item: updated })
+  );
   return mapEmail(updated);
 }
 

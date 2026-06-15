@@ -76,7 +76,15 @@ export async function updatePackage(req, res) {
     const { id } = req.params;
     const payload = req.body ?? {};
     const images = req.files?.length ? await handleImageUploads(req.files, id) : null;
-    const pkg = await updatePackageService(id, payload, images);
+    let existingImages = null;
+    if (payload.existingImages) {
+      try {
+        existingImages = JSON.parse(payload.existingImages);
+      } catch (e) {
+        existingImages = null;
+      }
+    }
+    const pkg = await updatePackageService(id, payload, images, existingImages);
     return res.status(200).json({ message: 'Package updated successfully', package: pkg });
   } catch (error) {
     if (error instanceof Error && error.message === 'Package not found') {
