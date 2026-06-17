@@ -17,6 +17,7 @@ import pushRoutes from './push.routes.js';
 import backupRoutes from './backup.routes.js';
 import packageRoutes from './package.routes.js';
 import contactRoutes from './contact.routes.js';
+import contentRoutes from './content.routes.js';
 
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import { authLimiter } from '../configs/rate-limit.js';
@@ -45,6 +46,7 @@ router.use('/push', pushRoutes);
 router.use('/backups', validateTokenMiddleware, backupRoutes);
 router.use('/packages', packageRoutes);
 router.use('/contacts', contactRoutes);
+router.use('/contents', contentRoutes);
 
 router.use('/auth', authLimiter, authRoutes);
 router.use('/auth', emailVerificationRoutes);
