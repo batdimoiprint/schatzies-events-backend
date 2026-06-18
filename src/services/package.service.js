@@ -149,7 +149,8 @@ function assemblePackage(items) {
 
   const inclusions = items
     .filter((item) => item.SK?.S?.startsWith('INCLUSION#'))
-    .map(mapPackageInclusion);
+    .map(mapPackageInclusion)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   return {
     ...mapPackageMetadata(metadata),
