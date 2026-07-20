@@ -11,6 +11,8 @@ import {
   addPackageInclusion as addPackageInclusionService,
   updatePackageInclusion as updatePackageInclusionService,
   deletePackageInclusion as deletePackageInclusionService,
+  copyPackageInclusions as copyPackageInclusionsService,
+  reorderPackageInclusions as reorderPackageInclusionsService,
 } from '../services/package.service.js';
 import {
   uploadFile,
@@ -214,5 +216,44 @@ export async function deletePackageInclusion(req, res) {
     }
     const message = error instanceof Error ? error.message : 'Unable to delete inclusion';
     return res.status(500).json({ error: message });
+  }
+}
+
+export async function copyPackageInclusions(req, res) {
+  try {
+    const { id } = req.params;
+    const { sourcePackageId, inclusionIds } = req.body ?? {};
+    if (!sourcePackageId) {
+      return res.status(400).json({ error: 'sourcePackageId is required' });
+    }
+    const inclusions = await copyPackageInclusionsService(id, sourcePackageId, inclusionIds);
+    return res.status(201).json({ message: 'Inclusions copied successfully', inclusions });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      ['Target package not found', 'Source package not found', 'Package not found'].includes(error.message)
+    ) {
+      return res.status(404).json({ error: error.message });
+    }
+    const message = error instanceof Error ? error.message : 'Unable to copy inclusions';
+    return res.status(400).json({ error: message });
+  }
+}
+
+export async function reorderPackageInclusions(req, res) {
+  try {
+    const { id } = req.params;
+    const { inclusionIds } = req.body ?? {};
+    if (!Array.isArray(inclusionIds)) {
+      return res.status(400).json({ error: 'inclusionIds array is required' });
+    }
+    const inclusions = await reorderPackageInclusionsService(id, inclusionIds);
+    return res.status(200).json({ message: 'Inclusions reordered successfully', inclusions });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Package not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    const message = error instanceof Error ? error.message : 'Unable to reorder inclusions';
+    return res.status(400).json({ error: message });
   }
 }

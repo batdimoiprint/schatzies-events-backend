@@ -55,6 +55,7 @@ function mapPackageInclusion(item) {
     packageId: item.PK?.S?.replace('PACKAGE#', '') || '',
     inclusionType: item.inclusionType?.S || '',
     inclusion: item.inclusion?.S || '',
+    sortOrder: item.sortOrder?.N !== undefined ? Number(item.sortOrder.N) : 0,
     createdAt: item.created_at?.S || '',
     updatedAt: item.updated_at?.S || '',
   };
@@ -107,7 +108,7 @@ function buildPackagePaxItem(packageId, data) {
 }
 
 function buildPackageInclusionItem(packageId, data) {
-  return {
+  const item = {
     PK: { S: `PACKAGE#${normalizeString(packageId)}` },
     SK: { S: `INCLUSION#${normalizeString(data.id)}` },
     inclusionType: { S: normalizeString(data.inclusionType) },
@@ -115,6 +116,12 @@ function buildPackageInclusionItem(packageId, data) {
     created_at: { S: data.createdAt || nowPH() },
     updated_at: { S: data.updatedAt || nowPH() },
   };
+  if (data.sortOrder !== undefined && data.sortOrder !== null) {
+    item.sortOrder = { N: String(Number(data.sortOrder)) };
+  } else {
+    item.sortOrder = { N: '0' };
+  }
+  return item;
 }
 
 // ---- Internal helpers ----
@@ -144,7 +151,7 @@ function assemblePackage(items) {
   const inclusions = items
     .filter((item) => item.SK?.S?.startsWith('INCLUSION#'))
     .map(mapPackageInclusion)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   return {
     ...mapPackageMetadata(metadata),
@@ -387,10 +394,16 @@ export async function addPackageInclusion(packageId, inclusionData) {
   if (!inclusionType) throw new Error('inclusionType is required');
   if (!inclusion) throw new Error('inclusion is required');
 
+  const maxSortOrder = (existing.inclusions ?? []).reduce(
+    (max, item) => Math.max(max, item.sortOrder ?? 0),
+    -1
+  );
+
   const id = randomUUID();
   const item = buildPackageInclusionItem(packageId, {
     ...inclusionData,
     id,
+    sortOrder: inclusionData.sortOrder ?? maxSortOrder + 1,
     createdAt: nowPH(),
     updatedAt: nowPH(),
   });
@@ -436,6 +449,10 @@ export async function updatePackageInclusion(packageId, inclusionId, inclusionDa
       inclusionData.inclusion !== undefined
         ? normalizeString(inclusionData.inclusion)
         : existing.inclusion,
+    sortOrder:
+      inclusionData.sortOrder !== undefined
+        ? inclusionData.sortOrder
+        : existing.sortOrder,
     createdAt: existing.createdAt,
     updatedAt: nowPH(),
   };
@@ -471,4 +488,84 @@ export async function deletePackageInclusion(packageId, inclusionId) {
       },
     })
   );
+}
+
+export async function copyPackageInclusions(targetPackageId, sourcePackageId, inclusionIds = null) {
+  if (!targetPackageId) throw new Error('Target package ID is required');
+  if (!sourcePackageId) throw new Error('Source package ID is required');
+
+  const targetPkg = await getPackageById(targetPackageId);
+  if (!targetPkg) throw new Error('Target package not found');
+
+  const sourcePkg = await getPackageById(sourcePackageId);
+  if (!sourcePkg) throw new Error('Source package not found');
+
+  const currentMaxSortOrder = (targetPkg.inclusions ?? []).reduce(
+    (max, item) => Math.max(max, item.sortOrder ?? 0),
+    -1
+  );
+
+  let sourceInclusions = sourcePkg.inclusions ?? [];
+  if (Array.isArray(inclusionIds) && inclusionIds.length > 0) {
+    const idSet = new Set(inclusionIds);
+    sourceInclusions = sourceInclusions.filter((item) => idSet.has(item.id));
+  }
+
+  const createdInclusions = [];
+
+  for (let i = 0; i < sourceInclusions.length; i++) {
+    const src = sourceInclusions[i];
+    const newId = randomUUID();
+    const item = buildPackageInclusionItem(targetPackageId, {
+      id: newId,
+      inclusionType: src.inclusionType,
+      inclusion: src.inclusion,
+      sortOrder: currentMaxSortOrder + 1 + i,
+      createdAt: nowPH(),
+      updatedAt: nowPH(),
+    });
+
+    await dynamoClient.send(
+      new PutItemCommand({
+        TableName: DYNAMO_TABLE,
+        Item: item,
+      })
+    );
+    createdInclusions.push(mapPackageInclusion(item));
+  }
+
+  return createdInclusions;
+}
+
+export async function reorderPackageInclusions(packageId, inclusionIds) {
+  if (!packageId) throw new Error('Package ID is required');
+  if (!Array.isArray(inclusionIds)) throw new Error('inclusionIds array is required');
+
+  const pkg = await getPackageById(packageId);
+  if (!pkg) throw new Error('Package not found');
+
+  const existingMap = new Map((pkg.inclusions ?? []).map((inc) => [inc.id, inc]));
+  const updatedList = [];
+
+  for (let index = 0; index < inclusionIds.length; index++) {
+    const incId = inclusionIds[index];
+    const existing = existingMap.get(incId);
+    if (existing) {
+      const updated = {
+        ...existing,
+        sortOrder: index,
+        updatedAt: nowPH(),
+      };
+      const item = buildPackageInclusionItem(packageId, updated);
+      await dynamoClient.send(
+        new PutItemCommand({
+          TableName: DYNAMO_TABLE,
+          Item: item,
+        })
+      );
+      updatedList.push(mapPackageInclusion(item));
+    }
+  }
+
+  return updatedList;
 }

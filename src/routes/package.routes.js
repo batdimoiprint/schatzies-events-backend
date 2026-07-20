@@ -11,6 +11,8 @@ import {
   addPackageInclusion,
   updatePackageInclusion,
   deletePackageInclusion,
+  copyPackageInclusions,
+  reorderPackageInclusions,
 } from '../controllers/package.controller.js';
 import { validateTokenMiddleware } from '../middleware/auth.middleware.js';
 import upload from '../middleware/upload.middleware.js';
@@ -461,6 +463,18 @@ router.delete(
   '/:id/inclusions/:inclusionId',
   validateTokenMiddleware,
   deletePackageInclusion
+);
+
+router.post(
+  '/:id/inclusions/copy',
+  validateTokenMiddleware,
+  copyPackageInclusions
+);
+
+router.put(
+  '/:id/inclusions/reorder',
+  validateTokenMiddleware,
+  reorderPackageInclusions
 );
 
 export default router;
